@@ -29,74 +29,32 @@ export const MOCK_USERS: User[] = [
 export const MOCK_AMENDMENTS: any[] = [
   {
     id: 'a1',
-    code: 'EM-2025-4421',
+    code: 'EM-2025-0001',
     year: 2025,
     type: AmendmentType.IMPOSITIVA,
-    seiNumber: '202500042001122',
-    value: 450000,
+    seiNumber: '202500042000001',
+    value: 500000,
     municipality: 'Anápolis',
     deputyName: 'Bruno Peixoto',
-    object: 'Aquisição de equipamentos de Raio-X para UPA Central',
+    object: 'Aquisição de ambulância tipo B e equipamentos hospitalares',
     status: Status.PROCESSING,
-    currentSector: 'Análise Técnica',
-    healthUnit: 'UPA Anápolis',
-    entryDate: '2025-01-10',
+    currentSector: 'Protocolo',
+    healthUnit: 'Hospital Municipal de Anápolis',
+    entryDate: '2025-02-24',
     suinfra: false,
     sutis: false,
-    createdAt: '2025-01-10T10:00:00Z',
+    createdAt: '2025-02-24T08:00:00Z',
     movements: [
       {
         id: 'm1',
         amendmentId: 'a1',
         fromSector: null,
         toSector: 'Protocolo',
-        dateIn: '2025-01-10T10:00:00Z',
-        dateOut: '2025-01-11T09:00:00Z',
-        deadline: '2025-01-12T10:00:00Z',
-        daysSpent: 1,
-        handledBy: 'Protocolo Central'
-      },
-      {
-        id: 'm2',
-        amendmentId: 'a1',
-        fromSector: 'Protocolo',
-        toSector: 'Análise Técnica',
-        dateIn: '2025-01-11T09:00:00Z',
+        dateIn: '2025-02-24T08:00:00Z',
         dateOut: null,
-        deadline: '2025-01-21T09:00:00Z',
+        deadline: '2025-02-26T08:00:00Z',
         daysSpent: 0,
-        handledBy: 'Mariana Costa'
-      }
-    ]
-  },
-  {
-    id: 'a2',
-    code: 'EM-2025-9982',
-    year: 2025,
-    type: AmendmentType.GOIAS_CRESCIMENTO,
-    seiNumber: '202500042009988',
-    value: 1200000,
-    municipality: 'Goiânia',
-    deputyName: 'Governo de Goiás (Direto)',
-    object: 'Reforma da Ala de Oncologia do HUGOL',
-    status: Status.DILIGENCE,
-    currentSector: 'Gerência de Orçamento',
-    healthUnit: 'HUGOL',
-    entryDate: '2025-01-05',
-    suinfra: true,
-    sutis: false,
-    createdAt: '2025-01-05T14:00:00Z',
-    movements: [
-      {
-        id: 'm3',
-        amendmentId: 'a2',
-        fromSector: null,
-        toSector: 'Gerência de Orçamento',
-        dateIn: '2025-01-05T14:00:00Z',
-        dateOut: null,
-        deadline: '2025-01-10T14:00:00Z',
-        daysSpent: 10,
-        handledBy: 'Carlos Silva'
+        handledBy: 'Protocolo Central SES'
       }
     ]
   }

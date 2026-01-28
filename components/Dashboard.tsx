@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -23,26 +23,32 @@ interface DashboardProps {
 const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#0d457a'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
-  const totalValue = amendments.reduce((acc, curr) => acc + curr.value, 0);
-  const totalCount = amendments.length;
-  const approvedCount = amendments.filter(a => a.status === Status.CONCLUDED || a.status === Status.PAID).length;
-  const processingCount = amendments.filter(a => a.status === Status.PROCESSING || a.status === Status.DILIGENCE).length;
-  
-  const statusData = Object.values(Status).map(status => ({
-    name: status,
-    count: amendments.filter(a => a.status === status).length
-  }));
+  // Memoize all heavy aggregations
+  const stats = useMemo(() => {
+    const totalValue = amendments.reduce((acc, curr) => acc + curr.value, 0);
+    const totalCount = amendments.length;
+    const approvedCount = amendments.filter(a => a.status === Status.CONCLUDED || a.status === Status.PAID).length;
+    const processingCount = amendments.filter(a => a.status === Status.PROCESSING || a.status === Status.DILIGENCE).length;
+    
+    const statusData = Object.values(Status).map(status => ({
+      name: status,
+      count: amendments.filter(a => a.status === status).length
+    })).filter(d => d.count > 0);
 
-  const sectorData = Object.values(Sector).map(sector => ({
-    name: sector.split(' ')[0], 
-    count: amendments.filter(a => a.currentSector === sector).length
-  }));
+    const sectorData = Object.values(Sector).map(sector => ({
+      name: sector.split(' ')[0], 
+      count: amendments.filter(a => a.currentSector === sector).length
+    })).filter(d => d.count > 0);
 
-  const overdueCount = amendments.filter(a => {
-    if (a.status === Status.CONCLUDED || a.status === Status.PAID) return false;
-    const lastMovement = a.movements[a.movements.length - 1];
-    return lastMovement && new Date(lastMovement.deadline) < new Date();
-  }).length;
+    const today = new Date();
+    const overdueCount = amendments.filter(a => {
+      if (a.status === Status.CONCLUDED || a.status === Status.PAID) return false;
+      const lastMovement = a.movements[a.movements.length - 1];
+      return lastMovement && new Date(lastMovement.deadline) < today;
+    }).length;
+
+    return { totalValue, totalCount, approvedCount, processingCount, statusData, sectorData, overdueCount };
+  }, [amendments]);
 
   const StatCard = ({ title, value, icon: Icon, colorClass, subtext, alert }: any) => (
     <div className={`bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-start justify-between hover:shadow-md transition-shadow ${alert ? 'ring-2 ring-red-500/20 bg-red-50/10' : ''}`}>
@@ -74,30 +80,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Consolidado Financeiro" 
-          value={`R$ ${totalValue.toLocaleString('pt-BR')}`} 
+          value={`R$ ${stats.totalValue.toLocaleString('pt-BR')}`} 
           icon={TrendingUp} 
           colorClass="bg-[#0d457a]" 
         />
         <StatCard 
           title="Eficiência (Pagos)" 
-          value={`${approvedCount}`} 
+          value={`${stats.approvedCount}`} 
           icon={CheckCircle} 
           colorClass="bg-emerald-500"
-          subtext={`${((approvedCount/totalCount)*100 || 0).toFixed(1)}% taxa de sucesso`} 
+          subtext={`${((stats.approvedCount/stats.totalCount)*100 || 0).toFixed(1)}% taxa de sucesso`} 
         />
         <StatCard 
           title="Em Tramitação" 
-          value={processingCount} 
+          value={stats.processingCount} 
           icon={Clock} 
           colorClass="bg-amber-500" 
         />
         <StatCard 
           title="Atrasados (Fora SLA)" 
-          value={overdueCount} 
+          value={stats.overdueCount} 
           icon={AlertCircle} 
           colorClass="bg-red-500" 
-          alert={overdueCount > 0}
-          subtext={overdueCount > 0 ? "Ação imediata requerida" : "Fluxo em conformidade"}
+          alert={stats.overdueCount > 0}
+          subtext={stats.overdueCount > 0 ? "Ação imediata requerida" : "Fluxo em conformidade"}
         />
       </div>
 
@@ -110,7 +116,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={statusData}
+                  data={stats.statusData}
                   cx="50%"
                   cy="50%"
                   innerRadius={70}
@@ -118,7 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
                   paddingAngle={8}
                   dataKey="count"
                 >
-                  {statusData.map((entry, index) => (
+                  {stats.statusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -137,7 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sectorData}>
+              <BarChart data={stats.sectorData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'bold'}} axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />

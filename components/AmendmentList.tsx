@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Amendment, Status, Sector, Role, AmendmentType, TransferMode } from '../types';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, Calendar, FileText, User, Tag, Landmark, HardHat, MonitorCheck, ShieldOff } from 'lucide-react';
@@ -48,20 +48,27 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 
   const [formData, setFormData] = useState<Partial<Amendment>>(initialFormState);
 
-  const filteredAmendments = amendments.filter(a => {
+  // Optimized Filtering using useMemo
+  const filteredAmendments = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    const matchesSearch = 
-      (a.seiNumber && a.seiNumber.toLowerCase().includes(term)) ||
-      (a.deputyName && a.deputyName.toLowerCase().includes(term)) ||
-      (a.municipality && a.municipality.toLowerCase().includes(term)) ||
-      (a.object && a.object.toLowerCase().includes(term));
-    const matchesStatus = statusFilter === 'all' || a.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+    return amendments.filter(a => {
+      const matchesSearch = 
+        !term ||
+        (a.seiNumber && a.seiNumber.toLowerCase().includes(term)) ||
+        (a.deputyName && a.deputyName.toLowerCase().includes(term)) ||
+        (a.municipality && a.municipality.toLowerCase().includes(term)) ||
+        (a.object && a.object.toLowerCase().includes(term));
+      const matchesStatus = statusFilter === 'all' || a.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [amendments, searchTerm, statusFilter]);
 
-  const totalPages = Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedAmendments = filteredAmendments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const totalPages = useMemo(() => Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE), [filteredAmendments.length]);
+  
+  const paginatedAmendments = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAmendments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAmendments, currentPage]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,7 +251,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         <div className="flex justify-center gap-2 py-6">
             <button 
                 disabled={currentPage === 1}
-                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => prev - 1); }}
+                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(prev - 1, 1)); }}
                 className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#0d457a] disabled:opacity-30 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
             >
                 Anterior
@@ -254,7 +261,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             </span>
             <button 
                 disabled={currentPage === totalPages}
-                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => prev + 1); }}
+                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(prev + 1, totalPages)); }}
                 className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#0d457a] disabled:opacity-30 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
             >
                 Próxima

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { onAuthChange, logout } from './services/firebase';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -20,36 +20,35 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null);
   
   const [amendments, setAmendments] = useState<Amendment[]>(MOCK_AMENDMENTS);
   const [sectors, setSectors] = useState<SectorConfig[]>(DEFAULT_SECTOR_CONFIGS);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_AUDIT_LOGS);
 
-  // SLA Overdue Detector
-  useEffect(() => {
-    const checkDeadlines = () => {
-      const overdue = amendments.filter(a => {
+  // Memoize selected amendment for performance
+  const selectedAmendment = useMemo(() => 
+    amendments.find(a => a.id === selectedAmendmentId) || null,
+  [amendments, selectedAmendmentId]);
+
+  // SLA Overdue Detector - Memoized calculation
+  const notifications = useMemo(() => {
+    const today = new Date();
+    return amendments
+      .filter(a => {
         if (a.status === Status.CONCLUDED || a.status === Status.PAID || a.status === Status.INACTIVE) return false;
         const lastMove = a.movements[a.movements.length - 1];
-        return lastMove && new Date(lastMove.deadline) < new Date();
-      });
-
-      const newNotifications: Notification[] = overdue.map(a => ({
+        return lastMove && new Date(lastMove.deadline) < today;
+      })
+      .map(a => ({
         id: `notif-${a.id}`,
         title: 'Prazo SLA Expirado',
         message: `O processo ${a.seiNumber} está atrasado no setor ${a.currentSector}.`,
         seiNumber: a.seiNumber,
-        type: 'critical',
+        type: 'critical' as const,
         timestamp: new Date().toISOString()
       }));
-
-      setNotifications(newNotifications);
-    };
-
-    if (amendments.length > 0) checkDeadlines();
   }, [amendments]);
 
   useEffect(() => {
@@ -71,7 +70,7 @@ const App: React.FC = () => {
     return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
-  const addAuditLog = (action: AuditAction, target: string, details: string) => {
+  const addAuditLog = useCallback((action: AuditAction, target: string, details: string) => {
     const newLog: AuditLog = {
       id: Math.random().toString(36).substr(2, 9),
       actorId: currentUser?.id || 'system',
@@ -83,9 +82,9 @@ const App: React.FC = () => {
       ipAddress: '10.20.30.' + Math.floor(Math.random() * 255)
     };
     setAuditLogs(prev => [newLog, ...prev]);
-  };
+  }, [currentUser]);
 
-  const handleMoveAmendment = (movement: AmendmentMovement) => {
+  const handleMoveAmendment = useCallback((movement: AmendmentMovement) => {
     setAmendments(prev => prev.map(a => {
       if (a.id === movement.amendmentId) {
         const movements = [...a.movements];
@@ -95,16 +94,14 @@ const App: React.FC = () => {
           const diff = Math.ceil((new Date(movement.dateIn).getTime() - new Date(last.dateIn).getTime()) / (1000 * 60 * 60 * 24));
           last.daysSpent = diff > 0 ? diff : 0;
         }
-        const updated = { ...a, currentSector: movement.toSector, movements: [...movements, movement] };
-        if (selectedAmendment?.id === a.id) setSelectedAmendment(updated);
-        return updated;
+        return { ...a, currentSector: movement.toSector, movements: [...movements, movement] };
       }
       return a;
     }));
     addAuditLog(AuditAction.MOVE, `Processo SEI ${selectedAmendment?.seiNumber}`, `Tramitado para ${movement.toSector}.`);
-  };
+  }, [selectedAmendment, addAuditLog]);
 
-  const handleCreateAmendment = (newAmendment: Amendment) => {
+  const handleCreateAmendment = useCallback((newAmendment: Amendment) => {
     const protocolSla = sectors.find(s => s.name === Sector.PROTOCOL)?.defaultSlaDays || 2;
     const deadline = new Date();
     deadline.setDate(deadline.getDate() + protocolSla);
@@ -112,17 +109,17 @@ const App: React.FC = () => {
     
     setAmendments(prev => [newAmendment, ...prev]);
     addAuditLog(AuditAction.CREATE, `Processo ${newAmendment.seiNumber}`, `Nova emenda cadastrada no protocolo.`);
-  };
+  }, [sectors, addAuditLog]);
 
-  const handleUpdateAmendment = (updated: Amendment) => {
+  const handleUpdateAmendment = useCallback((updated: Amendment) => {
     setAmendments(prev => prev.map(a => a.id === updated.id ? updated : a));
     addAuditLog(AuditAction.UPDATE, `Processo ${updated.seiNumber}`, `Alteração de dados cadastrais.`);
-  };
+  }, [addAuditLog]);
 
-  const handleInactivateAmendment = (id: string) => {
+  const handleInactivateAmendment = useCallback((id: string) => {
     const reason = window.prompt("JUSTIFICATIVA OBRIGATÓRIA:\nPor que este registro de emenda está sendo inativado?");
     
-    if (reason === null) return; // Cancelou
+    if (reason === null) return;
     if (reason.trim().length < 10) {
       alert("Erro: Justificativa muito curta. Descreva o motivo detalhadamente para fins de auditoria.");
       return;
@@ -144,7 +141,9 @@ const App: React.FC = () => {
           justification: reason
         };
 
-        const updated = { 
+        addAuditLog(AuditAction.INACTIVATE, `Processo ${a.seiNumber}`, `Inativação efetuada. Motivo: ${reason}`);
+        
+        return { 
           ...a, 
           status: Status.INACTIVE, 
           currentSector: Sector.ARCHIVE,
@@ -152,14 +151,14 @@ const App: React.FC = () => {
           inactivationReason: reason,
           movements: [...a.movements, inactivationMovement]
         };
-        
-        if (selectedAmendment?.id === a.id) setSelectedAmendment(updated);
-        addAuditLog(AuditAction.INACTIVATE, `Processo ${a.seiNumber}`, `Inativação efetuada. Motivo: ${reason}`);
-        return updated;
       }
       return a;
     }));
-  };
+  }, [currentUser, addAuditLog]);
+
+  const activeAmendments = useMemo(() => 
+    amendments.filter(a => a.status !== Status.INACTIVE), 
+  [amendments]);
 
   if (isInitializing) {
     return (
@@ -182,7 +181,7 @@ const App: React.FC = () => {
           amendment={selectedAmendment}
           currentUser={currentUser}
           sectors={sectors}
-          onBack={() => setSelectedAmendment(null)}
+          onBack={() => setSelectedAmendmentId(null)}
           onMove={handleMoveAmendment}
           onStatusChange={(id, status) => {
             setAmendments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
@@ -194,18 +193,18 @@ const App: React.FC = () => {
     }
 
     switch (currentView) {
-      case 'dashboard': return <Dashboard amendments={amendments.filter(a => a.status !== Status.INACTIVE)} />;
+      case 'dashboard': return <Dashboard amendments={activeAmendments} />;
       case 'amendments': return (
         <AmendmentList 
           amendments={amendments} 
           userRole={currentUser.role}
-          onSelect={setSelectedAmendment}
+          onSelect={(a) => setSelectedAmendmentId(a.id)}
           onCreate={handleCreateAmendment}
           onUpdate={handleUpdateAmendment}
           onDelete={handleInactivateAmendment}
         />
       );
-      case 'deadlines': return <DeadlinePanel amendments={amendments.filter(a => a.status !== Status.INACTIVE)} onSelect={setSelectedAmendment} />;
+      case 'deadlines': return <DeadlinePanel amendments={activeAmendments} onSelect={(a) => setSelectedAmendmentId(a.id)} />;
       case 'sectors': return (
         <SectorManagement 
           sectors={sectors} 
@@ -218,7 +217,7 @@ const App: React.FC = () => {
       case 'import': return <ImportModule onImport={(data) => { setAmendments(prev => [...data, ...prev]); addAuditLog(AuditAction.CREATE, 'Importação em Massa', `${data.length} registros importados.`); }} />;
       case 'security': return <SecurityModule users={users} onAddUser={(u) => setUsers(prev => [...prev, u])} onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))} />;
       case 'audit': return <AuditModule logs={auditLogs} />;
-      default: return <Dashboard amendments={amendments.filter(a => a.status !== Status.INACTIVE)} />;
+      default: return <Dashboard amendments={activeAmendments} />;
     }
   };
 
