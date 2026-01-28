@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -9,15 +10,20 @@ import {
   ClipboardList,
   UploadCloud,
   Database,
-  FileBarChart
+  FileBarChart,
+  Settings2,
+  AlarmClockCheck,
+  Bell,
+  Search
 } from 'lucide-react';
-import { User, Role } from '../types';
+import { User, Role, Notification } from '../types';
 import { APP_NAME, DEPARTMENT } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User;
   currentView: string;
+  notifications: Notification[];
   onNavigate: (view: string) => void;
   onLogout: () => void;
 }
@@ -26,14 +32,14 @@ export const Layout: React.FC<LayoutProps> = ({
   children, 
   currentUser, 
   currentView, 
+  notifications,
   onNavigate,
   onLogout
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [showNotifications, setShowNotifications] = React.useState(false);
 
-  // Updated to use GO.GOV color #0d457a
   const GO_NAVY = "bg-[#0d457a]";
-  const GO_NAVY_HOVER = "hover:bg-[#0a365f]";
 
   const NavItem = ({ view, icon: Icon, label }: { view: string, icon: any, label: string }) => (
     <button
@@ -54,7 +60,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden font-inter">
-      {/* Sidebar - GO.GOV Identity */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-72 ${GO_NAVY} shadow-2xl transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -72,13 +77,15 @@ export const Layout: React.FC<LayoutProps> = ({
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 px-4">Menu Principal</p>
             <NavItem view="dashboard" icon={LayoutDashboard} label="Visão Geral" />
             <NavItem view="amendments" icon={FileText} label="Emendas & SEI" />
+            <NavItem view="deadlines" icon={AlarmClockCheck} label="Monitor de Prazos" />
             <NavItem view="repository" icon={Database} label="Repositório Geral" />
             <NavItem view="reports" icon={FileBarChart} label="Central Relatórios" />
             
             {currentUser.role === Role.ADMIN && (
               <>
                 <div className="mt-4 mb-2 border-t border-white/5"></div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-4 mt-4">Administração</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-4 mt-4">Configurações SES</p>
+                <NavItem view="sectors" icon={Settings2} label="Configurar Setores" />
                 <NavItem view="import" icon={UploadCloud} label="Importar Dados" />
                 <NavItem view="security" icon={ShieldCheck} label="Segurança (RBAC)" />
                 <NavItem view="audit" icon={ClipboardList} label="Auditoria" />
@@ -109,26 +116,64 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header */}
         <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-8 z-10 border-b border-gray-200 print:hidden">
-          <button 
-            className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-md"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X /> : <Menu />}
-          </button>
-          
-          <div className="flex flex-col">
-             <h2 className="text-lg font-bold text-[#0d457a] tracking-tight uppercase">{APP_NAME}</h2>
-             <span className="text-xs text-slate-500 hidden sm:block uppercase tracking-wide">{DEPARTMENT}</span>
+          <div className="flex items-center gap-4">
+            <button 
+              className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-md"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X /> : <Menu />}
+            </button>
+            <div className="flex flex-col">
+              <h2 className="text-lg font-bold text-[#0d457a] tracking-tight uppercase">{APP_NAME}</h2>
+              <span className="text-xs text-slate-500 hidden sm:block uppercase tracking-wide">{DEPARTMENT}</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
-             <div className="flex items-center gap-2 px-3 py-1 bg-[#0d457a]/5 text-[#0d457a] rounded-full border border-[#0d457a]/10">
+          <div className="flex items-center gap-3">
+             <div className="relative">
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2 text-slate-400 hover:text-[#0d457a] hover:bg-slate-50 rounded-full transition-all relative"
+                >
+                  <Bell size={20} />
+                  {notifications.length > 0 && (
+                    <span className="absolute top-1 right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white ring-1 ring-red-500 animate-bounce">
+                      {notifications.length}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[100] overflow-hidden">
+                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                      <h4 className="text-xs font-bold text-[#0d457a] uppercase tracking-wider">Alertas de SLA</h4>
+                      <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{notifications.length} Críticos</span>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 text-xs italic">Nenhuma pendência crítica identificada.</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n.id} className="p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer">
+                            <p className="text-[10px] font-bold text-red-500 uppercase mb-1">{n.title}</p>
+                            <p className="text-xs text-slate-600 leading-tight mb-2">{n.message}</p>
+                            <div className="flex justify-between items-center text-[9px] text-slate-400 font-bold">
+                              <span>SEI: {n.seiNumber}</span>
+                              <span>{new Date(n.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+             </div>
+             <div className="h-6 w-px bg-slate-200 mx-1"></div>
+             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-xs font-bold uppercase">Sistema Online</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Online</span>
              </div>
           </div>
         </header>

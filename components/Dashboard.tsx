@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   BarChart, 
@@ -13,41 +14,44 @@ import {
   Cell
 } from 'recharts';
 import { Amendment, Status, Sector } from '../types';
-import { TrendingUp, Clock, FileCheck, AlertCircle, Building2 } from 'lucide-react';
+import { TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, Zap } from 'lucide-react';
 
 interface DashboardProps {
   amendments: Amendment[];
 }
 
-// GO.GOV Palette: Navy updated to #0d457a
 const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#0d457a'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
-  // Stats Calculation
   const totalValue = amendments.reduce((acc, curr) => acc + curr.value, 0);
   const totalCount = amendments.length;
-  const approvedCount = amendments.filter(a => a.status === Status.APPROVED || a.status === Status.PAID).length;
-  const processingCount = amendments.filter(a => a.status === Status.PROCESSING).length;
+  const approvedCount = amendments.filter(a => a.status === Status.CONCLUDED || a.status === Status.PAID).length;
+  const processingCount = amendments.filter(a => a.status === Status.PROCESSING || a.status === Status.DILIGENCE).length;
   
-  // Data for Charts
   const statusData = Object.values(Status).map(status => ({
     name: status,
     count: amendments.filter(a => a.status === status).length
   }));
 
   const sectorData = Object.values(Sector).map(sector => ({
-    name: sector.split(' ')[0], // Shorten name
+    name: sector.split(' ')[0], 
     count: amendments.filter(a => a.currentSector === sector).length
   }));
 
-  const StatCard = ({ title, value, icon: Icon, colorClass, subtext }: any) => (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-start justify-between hover:shadow-md transition-shadow">
+  const overdueCount = amendments.filter(a => {
+    if (a.status === Status.CONCLUDED || a.status === Status.PAID) return false;
+    const lastMovement = a.movements[a.movements.length - 1];
+    return lastMovement && new Date(lastMovement.deadline) < new Date();
+  }).length;
+
+  const StatCard = ({ title, value, icon: Icon, colorClass, subtext, alert }: any) => (
+    <div className={`bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-start justify-between hover:shadow-md transition-shadow ${alert ? 'ring-2 ring-red-500/20 bg-red-50/10' : ''}`}>
       <div>
         <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">{title}</p>
-        <h3 className="text-2xl font-bold text-[#0d457a]">{value}</h3>
-        {subtext && <p className="text-xs text-emerald-600 mt-2 font-medium">{subtext}</p>}
+        <h3 className={`text-2xl font-black ${alert ? 'text-red-600' : 'text-[#0d457a]'}`}>{value}</h3>
+        {subtext && <p className={`text-[10px] mt-2 font-black uppercase tracking-tight ${alert ? 'text-red-500' : 'text-emerald-600'}`}>{subtext}</p>}
       </div>
-      <div className={`p-3 rounded-lg ${colorClass}`}>
+      <div className={`p-3 rounded-2xl shadow-lg ${colorClass}`}>
         <Icon size={24} className="text-white" />
       </div>
     </div>
@@ -56,32 +60,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-2xl font-bold text-[#0d457a] uppercase tracking-tight">Painel de Controle</h2>
-        <span className="text-xs text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 uppercase font-bold tracking-wider">
-          Atualizado em: {new Date().toLocaleDateString()}
-        </span>
+        <div>
+          <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Cockpit Gerencial</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Métricas de Performance SES-GO</p>
+        </div>
+        <div className="flex gap-2">
+          <span className="text-[10px] text-[#0d457a] bg-white px-4 py-2 rounded-xl border border-slate-200 uppercase font-black tracking-widest flex items-center gap-2">
+            <Zap size={14} className="text-amber-500" /> Versão 2.5
+          </span>
+        </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Montante Alocado" 
+          title="Consolidado Financeiro" 
           value={`R$ ${totalValue.toLocaleString('pt-BR')}`} 
           icon={TrendingUp} 
           colorClass="bg-[#0d457a]" 
         />
         <StatCard 
-          title="Total de Emendas" 
-          value={totalCount} 
-          icon={FileCheck} 
-          colorClass="bg-[#0a365f]" 
-        />
-        <StatCard 
-          title="Concluídas" 
-          value={approvedCount} 
+          title="Eficiência (Pagos)" 
+          value={`${approvedCount}`} 
           icon={CheckCircle} 
           colorClass="bg-emerald-500"
-          subtext={`${((approvedCount/totalCount)*100).toFixed(1)}% de eficácia`} 
+          subtext={`${((approvedCount/totalCount)*100 || 0).toFixed(1)}% taxa de sucesso`} 
         />
         <StatCard 
           title="Em Tramitação" 
@@ -89,24 +91,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
           icon={Clock} 
           colorClass="bg-amber-500" 
         />
+        <StatCard 
+          title="Atrasados (Fora SLA)" 
+          value={overdueCount} 
+          icon={AlertCircle} 
+          colorClass="bg-red-500" 
+          alert={overdueCount > 0}
+          subtext={overdueCount > 0 ? "Ação imediata requerida" : "Fluxo em conformidade"}
+        />
       </div>
 
-      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Status Distribution */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-[#0d457a] mb-6 border-b border-slate-100 pb-2 uppercase tracking-wide">Distribuição por Status</h3>
-          <div className="h-64">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+          <h3 className="text-xs font-black text-[#0d457a] mb-8 border-b border-slate-100 pb-4 uppercase tracking-[0.2em] flex items-center gap-2">
+            <Zap size={16} className="text-amber-500"/> Ciclo de Vida dos Processos
+          </h3>
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={statusData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={8}
                   dataKey="count"
                 >
                   {statusData.map((entry, index) => (
@@ -114,54 +123,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
                   ))}
                 </Pie>
                 <Tooltip 
-                   contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontFamily: 'Inter', fontSize: '12px' }}
+                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontFamily: 'Inter', fontSize: '11px', fontWeight: 'bold' }}
                 />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontFamily: 'Inter' }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontFamily: 'Inter', fontWeight: 'bold', textTransform: 'uppercase' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Sector Distribution */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-[#0d457a] mb-6 border-b border-slate-100 pb-2 uppercase tracking-wide">Gargalos por Setor</h3>
-          <div className="h-64">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+          <h3 className="text-xs font-black text-[#0d457a] mb-8 border-b border-slate-100 pb-4 uppercase tracking-[0.2em] flex items-center gap-2">
+            <Building2 size={16} className="text-blue-500"/> Volume por Departamento Técnico
+          </h3>
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sectorData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{fontSize: 10, fill: '#64748b'}} axisLine={false} tickLine={false} interval={0} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'bold'}} axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
                 <Tooltip 
-                  cursor={{fill: '#f1f5f9'}}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', fontSize: '12px' }}
+                  cursor={{fill: '#f8fafc'}}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 'bold' }}
                 />
-                <Bar dataKey="count" fill="#0d457a" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="count" fill="#0d457a" radius={[6, 6, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-
       </div>
     </div>
   );
 };
-
-function CheckCircle(props: any) {
-    return (
-        <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width={props.size} 
-            height={props.size} 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            className={props.className}
-        >
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-        </svg>
-    )
-}

@@ -1,65 +1,105 @@
-import { Role, Sector, Status, User, AuditLog, AuditAction } from './types';
 
-/**
- * CONSTANTES GLOBAIS DO SISTEMA
- * Centraliza textos e dados fixos para facilitar a manutenção.
- */
+import { Role, Sector, Status, User, AuditLog, AuditAction, SectorConfig, AnalysisType, AmendmentType, TransferMode } from './types';
 
 export const APP_NAME = "Rastreio de Emendas";
 export const DEPARTMENT = "Gerência de Suporte Administrativo - GESA/SUBIPEI";
 
-/**
- * Usuários para simulação de ambiente
- */
+export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [
+  { id: 's1', name: 'Protocolo', defaultSlaDays: 2, analysisType: AnalysisType.TECHNICAL },
+  { id: 's2', name: 'Gerência de Orçamento', defaultSlaDays: 5, analysisType: AnalysisType.BUDGET_RESERVE },
+  { id: 's3', name: 'Análise Técnica', defaultSlaDays: 10, analysisType: AnalysisType.TECHNICAL },
+  { id: 's4', name: 'Jurídico', defaultSlaDays: 15, analysisType: AnalysisType.LEGAL },
+  { id: 's5', name: 'Gabinete', defaultSlaDays: 3, analysisType: AnalysisType.FINAL_APPROVAL },
+  { id: 's6', name: 'Pagamento', defaultSlaDays: 7, analysisType: AnalysisType.PAYMENT_PROC }
+];
+
+export const GOIAS_CITIES = [
+  "Abadia de Goiás", "Anápolis", "Aparecida de Goiânia", "Catalão", "Formosa", "Goiânia", "Goianésia", "Itumbiara", "Jataí", "Luziânia", "Rio Verde", "Trindade"
+];
+
+export const GOIAS_DEPUTIES = [
+  "Bruno Peixoto", "Antônio Gomide", "Virmondes Cruvinel", "Lucas do Vale", "Lineu Olímpio", "Governo de Goiás (Direto)"
+];
+
 export const MOCK_USERS: User[] = [
+  { id: 'u1', name: 'Carlos Silva', email: 'admin@saude.go.gov.br', role: Role.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Carlos+Silva&background=0d457a&color=fff' },
+  { id: 'u2', name: 'Mariana Costa', email: 'operador@saude.go.gov.br', role: Role.OPERATOR, avatarUrl: 'https://ui-avatars.com/api/?name=Mariana+Costa&background=0d457a&color=fff' }
+];
+
+export const MOCK_AMENDMENTS: any[] = [
   {
-    id: 'u1',
-    name: 'Carlos Silva',
-    email: 'carlos.silva@saude.go.gov.br',
-    role: Role.ADMIN,
-    department: Sector.SECRETARY,
-    avatarUrl: 'https://picsum.photos/100/100',
-    password: '123'
+    id: 'a1',
+    code: 'EM-2025-4421',
+    year: 2025,
+    type: AmendmentType.IMPOSITIVA,
+    seiNumber: '202500042001122',
+    value: 450000,
+    municipality: 'Anápolis',
+    deputyName: 'Bruno Peixoto',
+    object: 'Aquisição de equipamentos de Raio-X para UPA Central',
+    status: Status.PROCESSING,
+    currentSector: 'Análise Técnica',
+    healthUnit: 'UPA Anápolis',
+    entryDate: '2025-01-10',
+    suinfra: false,
+    sutis: false,
+    createdAt: '2025-01-10T10:00:00Z',
+    movements: [
+      {
+        id: 'm1',
+        amendmentId: 'a1',
+        fromSector: null,
+        toSector: 'Protocolo',
+        dateIn: '2025-01-10T10:00:00Z',
+        dateOut: '2025-01-11T09:00:00Z',
+        deadline: '2025-01-12T10:00:00Z',
+        daysSpent: 1,
+        handledBy: 'Protocolo Central'
+      },
+      {
+        id: 'm2',
+        amendmentId: 'a1',
+        fromSector: 'Protocolo',
+        toSector: 'Análise Técnica',
+        dateIn: '2025-01-11T09:00:00Z',
+        dateOut: null,
+        deadline: '2025-01-21T09:00:00Z',
+        daysSpent: 0,
+        handledBy: 'Mariana Costa'
+      }
+    ]
   },
   {
-    id: 'u2',
-    name: 'Mariana Costa',
-    email: 'mariana.costa@saude.go.gov.br',
-    role: Role.OPERATOR,
-    department: Sector.PROTOCOL,
-    avatarUrl: 'https://picsum.photos/101/101',
-    password: '123'
+    id: 'a2',
+    code: 'EM-2025-9982',
+    year: 2025,
+    type: AmendmentType.GOIAS_CRESCIMENTO,
+    seiNumber: '202500042009988',
+    value: 1200000,
+    municipality: 'Goiânia',
+    deputyName: 'Governo de Goiás (Direto)',
+    object: 'Reforma da Ala de Oncologia do HUGOL',
+    status: Status.DILIGENCE,
+    currentSector: 'Gerência de Orçamento',
+    healthUnit: 'HUGOL',
+    entryDate: '2025-01-05',
+    suinfra: true,
+    sutis: false,
+    createdAt: '2025-01-05T14:00:00Z',
+    movements: [
+      {
+        id: 'm3',
+        amendmentId: 'a2',
+        fromSector: null,
+        toSector: 'Gerência de Orçamento',
+        dateIn: '2025-01-05T14:00:00Z',
+        dateOut: null,
+        deadline: '2025-01-10T14:00:00Z',
+        daysSpent: 10,
+        handledBy: 'Carlos Silva'
+      }
+    ]
   }
-];
-
-export const MOCK_AMENDMENTS: any[] = [];
-
-/**
- * LISTA COMPLETA DOS 246 MUNICÍPIOS DE GOIÁS
- */
-export const GOIAS_CITIES = [
-  "Abadia de Goiás", "Abadiânia", "Acreúna", "Adelândia", "Água Fria de Goiás", "Água Limpa", "Águas Lindas de Goiás", "Alexânia", "Aloândia", "Alto Horizonte", "Alto Paraíso de Goiás", "Alvorada do Norte", "Amaralina", "Americano do Brasil", "Amorinópolis", "Anápolis", "Anhanguera", "Anicuns", "Aparecida de Goiânia", "Aparecida do Rio Doce", "Aporé", "Araçu", "Aragarças", "Aragoiânia", "Araguapaz", "Arenópolis", "Aruanã", "Aurilândia", "Avelinópolis", "Baliza", "Barro Alto", "Bela Vista de Goiás", "Bom Jardim de Goiás", "Bom Jesus de Goiás", "Bonfinópolis", "Bonópolis", "Brazabrantes", "Britânia", "Buriti Alegre", "Buriti de Goiás", "Buritinópolis", "Cabeceiras", "Cachoeira Alta", "Cachoeira de Goiás", "Cachoeira Dourada", "Caçu", "Caiapônia", "Caldas Novas", "Caldazinha", "Campestre de Goiás", "Campinaçu", "Campinorte", "Campo Alegre de Goiás", "Campo Limpo de Goiás", "Campos Belos", "Campos Verdes", "Carmo do Rio Verde", "Castelândia", "Catalão", "Caturaí", "Cavalcante", "Ceres", "Cezarina", "Chapadão do Céu", "Cidade Ocidental", "Cocalzinho de Goiás", "Colinas do Sul", "Córrego do Ouro", "Corumbá de Goiás", "Corumbaíba", "Cristalina", "Cristianópolis", "Crixás", "Cromínia", "Cumari", "Damianópolis", "Damolândia", "Davinópolis", "Diorama", "Doverlândia", "Edealina", "Edéia", "Estrela do Norte", "Faina", "Fazenda Nova", "Firminópolis", "Flores de Goiás", "Formosa", "Formoso", "Gameleira de Goiás", "Goianápolis", "Goiandira", "Goianésia", "Goiânia", "Goianira", "Goiás", "Goiatuba", "Gouvelândia", "Guapó", "Guaraíta", "Guarani de Goiás", "Guarinos", "Heitoraí", "Hidrolândia", "Hidrolina", "Iaciara", "Inaciolândia", "Indiara", "Inhumas", "Ipameri", "Ipiranga de Goiás", "Iporá", "Israelândia", "Itaberaí", "Itaguari", "Itaguaru", "Itajá", "Itapaci", "Itapirapuã", "Itapuranga", "Itarumã", "Itauçu", "Itumbiara", "Ivolândia", "Jandaia", "Jaraguá", "Jataí", "Jaupaci", "Jesúpolis", "Joviânia", "Jussara", "Lagoa Santa", "Leopoldo de Bulhões", "Luziânia", "Mairipotaba", "Mambaí", "Mara Rosa", "Marzagão", "Matrinchã", "Maurilândia", "Mimoso de Goiás", "Minaçu", "Mineiros", "Moiporá", "Monte Alegre de Goiás", "Montes Claros de Goiás", "Montividiu", "Montividiu do Norte", "Morrinhos", "Morro Agudo de Goiás", "Mossâmedes", "Mozarlândia", "Mundo Novo", "Mutunópolis", "Nazário", "Nerópolis", "Niquelândia", "Nova América", "Nova Aurora", "Nova Crixás", "Nova Glória", "Nova Iguaçu de Goiás", "Nova Roma", "Nova Veneza", "Novo Brasil", "Novo Gama", "Novo Planalto", "Orizona", "Ouro Verde de Goiás", "Ouvidor", "Padre Bernardo", "Palestina de Goiás", "Palmeiras de Goiás", "Palmelo", "Palminópolis", "Panamá", "Paranaiguara", "Paraúna", "Perolândia", "Petrolina de Goiás", "Pilar de Goiás", "Piracanjuba", "Piranhas", "Pirenópolis", "Pires do Rio", "Planaltina", "Pontalina", "Porangatu", "Porteirão", "Portelândia", "Posse", "Professor Jamil", "Quirinópolis", "Rialma", "Rianápolis", "Rio Quente", "Rio Verde", "Rubiataba", "Sanclerlândia", "Santa Bárbara de Goiás", "Santa Cruz de Goiás", "Santa Fé de Goiás", "Santa Helena de Goiás", "Santa Isabel", "Santa Rita do Araguaia", "Santa Rita do Novo Destino", "Santa Rosa de Goiás", "Santa Tereza de Goiás", "Santa Terezinha de Goiás", "Santo Antônio da Barra", "Santo Antônio de Goiás", "Santo Antônio do Descoberto", "São Domingos", "São Francisco de Goiás", "São João d'Aliança", "São João da Paraúna", "São Luís de Montes Claros", "São Luíz do Norte", "São Miguel do Araguaia", "São Miguel do Passa Quatro", "São Patrício", "São Simão", "Senador Canedo", "Serranópolis", "Silvânia", "Simolândia", "Sítio d'Abadia", "Taquaral de Goiás", "Teresina de Goiás", "Terezópolis de Goiás", "Três Ranchos", "Trindade", "Trombas", "Turvânia", "Turvelândia", "Uirapuru", "Uruaçu", "Uruana", "Urutaí", "Valparaíso de Goiás", "Varjão", "Vianópolis", "Vicentinópolis", "Vila Boa", "Vila Propício"
-];
-
-/**
- * LISTA DE PARLAMENTARES DA ALEGO (20ª LEGISLATURA)
- * Inclui Deputados Titulares e Suplentes em exercício.
- */
-export const GOIAS_DEPUTIES = [
-  "Alessandro Moreira", "Amauri Ribeiro", "Amilton Filho", "Anderson Teodoro", "Antônio Gomide",
-  "Bia de Lima", "Bruno Peixoto", "Cairo Salim", "Charles Bento", "Clécio Alves",
-  "Coronel Adailton", "Cristiano Galindo", "Cristóvão Tormin", "Delegado Eduardo Prado",
-  "Dr. George Morais", "Dra. Zélia", "Fred Rodrigues", "Gugu Nader", "Heli de Oliveira",
-  "Issy Quinan", "Jamil Calife", "José Machado", "Karlos Cabral", "Lineu Olímpio",
-  "Lucas Calil", "Lucas do Vale", "Major Araújo", "Mauro Rubem", "Paulo Cezar Martins",
-  "Quirino", "Renato de Castro", "Ricardo Quirino", "Rosângela Rezende", "Talles Barreto",
-  "Thiago Albernaz", "Urubatan Lopes", "Virmondes Cruvinel", "Vivian Naves", "Wagner Neto",
-  "Wilde Cambão", "Zander Fábio",
-  "Suplente - Cristóvão Tormin",
-  "Suplente - Fabrício Rosa",
-  "Suplente - Luiz Sampaio",
-  "Suplente - Max Menezes",
-  "Governo de Goiás (Direto)"
 ];
 
 export const MOCK_AUDIT_LOGS: AuditLog[] = [
@@ -68,9 +108,9 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
     actorId: 'u1',
     actorName: 'Carlos Silva',
     action: AuditAction.LOGIN,
-    targetResource: 'Sistema',
-    details: 'Acesso realizado via SSO Institucional',
+    targetResource: 'Autenticação',
+    details: 'Login efetuado com sucesso via SSO Institucional.',
     timestamp: new Date().toISOString(),
-    ipAddress: '10.15.100.24'
+    ipAddress: '10.20.30.44'
   }
 ];

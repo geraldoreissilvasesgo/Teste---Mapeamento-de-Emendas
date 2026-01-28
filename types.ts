@@ -1,68 +1,103 @@
-/**
- * DEFINIÇÕES DE TIPOS E INTERFACES DO SISTEMA
- * Este arquivo centraliza todas as estruturas de dados utilizadas no Rastreio de Emendas.
- * A tipagem forte garante consistência e facilita a manutenção do código.
- */
 
-/**
- * Papéis de Usuário (RBAC)
- * Define os níveis de acesso para garantir a segurança da informação.
- */
 export enum Role {
-  ADMIN = 'Administrador', // Acesso total, incluindo auditoria e gestão de usuários
-  OPERATOR = 'Operador SES', // Pode criar, editar e tramitar processos SEI
-  VIEWER = 'Consultor'      // Acesso apenas de leitura para relatórios e consulta
+  ADMIN = 'Administrador',
+  OPERATOR = 'Operador SES',
+  VIEWER = 'Consultor'
 }
 
-/**
- * Setores da SES-GO (Tramitação)
- * Representa os departamentos por onde o processo administrativo circula.
- */
+export enum AnalysisType {
+  TECHNICAL = 'Análise Técnica',
+  LEGAL = 'Análise Jurídica',
+  DOC_COMPLEMENT = 'Complementação de Documentação',
+  BUDGET_RESERVE = 'Reserva Orçamentária',
+  PAYMENT_PROC = 'Processamento de Pagamento',
+  FINAL_APPROVAL = 'Homologação Final',
+  INACTIVATION = 'Inativação de Registro'
+}
+
 export enum Sector {
   PROTOCOL = 'Protocolo',
   BUDGET = 'Gerência de Orçamento',
   TECHNICAL = 'Análise Técnica',
   LEGAL = 'Jurídico',
   SECRETARY = 'Gabinete',
-  PAYMENT = 'Pagamento'
+  PAYMENT = 'Pagamento',
+  SGI = 'Coordenação SGI',
+  ARCHIVE = 'Arquivo/Inativos'
 }
 
-/**
- * Estados da Emenda (Status)
- * Reflete a situação atual do processo no fluxo administrativo.
- */
+export interface SectorConfig {
+  id: string;
+  name: string;
+  defaultSlaDays: number;
+  analysisType: AnalysisType;
+}
+
 export enum Status {
   DRAFT = 'Rascunho',
   PROCESSING = 'Em Tramitação',
   APPROVED = 'Aprovada',
   REJECTED = 'Rejeitada',
   PAID = 'Paga',
-  DILIGENCE_SUINFRA = 'Em diligência Suinfra', // Pendência em obras/infraestrutura
-  DILIGENCE_SUTIS = 'Em diligência Sutis',     // Pendência em tecnologia/equipamentos
-  DILIGENCE_BOTH = 'Em diligência Suinfra / Sutis',
-  DILIGENCE_SGI = 'Em diligência SGI',         // Pendência no sistema de gestão
-  CONCLUDED = 'Concluída'
+  DILIGENCE = 'Em Diligência',
+  CONCLUDED = 'Concluída',
+  INACTIVE = 'Inativada'
 }
 
-/**
- * Categorias de Emenda
- */
 export enum AmendmentType {
-  IMPOSITIVA = 'Emenda Impositiva', // Origem ALEGO
-  GOIAS_CRESCIMENTO = 'Goiás em Crescimento' // Programa do Executivo
+  IMPOSITIVA = 'Emenda Impositiva',
+  GOIAS_CRESCIMENTO = 'Goiás em Crescimento',
+  ESPECIAL = 'Transferência Especial'
 }
 
-/**
- * Formas de Repasse Financeiro
- */
 export enum TransferMode {
-  FUNDO_A_FUNDO = 'Fundo a Fundo', // Repasse direto SES para Fundo Municipal
-  CONVENIO = 'Convênio'            // Instrumento jurídico específico
+  FUNDO_A_FUNDO = 'Fundo a Fundo',
+  CONVENIO = 'Convênio',
+  DIRETO = 'Execução Direta'
 }
 
-/**
- * Dados do Usuário do Sistema
- */
+export interface AmendmentMovement {
+  id: string;
+  amendmentId: string;
+  fromSector: string | null;
+  toSector: string;
+  dateIn: string;
+  dateOut: string | null;
+  deadline: string;
+  daysSpent: number;
+  handledBy: string;
+  analysisType?: AnalysisType;
+  justification?: string;
+}
+
+export interface Amendment {
+  id: string;
+  code: string;
+  year: number;
+  type: AmendmentType;
+  seiNumber: string;
+  value: number;
+  municipality: string;
+  deputyName?: string;
+  party?: string;
+  object: string;
+  status: Status;
+  statusDescription?: string;
+  currentSector: string;
+  healthUnit: string;
+  entryDate?: string;
+  exitDate?: string;
+  suinfra: boolean;
+  sutis: boolean;
+  transferMode?: TransferMode;
+  institutionName?: string;
+  notes?: string;
+  createdAt: string;
+  movements: AmendmentMovement[];
+  inactivatedAt?: string;
+  inactivationReason?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -70,86 +105,43 @@ export interface User {
   role: Role;
   department?: Sector;
   avatarUrl?: string;
-  password?: string; // Utilizado apenas para simulação de login
+  password?: string;
 }
 
-/**
- * Registro de Movimentação (Tramitação)
- * Armazena o histórico de entrada e saída de cada setor.
- */
-export interface Movement {
-  id: string;
-  amendmentId: string;
-  fromSector: Sector | null;
-  toSector: Sector;
-  dateIn: string;        // ISO format
-  dateOut: string | null; // ISO format
-  daysSpent: number;     // Cálculo automático de permanência
-  notes?: string;
-  handledBy: string;     // Nome/ID do operador responsável
-}
-
-/**
- * Estrutura Principal da Emenda / Processo SEI
- */
-export interface Amendment {
-  id: string;
-  code: string;       // Código interno (Ex: EM-2025-XXXXX)
-  type: AmendmentType; 
-  seiNumber: string;  // Número do Processo no SEI (Chave de busca principal)
-  value: number;      // Valor em Reais (R$)
-  municipality: string; // Município de Goiás beneficiado
-  object: string;     // Objeto da emenda (Ex: Ambulância, Custeio)
-  transferMode?: TransferMode; 
-  institutionName?: string; 
-  suinfra: boolean; // Requer análise da área de obras
-  sutis: boolean;   // Requer análise da área de tecnologia
-  statusDescription?: string; 
-  status: Status;             
-  entryDate?: string; 
-  exitDate?: string;  
-  notes?: string;     
-  year: number;        // Ano do exercício (Exercício Financeiro)
-  deputyName?: string; // Nome do Parlamentar (Titular ou Suplente)
-  party: string;
-  healthUnit: string;  
-  currentSector: Sector; 
-  createdAt: string;
-  movements: Movement[]; 
-}
-
-/**
- * Resultado da Inteligência Artificial Gemini
- */
-export interface AIAnalysisResult {
-  summary: string;     // Resumo do percurso
-  bottleneck: string;  // Identificação de onde o processo parou
-  recommendation: string; // Sugestão para destravar o fluxo
-}
-
-/**
- * Tipos de Log de Auditoria
- */
 export enum AuditAction {
   LOGIN = 'LOGIN',
-  CREATE = 'CRIAÇÃO',
-  UPDATE = 'ATUALIZAÇÃO',
-  DELETE = 'EXCLUSÃO',
-  MOVE = 'TRAMITAÇÃO',
-  APPROVE = 'APROVAÇÃO',
-  SECURITY = 'SEGURANÇA'
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  MOVE = 'TRAMITACAO',
+  APPROVE = 'APROVACAO',
+  SECURITY = 'SEGURANCA',
+  SIGNATURE = 'ASSINATURA_DIGITAL',
+  INACTIVATE = 'INATIVACAO'
 }
 
-/**
- * Registro individual de auditoria
- */
 export interface AuditLog {
   id: string;
-  actorId: string;   
-  actorName: string; 
-  action: AuditAction; 
-  targetResource: string; 
-  details: string;   
-  timestamp: string; 
-  ipAddress: string; 
+  actorId: string;
+  actorName: string;
+  action: AuditAction;
+  targetResource: string;
+  details: string;
+  timestamp: string;
+  ipAddress: string;
+}
+
+export interface AIAnalysisResult {
+  summary: string;
+  bottleneck: string;
+  recommendation: string;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'alert' | 'info' | 'critical';
+  seiNumber: string;
+  timestamp: string;
 }
