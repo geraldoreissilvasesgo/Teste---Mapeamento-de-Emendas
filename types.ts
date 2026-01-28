@@ -7,7 +7,38 @@ export enum SystemMode {
 export enum Role {
   ADMIN = 'Administrador',
   OPERATOR = 'Operador GESA',
-  VIEWER = 'Consultor'
+  AUDITOR = 'Auditor Fiscal',
+  VIEWER = 'Consultor Externo'
+}
+
+export enum AmendmentType {
+  IMPOSITIVA = 'Emenda Impositiva',
+  GOIAS_CRESCIMENTO = 'Goiás em Crescimento',
+  ESPECIAL = 'Emenda Especial'
+}
+
+export enum TransferMode {
+  FUNDO_A_FUNDO = 'Fundo a Fundo',
+  CONVENIO = 'Convênio / Repasse',
+  DIRETA = 'Execução Direta'
+}
+
+export enum GNDType {
+  CUSTEIO = '3 - Custeio',
+  INVESTIMENTO = '4 - Investimento'
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type?: 'info' | 'alert' | 'critical';
+}
+
+export interface AIAnalysisResult {
+  summary: string;
+  bottleneck: string;
+  recommendation: string;
 }
 
 export enum AnalysisType {
@@ -41,6 +72,9 @@ export interface SectorConfig {
 
 export enum Status {
   DRAFT = 'Rascunho',
+  IN_PROGRESS = 'Em Andamento',
+  FORWARDING = 'Encaminhamento',
+  CONSOLIDATION = 'Consolidação de Processo',
   PROCESSING = 'Em Tramitação',
   APPROVED = 'Aprovada',
   REJECTED = 'Rejeitada',
@@ -48,18 +82,6 @@ export enum Status {
   DILIGENCE = 'Em Diligência',
   CONCLUDED = 'Concluída',
   INACTIVE = 'Inativada'
-}
-
-export enum AmendmentType {
-  IMPOSITIVA = 'Emenda Impositiva',
-  GOIAS_CRESCIMENTO = 'Goiás em Crescimento',
-  ESPECIAL = 'Transferência Especial'
-}
-
-export enum TransferMode {
-  FUNDO_A_FUNDO = 'Fundo a Fundo',
-  CONVENIO = 'Convênio',
-  DIRETO = 'Execução Direta'
 }
 
 export interface AmendmentMovement {
@@ -91,17 +113,16 @@ export interface Amendment {
   statusDescription?: string;
   currentSector: string;
   healthUnit: string;
-  entryDate?: string;
-  exitDate?: string;
-  suinfra: boolean;
-  sutis: boolean;
-  transferMode?: TransferMode;
-  institutionName?: string;
-  notes?: string;
-  createdAt: string;
   movements: AmendmentMovement[];
-  inactivatedAt?: string;
-  inactivationReason?: string;
+  suinfra?: boolean;
+  sutis?: boolean;
+  entryDate?: string;
+  exitDate?: string | null;
+  notes?: string;
+  transferMode?: TransferMode;
+  gnd?: GNDType;
+  institutionName?: string;
+  createdAt?: string;
 }
 
 export interface User {
@@ -109,21 +130,32 @@ export interface User {
   name: string;
   email: string;
   role: Role;
-  department?: Sector;
+  mfaEnabled?: boolean;
+  lgpdAccepted?: boolean;
   avatarUrl?: string;
   password?: string;
+  department?: string;
 }
 
 export enum AuditAction {
-  LOGIN = 'LOGIN',
-  CREATE = 'CREATE',
-  UPDATE = 'UPDATE',
-  DELETE = 'DELETE',
-  MOVE = 'TRAMITACAO',
-  APPROVE = 'APROVACAO',
-  SECURITY = 'SEGURANCA',
-  SIGNATURE = 'ASSINATURA_DIGITAL',
-  INACTIVATE = 'INATIVACAO'
+  LOGIN = 'LOGIN_ACESSO',
+  LOGIN_FAIL = 'LOGIN_FALHA',
+  MFA_VERIFY = 'MFA_VERIFICACAO',
+  CREATE = 'CADASTRO_NOVO',
+  UPDATE = 'ALTERACAO_DADOS',
+  DELETE = 'EXCLUSAO_LOGICA',
+  MOVE = 'TRAMITACAO_FLUXO',
+  SECURITY = 'ALTERACAO_SEGURANCA',
+  ERROR = 'ERRO_SISTEMA',
+  LGPD_CONSENT = 'LGPD_CONSENTIMENTO'
+}
+
+export enum AuditSeverity {
+  INFO = 'Informativo',
+  LOW = 'Baixo',
+  MEDIUM = 'Médio',
+  HIGH = 'Alto',
+  CRITICAL = 'Crítico'
 }
 
 export interface AuditLog {
@@ -131,23 +163,12 @@ export interface AuditLog {
   actorId: string;
   actorName: string;
   action: AuditAction;
+  severity: AuditSeverity;
   targetResource: string;
   details: string;
+  payloadBefore?: string;
+  payloadAfter?: string;
   timestamp: string;
   ipAddress: string;
-}
-
-export interface AIAnalysisResult {
-  summary: string;
-  bottleneck: string;
-  recommendation: string;
-}
-
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'alert' | 'info' | 'critical';
-  seiNumber: string;
-  timestamp: string;
+  userAgent: string;
 }

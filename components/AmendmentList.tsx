@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Amendment, Status, Role, AmendmentType, TransferMode, SectorConfig, SystemMode } from '../types';
+import { Amendment, Status, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, User, Building2, Send, ChevronDown, Landmark, Award, Layers } from 'lucide-react';
 
@@ -44,7 +44,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const initialFormState: Partial<Amendment & { initialOrigin: string; initialDestination: string }> = {
     year: new Date().getFullYear(),
     type: AmendmentType.IMPOSITIVA,
-    status: Status.PROCESSING,
+    status: Status.IN_PROGRESS,
     currentSector: 'GESA - Protocolo Central',
     object: '',
     municipality: '',
@@ -55,6 +55,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     suinfra: false,
     sutis: false,
     transferMode: TransferMode.FUNDO_A_FUNDO,
+    gnd: GNDType.CUSTEIO,
     entryDate: new Date().toISOString().split('T')[0],
     initialOrigin: '',
     initialDestination: 'GESA - Protocolo Central'
@@ -81,6 +82,18 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 
   const totalPages = Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE);
   const paginatedAmendments = filteredAmendments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const getStatusColor = (status: Status) => {
+    switch(status) {
+      case Status.CONCLUDED: return 'bg-emerald-500';
+      case Status.CONSOLIDATION: return 'bg-emerald-600';
+      case Status.FORWARDING: return 'bg-indigo-600';
+      case Status.IN_PROGRESS: return 'bg-blue-500';
+      case Status.INACTIVE: return 'bg-slate-800';
+      case Status.DILIGENCE: return 'bg-amber-500';
+      default: return 'bg-[#0d457a]';
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,27 +159,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 p-1 bg-slate-200/50 rounded-2xl w-fit">
-        <button 
-          onClick={() => { setMacroCategory('ALL'); setCurrentPage(1); }}
-          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${macroCategory === 'ALL' ? 'bg-[#0d457a] text-white shadow-md' : 'text-slate-500 hover:bg-slate-300/50'}`}
-        >
-          Todos os Processos
-        </button>
-        <button 
-          onClick={() => { setMacroCategory('PARLIAMENTARY'); setCurrentPage(1); }}
-          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${macroCategory === 'PARLIAMENTARY' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-300/50'}`}
-        >
-          <Landmark size={14} /> Emendas Parlamentares
-        </button>
-        <button 
-          onClick={() => { setMacroCategory('GOIAS_CRESCIMENTO'); setCurrentPage(1); }}
-          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${macroCategory === 'GOIAS_CRESCIMENTO' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-300/50'}`}
-        >
-          <Award size={14} /> Goiás em Crescimento
-        </button>
-      </div>
-
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
@@ -199,12 +191,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             className={`group bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#0d457a]/20 transition-all transform hover:-translate-y-1 
               ${amendment.status === Status.INACTIVE ? 'opacity-60 grayscale' : ''}`}
           >
-            <div className={`h-1.5 w-full ${
-                amendment.status === Status.CONCLUDED ? 'bg-emerald-500' : 
-                amendment.status === Status.INACTIVE ? 'bg-slate-800' :
-                amendment.status.includes('diligência') ? 'bg-amber-500' : 
-                amendment.type === AmendmentType.GOIAS_CRESCIMENTO ? 'bg-indigo-600' : 'bg-[#0d457a]'
-            }`} />
+            <div className={`h-1.5 w-full ${getStatusColor(amendment.status)}`} />
             <div className="p-6">
               <div className="flex justify-between items-start mb-2">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Processo SEI</p>
@@ -247,7 +234,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                 <h3 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">
                   {editingId ? 'Editar Registro GESA' : 'Novo Cadastro SEI'}
                 </h3>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Configuração de Fonte e Tramitação</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
                 <X size={24} />
@@ -255,35 +241,22 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             </div>
 
             <form onSubmit={handleSubmit} className="p-10 space-y-8">
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Fonte de Recurso</label>
-                  <div className="flex gap-2">
-                    {Object.values(AmendmentType).map(type => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => {
-                          const isCrescimento = type === AmendmentType.GOIAS_CRESCIMENTO;
-                          setFormData({
-                            ...formData, 
-                            type, 
-                            deputyName: isCrescimento ? 'Governo de Goiás (Execução Direta)' : formData.deputyName 
-                          });
-                        }}
-                        className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all border-2 ${formData.type === type ? 'bg-[#0d457a] text-white border-[#0d457a] shadow-lg' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'}`}
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                   <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Transferência</label>
-                   <select className="w-full px-5 py-3 bg-white rounded-xl outline-none font-bold text-slate-700 text-xs uppercase" value={formData.transferMode} onChange={e => setFormData({...formData, transferMode: e.target.value as TransferMode})}>
-                      {Object.values(TransferMode).map(m => <option key={m} value={m}>{m}</option>)}
-                   </select>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div className="space-y-2">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Status Inicial</label>
+                    <select className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 uppercase text-xs" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Status})}>
+                       <option value={Status.IN_PROGRESS}>Em Andamento</option>
+                       <option value={Status.FORWARDING}>Encaminhamento</option>
+                       <option value={Status.CONSOLIDATION}>Consolidação de Processo</option>
+                       <option value={Status.PROCESSING}>Em Tramitação</option>
+                    </select>
+                 </div>
+                 <div className="space-y-2">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">GND (Modalidade)</label>
+                    <select className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 uppercase text-xs" value={formData.gnd} onChange={e => setFormData({...formData, gnd: e.target.value as GNDType})}>
+                       {Object.values(GNDType).map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -323,64 +296,13 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                 </div>
               </div>
 
-              <div className="bg-[#0d457a]/5 p-8 rounded-3xl border-2 border-[#0d457a]/10 space-y-6">
-                 <div className="flex items-center gap-2">
-                    <Building2 size={20} className="text-[#0d457a]" />
-                    <h4 className="text-xs font-black text-[#0d457a] uppercase tracking-wider">Gestão Técnica de Tramitação (De/Para)</h4>
-                 </div>
-                 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
-                    <div className="relative">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Vindo de (Origem)</label>
-                      <input 
-                        type="text" 
-                        className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-[#0d457a] font-bold text-xs uppercase"
-                        value={formData.initialOrigin || originSearch}
-                        onFocus={() => { setShowOriginList(true); setShowDestList(false); }}
-                        onChange={e => { setOriginSearch(e.target.value); if(formData.initialOrigin) setFormData({...formData, initialOrigin: ''}); }}
-                        placeholder="Ex: Gabinete Parlamentar..."
-                      />
-                      {showOriginList && (
-                        <div className="absolute z-10 top-full left-0 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-48 overflow-y-auto">
-                           {filteredOriginSectors.map(s => (
-                             <button key={s.id} type="button" onClick={() => { setFormData({...formData, initialOrigin: s.name}); setShowOriginList(false); }} className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-50 text-xs font-black uppercase text-[#0d457a]">{s.name}</button>
-                           ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="relative">
-                      <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 ml-1">Entrando em (Destino)</label>
-                      <input 
-                        type="text" 
-                        required
-                        className="w-full px-5 py-4 bg-white border-2 border-blue-100 rounded-2xl outline-none focus:border-blue-600 font-bold text-xs uppercase text-blue-900"
-                        value={formData.initialDestination || destSearch}
-                        onFocus={() => { setShowDestList(true); setShowOriginList(false); }}
-                        onChange={e => { setDestSearch(e.target.value); if(formData.initialDestination) setFormData({...formData, initialDestination: ''}); }}
-                        placeholder="Setor Técnico GESA..."
-                      />
-                      {showDestList && (
-                        <div className="absolute z-10 top-full left-0 w-full mt-2 bg-white border border-blue-200 rounded-2xl shadow-2xl max-h-48 overflow-y-auto">
-                           {filteredDestSectors.map(s => (
-                             <button key={s.id} type="button" onClick={() => { setFormData({...formData, initialDestination: s.name}); setShowDestList(false); }} className="w-full text-left px-5 py-3 hover:bg-blue-50 border-b border-blue-50 flex justify-between items-center group">
-                               <span className="text-xs font-black uppercase text-blue-900">{s.name}</span>
-                               <span className="text-[9px] font-black text-blue-400">SLA: {s.defaultSlaDays}D</span>
-                             </button>
-                           ))}
-                        </div>
-                      )}
-                    </div>
-                 </div>
-              </div>
-
               <div className="space-y-2">
                 <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Objeto do Processo</label>
                 <textarea required rows={3} className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none transition-all font-medium text-slate-600" value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} placeholder="Finalidade do recurso..." />
               </div>
 
               <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition-all">Cancelar</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs">Cancelar</button>
                 <button type="submit" className="flex-[2] py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-2xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3">
                   {editingId ? 'Salvar Alterações' : 'Concluir Cadastro SEI'} <Send size={16} />
                 </button>

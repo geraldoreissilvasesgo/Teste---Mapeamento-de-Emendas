@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { 
   BarChart, 
@@ -14,7 +13,7 @@ import {
   Cell
 } from 'recharts';
 import { Amendment, Status, Sector, AmendmentType, SystemMode } from '../types';
-import { TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, Zap, Landmark, Award, Info, TestTube2 } from 'lucide-react';
+import { TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, Zap, Landmark, Award, Info } from 'lucide-react';
 
 interface DashboardProps {
   amendments: Amendment[];
@@ -24,8 +23,6 @@ interface DashboardProps {
 const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#4f46e5'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) => {
-  const isTest = systemMode === SystemMode.TEST;
-
   const stats = useMemo(() => {
     const totalValue = amendments.reduce((acc, curr) => acc + curr.value, 0);
     
@@ -76,21 +73,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
 
   return (
     <div className="space-y-6">
-      {isTest && (
-        <div className="bg-amber-500 text-white p-4 rounded-3xl shadow-xl flex items-center justify-between gap-4 border-2 border-amber-400">
-           <div className="flex items-center gap-4">
-              <div className="bg-white/20 p-2 rounded-xl">
-                 <TestTube2 size={24} />
-              </div>
-              <div>
-                 <h4 className="text-sm font-black uppercase tracking-tighter">Ambiente de Homologação Ativo</h4>
-                 <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Os dados abaixo são simulados para validação da GESA/SUBIPEI.</p>
-              </div>
-           </div>
-           <Info size={20} className="opacity-50" />
-        </div>
-      )}
-
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Cockpit Gerencial</h2>

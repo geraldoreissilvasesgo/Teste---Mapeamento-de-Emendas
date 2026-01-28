@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
@@ -16,10 +15,9 @@
       @media print {
         @page {
           size: A4;
-          margin: 1cm;
+          margin: 1.5cm;
         }
         
-        /* 1. Desativa travas de scroll e altura da aplicação */
         html, body, #root {
           height: auto !important;
           min-height: 100% !important;
@@ -32,44 +30,68 @@
           print-color-adjust: exact !important;
         }
 
-        /* 2. Reseta os containers específicos do Layout.tsx que têm overflow */
+        /* Reseta travas de Layout do Tailwind para permitir fluxo de página */
         .flex.h-screen, 
         .overflow-hidden, 
-        .overflow-y-auto, 
+        .overflow-y-auto,
+        .flex-col,
         .flex-1 {
           display: block !important; 
           height: auto !important;
           overflow: visible !important;
           position: static !important;
+          max-height: none !important;
         }
 
-        /* 3. Reativa Grid/Flex apenas para o CONTEÚDO se necessário */
+        /* Esconder Elementos de Interface */
+        aside, 
+        header, 
+        nav, 
+        button, 
+        .print\:hidden, 
+        .no-print, 
+        [role="navigation"],
+        .fixed {
+          display: none !important;
+        }
+
+        /* Forçar visibilidade e expansão do conteúdo principal */
         main {
            width: 100% !important;
            padding: 0 !important;
            margin: 0 !important;
+           display: block !important;
+           background: white !important;
         }
 
-        /* 4. Elementos a esconder */
-        aside, header, button, .no-print, [role="navigation"] {
-          display: none !important;
-        }
-
-        /* 5. Ajustes visuais finos */
-        * {
+        /* Garantir que o card de detalhes ocupe a largura total e remova sombras */
+        .bg-white {
+          border: 1px solid #e2e8f0 !important;
           box-shadow: none !important;
-          text-shadow: none !important;
+          border-radius: 0 !important;
+          padding: 0 !important;
         }
 
-        /* 6. Evita quebra de componentes importantes */
+        .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
+          box-shadow: none !important;
+        }
+
+        /* Ajustes de tipografia para impressão */
+        h2, h3, p, span {
+          color: black !important;
+        }
+
         .print\:break-inside-avoid {
           break-inside: avoid !important;
-          page-break-inside: avoid !important;
         }
-
-        /* Ajuste para Recharts na impressão */
-        .recharts-responsive-container {
-           min-height: 300px !important; 
+        
+        /* Força bordas em tabelas se necessário */
+        table {
+          border-collapse: collapse !important;
+          width: 100% !important;
+        }
+        th, td {
+          border: 1px solid #eee !important;
         }
       }
     </style>

@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp } from '../services/firebase';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, UserPlus, LogIn, AlertCircle, Info } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, Smartphone, CheckCircle2, AlertCircle, Fingerprint } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: any) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [step, setStep] = useState<'credentials' | 'mfa'>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,149 +32,150 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      if (isRegistering) {
-        if (passwordStrength < 3) throw new Error("Aumente a segurança da senha.");
-        await signUp(email, password, name);
+      await signIn(email, password);
+      // MFA simulado: Perfis críticos (Admin e Auditor) exigem MFA
+      if (email.includes('admin') || email.includes('auditor')) {
+        setStep('mfa');
       } else {
-        await signIn(email, password);
+        onLogin({ email });
       }
     } catch (err: any) {
-      console.error(err);
-      switch (err.code) {
-        case 'auth/wrong-password': setError('Senha incorreta.'); break;
-        case 'auth/user-not-found': setError('Usuário não encontrado.'); break;
-        case 'auth/email-already-in-use': setError('E-mail já cadastrado.'); break;
-        default: setError('Falha na autenticação. Verifique os dados.');
-      }
+      setError('Credenciais inválidas. Utilize seu e-mail corporativo.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleQuickLogin = () => {
-    setEmail('admin@gesa.subipei.go.gov.br');
+  const handleMfaVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setTimeout(() => {
+      if (mfaCode === '123456') { // Mock de token seguro
+        onLogin({ email });
+      } else {
+        setError('Token MFA inválido ou expirado.');
+      }
+      setIsLoading(false);
+    }, 800);
+  };
+
+  const quickLogin = (role: string) => {
+    const emails: Record<string, string> = {
+      admin: 'admin@gesa.subipei.go.gov.br',
+      operador: 'operador@gesa.subipei.go.gov.br',
+      auditor: 'auditor@cge.go.gov.br'
+    };
+    setEmail(emails[role]);
     setPassword('Goi@s2025!');
   };
 
   return (
-    <div className="min-h-screen flex bg-[#0d457a] font-inter items-center justify-center p-6">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-white/20">
-        <div className="bg-slate-50 p-8 text-center border-b border-slate-100">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#0d457a] rounded-xl text-white mb-4 shadow-lg ring-4 ring-blue-50">
-            <ShieldCheck size={32} />
+    <div className="min-h-screen flex bg-[#0d457a] items-center justify-center p-6 relative overflow-hidden font-inter">
+      {/* Elementos decorativos de fundo */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-10">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden border border-white/10 z-10 animate-in fade-in zoom-in-95 duration-500">
+        <div className="bg-slate-50 p-10 text-center border-b border-slate-100">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#0d457a] rounded-[24px] text-white mb-6 shadow-xl ring-8 ring-blue-50/50">
+            {step === 'credentials' ? <ShieldCheck size={40} /> : <Smartphone size={40} className="animate-bounce" />}
           </div>
-          <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tight">
-            {isRegistering ? 'Sistema GESA/SUBIPEI' : 'Acesso Restrito'}
+          <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
+            {step === 'credentials' ? 'Acesso Institucional' : 'Múltiplo Fator'}
           </h2>
-          <p className="text-slate-500 text-xs mt-1 font-medium">ESTADO DE GOIÁS</p>
+          <p className="text-slate-400 text-[10px] mt-2 font-black uppercase tracking-[0.2em]">GESA / SUBIPEI - GOIÁS</p>
         </div>
 
-        <form onSubmit={handleAuth} className="p-8 space-y-5">
-          {isRegistering && (
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Nome Completo</label>
-              <input
-                type="text"
-                required
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none text-sm"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nome do Servidor"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">E-mail Institucional</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
-              <input
-                type="email"
-                required
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@gesa.subipei.go.gov.br"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Senha de Acesso</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                className="w-full pl-10 pr-12 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none text-sm"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-            {isRegistering && password.length > 0 && (
-              <div className="mt-2 space-y-1 px-1">
-                <div className="flex gap-1 h-1">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className={`flex-1 rounded-full ${i < passwordStrength ? (passwordStrength <= 2 ? 'bg-amber-400' : 'bg-emerald-500') : 'bg-slate-200'}`} />
-                  ))}
-                </div>
-                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Nível de Segurança: {['Fraco', 'Médio', 'Bom', 'Forte'][passwordStrength-1] || 'Inexistente'}</p>
+        {step === 'credentials' ? (
+          <form onSubmit={handleAuth} className="p-10 space-y-6">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-4 text-slate-300" size={20} />
+                <input 
+                  required 
+                  type="email" 
+                  className="w-full pl-12 pr-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none font-bold text-sm transition-all" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  placeholder="usuario@go.gov.br" 
+                />
               </div>
-            )}
-          </div>
-
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-[11px] font-bold border border-red-100 flex items-center gap-2 animate-shake">
-              <AlertCircle size={14} />
-              {error}
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3 bg-[#0d457a] text-white rounded-lg font-bold uppercase tracking-widest hover:bg-[#0a365f] shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 text-xs"
-          >
-            {isLoading ? (
-              <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              isRegistering ? <><UserPlus size={16}/> Solicitar Acesso</> : <><LogIn size={16}/> Entrar no Sistema</>
-            )}
-          </button>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha de Acesso</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-4 text-slate-300" size={20} />
+                <input 
+                  required 
+                  type={showPassword ? 'text' : 'password'} 
+                  className="w-full pl-12 pr-14 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none font-bold text-sm transition-all" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-300 hover:text-[#0d457a]">
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              <div className="flex gap-1.5 h-1 mt-3 px-1">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className={`flex-1 rounded-full transition-all duration-500 ${i < passwordStrength ? (passwordStrength < 3 ? 'bg-amber-400' : 'bg-emerald-500') : 'bg-slate-100'}`} />
+                ))}
+              </div>
+              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1 ml-1">Segurança: {['Fraca', 'Média', 'Forte', 'Inviolável'][passwordStrength-1] || '---'}</p>
+            </div>
 
-          <div className="flex flex-col gap-3 pt-2">
-            {!isRegistering && (
-              <button
-                type="button"
-                onClick={handleQuickLogin}
-                className="text-[10px] font-bold text-slate-400 hover:text-[#0d457a] flex items-center justify-center gap-1 transition-colors uppercase tracking-widest"
-              >
-                <Info size={12} /> Preencher usuário de teste
-              </button>
-            )}
-            
-            <button
-              type="button"
-              onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
-              className="text-xs font-bold text-[#0d457a] hover:underline uppercase tracking-wide"
-            >
-              {isRegistering ? 'Já possuo credenciais' : 'Ainda não sou cadastrado'}
+            {error && <div className="text-red-500 text-[11px] font-bold bg-red-50 p-4 rounded-2xl flex items-center gap-2 border border-red-100 animate-shake"><AlertCircle size={18}/> {error}</div>}
+
+            <button type="submit" disabled={isLoading} className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#0a365f] shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50">
+               {isLoading ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn size={18}/> Validar Identidade</>}
             </button>
-          </div>
-        </form>
+
+            <div className="flex flex-col gap-4 pt-4 border-t border-slate-50">
+               <div className="flex justify-center gap-2">
+                  {['admin', 'operador', 'auditor'].map(r => (
+                    <button key={r} type="button" onClick={() => quickLogin(r)} className="px-3 py-1.5 bg-slate-50 rounded-lg text-[9px] font-black text-slate-400 uppercase hover:text-[#0d457a] hover:bg-blue-50 transition-all">{r}</button>
+                  ))}
+               </div>
+               <p className="text-[9px] text-slate-400 text-center uppercase font-bold tracking-widest">Acesso restrito a servidores autorizados.</p>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleMfaVerify} className="p-10 space-y-8 animate-in slide-in-from-right-10 duration-500">
+            <div className="text-center space-y-3">
+              <p className="text-sm text-slate-600 font-bold">Autenticação de Segundo Fator ativada para seu perfil.</p>
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-center gap-3 justify-center">
+                <Fingerprint className="text-blue-600" size={20} />
+                <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Código Demo: 123456</p>
+              </div>
+            </div>
+            <input 
+              maxLength={6} 
+              required 
+              autoFocus
+              className="w-full py-6 bg-slate-50 rounded-2xl outline-none text-4xl font-black text-center tracking-[0.6em] text-[#0d457a] border-2 border-transparent focus:border-[#0d457a] focus:bg-white transition-all" 
+              value={mfaCode} 
+              onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))} 
+              placeholder="000000" 
+            />
+            
+            {error && <div className="text-red-500 text-[11px] font-bold bg-red-50 p-4 rounded-2xl flex items-center gap-2 border border-red-100"><AlertCircle size={18}/> {error}</div>}
+
+            <button type="submit" disabled={isLoading || mfaCode.length < 6} className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-3 transition-all hover:bg-[#0a365f]">
+              {isLoading ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 size={18}/> Concluir MFA</>}
+            </button>
+            <button type="button" onClick={() => { setStep('credentials'); setError(''); }} className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest text-center hover:text-slate-600 transition-colors">Voltar para Credenciais</button>
+          </form>
+        )}
       </div>
       
-      {/* Footer com Aviso de Segurança */}
-      <div className="absolute bottom-6 text-white/40 text-[9px] uppercase tracking-[0.2em] font-medium text-center">
-        Acesso monitorado - GESA / SUBIPEI
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/30 text-center space-y-1">
+        <p className="text-[10px] font-black uppercase tracking-[0.3em]">Criptografia de Ponta a Ponta</p>
+        <p className="text-[8px] uppercase font-bold tracking-widest">Estado de Goiás - Controladoria Geral</p>
       </div>
     </div>
   );

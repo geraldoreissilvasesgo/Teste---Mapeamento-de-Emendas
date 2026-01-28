@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { onAuthChange, logout } from './services/firebase';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -13,7 +13,8 @@ import { RepositoryModule } from './components/RepositoryModule';
 import { ReportModule } from './components/ReportModule';
 import { SectorManagement } from './components/SectorManagement';
 import { DeadlinePanel } from './components/DeadlinePanel';
-import { User, Amendment, Role, Status, AuditLog, AuditAction, SectorConfig, AmendmentMovement, Sector, Notification, AnalysisType, SystemMode } from './types';
+import { LGPDModal } from './components/LGPDModal';
+import { User, Amendment, Role, Status, AuditLog, AuditAction, SectorConfig, AmendmentMovement, SystemMode, AuditSeverity } from './types';
 import { MOCK_AMENDMENTS, MOCK_USERS, MOCK_AUDIT_LOGS, DEFAULT_SECTOR_CONFIGS } from './constants';
 
 const App: React.FC = () => {
@@ -21,45 +22,88 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null);
-  const [systemMode, setSystemMode] = useState<SystemMode>(SystemMode.TEST);
+  
+  // Sistema agora fixo em modo Produção
+  const systemMode = SystemMode.PRODUCTION;
   
   const [amendments, setAmendments] = useState<Amendment[]>(MOCK_AMENDMENTS);
   const [sectors, setSectors] = useState<SectorConfig[]>(DEFAULT_SECTOR_CONFIGS);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_AUDIT_LOGS);
 
+  const currentUserRef = useRef<User | null>(null);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   const selectedAmendment = useMemo(() => 
     amendments.find(a => a.id === selectedAmendmentId) || null,
   [amendments, selectedAmendmentId]);
 
-  const notifications = useMemo(() => {
-    const today = new Date();
-    return amendments
-      .filter(a => {
-        if (a.status === Status.CONCLUDED || a.status === Status.PAID || a.status === Status.INACTIVE) return false;
-        const lastMove = a.movements[a.movements.length - 1];
-        return lastMove && new Date(lastMove.deadline) < today;
-      })
-      .map(a => ({
-        id: `notif-${a.id}`,
-        title: 'Prazo SLA Expirado',
-        message: `O processo ${a.seiNumber} está atrasado no setor ${a.currentSector}.`,
-        seiNumber: a.seiNumber,
-        type: 'critical' as const,
-        timestamp: new Date().toISOString()
-      }));
-  }, [amendments]);
+  const addAuditLog = useCallback((params: { 
+    action: AuditAction, 
+    target: string, 
+    details: string, 
+    severity?: AuditSeverity,
+    before?: any,
+    after?: any
+  }) => {
+    const user = currentUserRef.current;
+    const newLog: AuditLog = {
+      id: `AUDIT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      actorId: user?.id || 'sys-kernel',
+      actorName: user?.name || 'Sistema de Automação',
+      action: params.action,
+      severity: params.severity || AuditSeverity.INFO,
+      targetResource: params.target,
+      details: params.details,
+      payloadBefore: params.before ? JSON.stringify(params.before) : undefined,
+      payloadAfter: params.after ? JSON.stringify(params.after) : undefined,
+      timestamp: new Date().toISOString(),
+      ipAddress: '10.20.' + Math.floor(Math.random() * 255) + '.' + Math.floor(Math.random() * 255),
+      userAgent: navigator.userAgent
+    };
+
+    setAuditLogs(prev => [newLog, ...prev]);
+  }, []);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      addAuditLog({
+        action: AuditAction.ERROR,
+        severity: AuditSeverity.CRITICAL,
+        target: 'Interface GESA',
+        details: `Erro em Tempo de Execução: ${event.message} @ ${event.filename}:${event.lineno}`
+      });
+    };
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, [addAuditLog]);
 
   useEffect(() => {
     const unsubscribe = onAuthChange((user) => {
       if (user) {
-        const isAdmin = user.email?.includes('admin');
-        setCurrentUser({
+        const hasAccepted = localStorage.getItem(`lgpd_${user.uid}`) === 'true';
+        let role = Role.OPERATOR;
+        if (user.email?.includes('admin')) role = Role.ADMIN;
+        if (user.email?.includes('auditor')) role = Role.AUDITOR;
+
+        const userData: User = {
           id: user.uid,
           name: user.displayName || user.email?.split('@')[0],
           email: user.email,
-          role: isAdmin ? Role.ADMIN : Role.OPERATOR,
-          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email || 'User')}&background=0d457a&color=fff`
+          role: role,
+          mfaEnabled: role !== Role.OPERATOR,
+          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email || 'User')}&background=${role === Role.AUDITOR ? '334155' : '0d457a'}&color=fff`,
+          lgpdAccepted: hasAccepted
+        };
+
+        setCurrentUser(userData);
+        addAuditLog({
+          action: AuditAction.LOGIN,
+          severity: AuditSeverity.INFO,
+          target: 'Autenticação',
+          details: `Acesso autenticado com perfil ${role}.`
         });
       } else {
         setCurrentUser(null);
@@ -67,108 +111,82 @@ const App: React.FC = () => {
       setIsInitializing(false);
     });
     return () => { if (unsubscribe) unsubscribe(); };
-  }, []);
-
-  const addAuditLog = useCallback((action: AuditAction, target: string, details: string) => {
-    const newLog: AuditLog = {
-      id: Math.random().toString(36).substr(2, 9),
-      actorId: currentUser?.id || 'system',
-      actorName: currentUser?.name || 'Sistema',
-      action,
-      targetResource: target,
-      details: `${systemMode === SystemMode.TEST ? '[TESTE] ' : ''}${details}`,
-      timestamp: new Date().toISOString(),
-      ipAddress: '10.20.30.' + Math.floor(Math.random() * 255)
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
-  }, [currentUser, systemMode]);
-
-  const handleMoveAmendment = useCallback((movement: AmendmentMovement) => {
-    setAmendments(prev => prev.map(a => {
-      if (a.id === movement.amendmentId) {
-        const movements = [...a.movements];
-        if (movements.length > 0) {
-          const last = movements[movements.length - 1];
-          last.dateOut = movement.dateIn;
-          const diff = Math.ceil((new Date(movement.dateIn).getTime() - new Date(last.dateIn).getTime()) / (1000 * 60 * 60 * 24));
-          last.daysSpent = diff > 0 ? diff : 0;
-        }
-        return { ...a, currentSector: movement.toSector, movements: [...movements, movement] };
-      }
-      return a;
-    }));
-    addAuditLog(AuditAction.MOVE, `Processo SEI ${selectedAmendment?.seiNumber}`, `Tramitado para ${movement.toSector}.`);
-  }, [selectedAmendment, addAuditLog]);
-
-  const handleCreateAmendment = useCallback((newAmendment: Amendment) => {
-    const targetSector = sectors.find(s => s.name === newAmendment.currentSector);
-    const sla = targetSector?.defaultSlaDays || 2;
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + sla);
-    
-    if (newAmendment.movements.length > 0) {
-      newAmendment.movements[0].deadline = deadline.toISOString();
-    }
-    
-    setAmendments(prev => [newAmendment, ...prev]);
-    addAuditLog(AuditAction.CREATE, `Processo ${newAmendment.seiNumber}`, `Novo registro cadastrado em ${newAmendment.currentSector}.`);
-  }, [sectors, addAuditLog]);
-
-  const handleUpdateAmendment = useCallback((updated: Amendment) => {
-    setAmendments(prev => prev.map(a => a.id === updated.id ? updated : a));
-    addAuditLog(AuditAction.UPDATE, `Processo ${updated.seiNumber}`, `Alteração de dados cadastrais.`);
   }, [addAuditLog]);
 
-  const handleInactivateAmendment = useCallback((id: string) => {
-    const reason = window.prompt("JUSTIFICATIVA OBRIGATÓRIA:\nPor que este registro está sendo inativado?");
-    
-    if (reason === null) return;
-    if (reason.trim().length < 10) {
-      alert("Erro: Justificativa muito curta. Descreva o motivo detalhadamente para fins de auditoria.");
+  const handleMoveAmendment = useCallback((movements: AmendmentMovement[]) => {
+    if (currentUserRef.current?.role === Role.AUDITOR) {
+      alert("Acesso Negado: Auditores possuem perfil de apenas leitura.");
       return;
     }
 
     setAmendments(prev => prev.map(a => {
-      if (a.id === id) {
-        const inactivationMovement: AmendmentMovement = {
-          id: Math.random().toString(36).substr(2, 9),
-          amendmentId: a.id,
-          fromSector: a.currentSector,
-          toSector: Sector.ARCHIVE,
-          dateIn: new Date().toISOString(),
-          dateOut: null,
-          deadline: new Date().toISOString(),
-          daysSpent: 0,
-          handledBy: currentUser?.name || 'Sistema',
-          analysisType: AnalysisType.INACTIVATION,
-          justification: reason
-        };
-
-        addAuditLog(AuditAction.INACTIVATE, `Processo ${a.seiNumber}`, `Inativação efetuada. Motivo: ${reason}`);
-        
-        return { 
+      if (a.id === movements[0].amendmentId) {
+        // Para tramitação múltipla, o setor atual é a lista de todos os destinos da remessa
+        const targetSectors = movements.map(m => m.toSector).join(' | ');
+        const updated = { 
           ...a, 
-          status: Status.INACTIVE, 
-          currentSector: Sector.ARCHIVE,
-          inactivatedAt: new Date().toISOString(),
-          inactivationReason: reason,
-          movements: [...a.movements, inactivationMovement]
+          currentSector: targetSectors, 
+          movements: [...a.movements, ...movements],
+          status: Status.PROCESSING // Atualiza para tramitação ao mover
         };
+        addAuditLog({
+          action: AuditAction.MOVE,
+          severity: AuditSeverity.LOW,
+          target: a.seiNumber,
+          details: `Tramitação múltipla realizada para: ${targetSectors}`,
+          before: a,
+          after: updated
+        });
+        return updated;
       }
       return a;
     }));
-  }, [currentUser, addAuditLog]);
+  }, [addAuditLog]);
 
-  const activeAmendments = useMemo(() => 
-    amendments.filter(a => a.status !== Status.INACTIVE), 
-  [amendments]);
+  const handleCreateAmendment = useCallback((newAmendment: Amendment) => {
+    if (currentUserRef.current?.role === Role.AUDITOR) return;
+    setAmendments(prev => [newAmendment, ...prev]);
+    addAuditLog({
+      action: AuditAction.CREATE,
+      severity: AuditSeverity.MEDIUM,
+      target: newAmendment.seiNumber,
+      details: 'Novo cadastro de processo SEI realizado.',
+      after: newAmendment
+    });
+  }, [addAuditLog]);
+
+  const handleResetSectors = useCallback(() => {
+    if (window.confirm("ATENÇÃO: Deseja restaurar todos os setores para a configuração original? Todas as personalizações manuais serão perdidas.")) {
+      const before = sectors;
+      setSectors(DEFAULT_SECTOR_CONFIGS);
+      addAuditLog({
+        action: AuditAction.UPDATE,
+        severity: AuditSeverity.HIGH,
+        target: 'Gerenciamento de Setores',
+        details: 'Restauração manual de todos os setores para a configuração padrão.',
+        before: before,
+        after: DEFAULT_SECTOR_CONFIGS
+      });
+    }
+  }, [sectors, addAuditLog]);
+
+  const handleDeleteSector = useCallback((id: string) => {
+    const sector = sectors.find(s => s.id === id);
+    setSectors(prev => prev.filter(s => s.id !== id));
+    addAuditLog({
+        action: AuditAction.UPDATE,
+        severity: AuditSeverity.MEDIUM,
+        target: 'Setor Técnico',
+        details: `Setor ${sector?.name} removido da configuração.`,
+        before: sector
+    });
+  }, [sectors, addAuditLog]);
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-[#0d457a] flex flex-col items-center justify-center p-6 text-white text-center">
-        <div className="h-16 w-16 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4" />
-        <h2 className="text-xl font-bold uppercase tracking-widest">Iniciando GESA / SUBIPEI</h2>
-        <p className="text-white/50 text-xs mt-2 uppercase font-medium">Carregando módulos de segurança e dados...</p>
+      <div className="min-h-screen bg-[#0d457a] flex flex-col items-center justify-center p-6 text-white">
+        <div className="h-12 w-12 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4" />
+        <h2 className="text-sm font-black uppercase tracking-[0.3em]">GESA / SUBIPEI - GOIÁS</h2>
       </div>
     );
   }
@@ -177,9 +195,33 @@ const App: React.FC = () => {
     return <Login onLogin={() => {}} />;
   }
 
-  const renderView = () => {
-    if (selectedAmendment) {
-      return (
+  if (currentUser && !currentUser.lgpdAccepted) {
+    return <LGPDModal userName={currentUser.name} onAccept={() => {
+      localStorage.setItem(`lgpd_${currentUser.id}`, 'true');
+      setCurrentUser(prev => prev ? { ...prev, lgpdAccepted: true } : null);
+      addAuditLog({ 
+        action: AuditAction.LGPD_CONSENT, 
+        severity: AuditSeverity.INFO,
+        target: 'LGPD Compliance', 
+        details: 'Consentimento de tratamento de dados aceito no primeiro acesso.' 
+      });
+    }} />;
+  }
+
+  return (
+    <Layout 
+      currentUser={currentUser} 
+      currentView={currentView}
+      notifications={[]}
+      systemMode={systemMode}
+      onNavigate={setCurrentView}
+      onLogout={() => {
+        addAuditLog({ action: AuditAction.LOGIN, severity: AuditSeverity.INFO, details: 'Logout realizado pelo servidor.', target: 'Sessão' });
+        logout();
+        setCurrentUser(null);
+      }}
+    >
+      {selectedAmendment ? (
         <AmendmentDetail 
           amendment={selectedAmendment}
           currentUser={currentUser}
@@ -188,56 +230,75 @@ const App: React.FC = () => {
           onBack={() => setSelectedAmendmentId(null)}
           onMove={handleMoveAmendment}
           onStatusChange={(id, status) => {
+            const before = amendments.find(a => id === a.id);
             setAmendments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
-            addAuditLog(AuditAction.APPROVE, `ID ${id}`, `Status alterado para ${status}`);
+            addAuditLog({ 
+              action: AuditAction.UPDATE, 
+              severity: AuditSeverity.MEDIUM,
+              target: id, 
+              details: `Status alterado para ${status}`,
+              before,
+              after: { ...before, status }
+            });
           }}
-          onDelete={handleInactivateAmendment}
+          onDelete={(id) => {
+            if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.OPERATOR) {
+              alert("Permissão insuficiente para inativar registros.");
+              return;
+            }
+            const before = amendments.find(a => a.id === id);
+            setAmendments(prev => prev.map(a => a.id === id ? { ...a, status: Status.INACTIVE } : a));
+            addAuditLog({ 
+                action: AuditAction.DELETE, 
+                severity: AuditSeverity.HIGH,
+                target: id, 
+                details: 'Registro inativado por operador autorizado.',
+                before,
+                after: { ...before, status: Status.INACTIVE }
+            });
+          }}
         />
-      );
-    }
-
-    switch (currentView) {
-      case 'dashboard': return <Dashboard amendments={activeAmendments} systemMode={systemMode} />;
-      case 'amendments': return (
-        <AmendmentList 
-          amendments={amendments} 
-          sectors={sectors}
-          userRole={currentUser.role}
-          systemMode={systemMode}
-          onSelect={(a) => setSelectedAmendmentId(a.id)}
-          onCreate={handleCreateAmendment}
-          onUpdate={handleUpdateAmendment}
-          onDelete={handleInactivateAmendment}
-        />
-      );
-      case 'deadlines': return <DeadlinePanel amendments={activeAmendments} onSelect={(a) => setSelectedAmendmentId(a.id)} />;
-      case 'sectors': return (
-        <SectorManagement 
-          sectors={sectors} 
-          onAdd={(s) => { setSectors(prev => [...prev, s]); addAuditLog(AuditAction.SECURITY, s.name, 'Novo setor configurado no workflow'); }}
-          onDelete={(id) => setSectors(prev => prev.filter(s => s.id !== id))}
-        />
-      );
-      case 'repository': return <RepositoryModule amendments={amendments} />;
-      case 'reports': return <ReportModule amendments={amendments} />;
-      case 'import': return <ImportModule onImport={(data) => { setAmendments(prev => [...data, ...prev]); addAuditLog(AuditAction.CREATE, 'Importação em Massa', `${data.length} registros importados.`); }} />;
-      case 'security': return <SecurityModule users={users} onAddUser={(u) => setUsers(prev => [...prev, u])} onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))} />;
-      case 'audit': return <AuditModule logs={auditLogs} />;
-      default: return <Dashboard amendments={activeAmendments} systemMode={systemMode} />;
-    }
-  };
-
-  return (
-    <Layout 
-      currentUser={currentUser} 
-      currentView={currentView}
-      notifications={notifications}
-      systemMode={systemMode}
-      onSetSystemMode={setSystemMode}
-      onNavigate={setCurrentView}
-      onLogout={() => { logout(); setCurrentUser(null); }}
-    >
-      {renderView()}
+      ) : (
+        <>
+          {currentView === 'dashboard' && <Dashboard amendments={amendments} systemMode={systemMode} />}
+          {currentView === 'amendments' && (
+            <AmendmentList 
+              amendments={amendments} 
+              sectors={sectors} 
+              userRole={currentUser.role} 
+              systemMode={systemMode} 
+              onSelect={a => setSelectedAmendmentId(a.id)} 
+              onCreate={handleCreateAmendment} 
+              onUpdate={() => {}} 
+              onDelete={() => {}} 
+            />
+          )}
+          {currentView === 'audit' && <AuditModule logs={auditLogs} />}
+          {currentView === 'security' && (
+            <SecurityModule 
+              users={users} 
+              currentUser={currentUser} 
+              onAddUser={(u) => {
+                setUsers(prev => [...prev, u]);
+                addAuditLog({ action: AuditAction.SECURITY, severity: AuditSeverity.HIGH, target: u.email, details: `Novo usuário criado com perfil ${u.role}` });
+              }} 
+              onDeleteUser={(id) => {
+                const u = users.find(usr => usr.id === id);
+                setUsers(prev => prev.filter(usr => usr.id !== id));
+                addAuditLog({ action: AuditAction.SECURITY, severity: AuditSeverity.HIGH, target: id, details: `Usuário ${u?.email} removido do sistema.` });
+              }} 
+            />
+          )}
+          {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
+          {currentView === 'reports' && <ReportModule amendments={amendments} />}
+          {currentView === 'sectors' && <SectorManagement sectors={sectors} onAdd={s => setSectors(prev => [...prev, s])} onDelete={handleDeleteSector} onReset={handleResetSectors} />}
+          {currentView === 'deadlines' && <DeadlinePanel amendments={amendments} onSelect={a => setSelectedAmendmentId(a.id)} />}
+          {currentView === 'import' && <ImportModule onImport={data => {
+            setAmendments(prev => [...data, ...prev]);
+            addAuditLog({ action: AuditAction.CREATE, severity: AuditSeverity.MEDIUM, target: 'Batch Import', details: `Importação em massa de ${data.length} registros.` });
+          }} />}
+        </>
+      )}
     </Layout>
   );
 };

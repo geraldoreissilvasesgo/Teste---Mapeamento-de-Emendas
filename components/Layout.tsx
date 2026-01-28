@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -14,12 +13,8 @@ import {
   Settings2,
   AlarmClockCheck,
   Bell,
-  Search,
-  Zap,
-  TestTube2,
-  Lock,
   Globe,
-  AlertTriangle
+  Terminal
 } from 'lucide-react';
 import { User, Role, Notification, SystemMode } from '../types';
 import { APP_NAME, DEPARTMENT } from '../constants';
@@ -30,7 +25,6 @@ interface LayoutProps {
   currentView: string;
   notifications: Notification[];
   systemMode: SystemMode;
-  onSetSystemMode: (mode: SystemMode) => void;
   onNavigate: (view: string) => void;
   onLogout: () => void;
 }
@@ -41,15 +35,13 @@ export const Layout: React.FC<LayoutProps> = ({
   currentView, 
   notifications,
   systemMode,
-  onSetSystemMode,
   onNavigate, 
   onLogout 
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const [showNotifications, setShowNotifications] = React.useState(false);
 
-  const isTest = systemMode === SystemMode.TEST;
-
+  // Removido menuItems dinâmicos de teste
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'amendments', label: 'Processos SEI', icon: FileText },
@@ -81,6 +73,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => {
             if (item.roles && !item.roles.includes(currentUser.role)) return null;
+            
             const Icon = item.icon;
             const isActive = currentView === item.id;
             return (
@@ -114,37 +107,20 @@ export const Layout: React.FC<LayoutProps> = ({
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
         {/* Header */}
-        <header className={`h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40 transition-colors duration-500 ${isTest ? 'border-b-amber-200' : ''}`}>
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors text-slate-500">
               {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             
-            {/* AMBIENTE SELECTOR */}
-            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl">
-               <button 
-                 onClick={() => onSetSystemMode(SystemMode.PRODUCTION)}
-                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${!isTest ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-               >
-                 <Globe size={14} /> Produção
-               </button>
-               <button 
-                 onClick={() => onSetSystemMode(SystemMode.TEST)}
-                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${isTest ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-               >
-                 <TestTube2 size={14} /> Teste
-               </button>
+            {/* Ambiente fixo em Produção */}
+            <div className="flex items-center gap-2 p-1 bg-emerald-50 rounded-2xl border border-emerald-100 px-4 py-2">
+               <Globe size={14} className="text-emerald-600" />
+               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Ambiente de Produção</span>
             </div>
           </div>
 
           <div className="flex items-center gap-6">
-             {isTest && (
-               <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-full">
-                  <AlertTriangle size={14} className="text-amber-600" />
-                  <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Ambiente de Simulação</span>
-               </div>
-             )}
-
             <div className="relative">
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
@@ -191,13 +167,6 @@ export const Layout: React.FC<LayoutProps> = ({
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
           {children}
-          
-          {/* TEST MODE WATERMARK */}
-          {isTest && (
-            <div className="fixed bottom-10 right-10 pointer-events-none z-0 opacity-10 select-none rotate-12">
-               <h1 className="text-8xl font-black text-slate-900 uppercase">Ambiente de Teste</h1>
-            </div>
-          )}
         </main>
       </div>
     </div>

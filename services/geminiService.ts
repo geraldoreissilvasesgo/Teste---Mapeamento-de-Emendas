@@ -19,15 +19,15 @@ const mockAnalysis: AIAnalysisResult = {
  * @param amendment O objeto da emenda com todo seu histórico de movimentos.
  */
 export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysisResult> => {
-  const apiKey = process.env.API_KEY;
-
-  if (!apiKey) {
+  // Fix: Strictly following the guidelines for API key access and initialization
+  if (!process.env.API_KEY) {
     console.warn("Chave API não encontrada. Retornando análise simulada.");
     return new Promise(resolve => setTimeout(() => resolve(mockAnalysis), 1500));
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    // Fix: Using direct initialization as per guidelines
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const prompt = `
       Você é um especialista em gestão pública da GESA/SUBIPEI do Estado de Goiás.
@@ -45,8 +45,9 @@ export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysis
       ${amendment.movements.map(m => `- De ${m.fromSector || 'Início'} para ${m.toSector}: Ficou ${m.daysSpent} dias`).join('\n')}
     `;
 
+    // Fix: Using 'gemini-3-pro-preview' for advanced reasoning/analysis tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",

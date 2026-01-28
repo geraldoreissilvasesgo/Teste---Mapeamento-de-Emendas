@@ -1,25 +1,16 @@
 
-import { Role, Status, User, AuditLog, AuditAction, SectorConfig, AnalysisType, AmendmentType, TransferMode } from './types';
+import { Role, Status, User, AuditLog, AuditAction, SectorConfig, AnalysisType, AmendmentType, AuditSeverity, Amendment, TransferMode, GNDType } from './types';
 
 export const APP_NAME = "Rastreio de Emendas";
 export const DEPARTMENT = "Gerência de Suporte Administrativo - GESA/SUBIPEI";
 
-// Reset e Reconfiguração oficial GESA/SUBIPEI
-export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [
-  { id: 'sec-01', name: 'GESA - Protocolo Central', defaultSlaDays: 1, analysisType: AnalysisType.TECHNICAL },
-  { id: 'sec-02', name: 'Gerência de Orçamento', defaultSlaDays: 3, analysisType: AnalysisType.BUDGET_RESERVE },
-  { id: 'sec-03', name: 'SUINFRA - Engenharia e Infraestrutura', defaultSlaDays: 10, analysisType: AnalysisType.TECHNICAL },
-  { id: 'sec-04', name: 'SUTIS - Tecnologia da Informação', defaultSlaDays: 10, analysisType: AnalysisType.TECHNICAL },
-  { id: 'sec-05', name: 'Coordenação de Convênios', defaultSlaDays: 7, analysisType: AnalysisType.DOC_COMPLEMENT },
-  { id: 'sec-06', name: 'Procuradoria Setorial (Jurídico)', defaultSlaDays: 15, analysisType: AnalysisType.LEGAL },
-  { id: 'sec-07', name: 'Gabinete da Direção GESA', defaultSlaDays: 3, analysisType: AnalysisType.FINAL_APPROVAL },
-  { id: 'sec-08', name: 'Gerência de Finanças (Pagamento)', defaultSlaDays: 5, analysisType: AnalysisType.PAYMENT_PROC }
-];
+// Lista iniciada vazia conforme solicitação para novo cadastramento manual
+export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [];
 
 export const GOIAS_CITIES = [
   "Abadia de Goiás", "Abadiânia", "Acreúna", "Adelândia", "Água Fria de Goiás", "Água Limpa", "Águas Lindas de Goiás", 
   "Alexânia", "Aloândia", "Alto Horizonte", "Alto Paraíso de Goiás", "Alvorada do Norte", "Amaralina", "Americano do Brasil", 
-  "Amorinópolis", "Anápolis", "Anhanguera", "Anicuns", "Aparecida de Goiânia", "Aparecida do Rio Doce", "Aporé", "Araçu", 
+  "Amorinópolis", "Anápolis", "Anhanguera", "Anicuns", "Aparecida de Goiânia", "Aparecida do Rio Doc", "Aporé", "Araçu", 
   "Aragarças", "Aragoiânia", "Araguapaz", "Arenópolis", "Aruanã", "Aurilândia", "Avelinópolis", "Baliza", "Barro Alto", 
   "Bela Vista de Goiás", "Bom Jardim de Goiás", "Bom Jesus de Goiás", "Bonfinópolis", "Bonópolis", "Brazabrantes", 
   "Britânia", "Buriti Alegre", "Buriti de Goiás", "Buritinópolis", "Cabeceiras", "Cachoeira Alta", "Cachoeira de Goiás", 
@@ -30,87 +21,100 @@ export const GOIAS_CITIES = [
   "Cromínia", "Cumari", "Damianópolis", "Damolândia", "Davinópolis", "Diorama", "Divinópolis de Goiás", "Doverlândia", 
   "Edealina", "Edéia", "Estrela do Norte", "Faina", "Fazenda Nova", "Firminópolis", "Flores de Goiás", "Formosa", 
   "Formoso", "Gameleira de Goiás", "Goianápolis", "Goiandira", "Goianésia", "Goiânia", "Goianira", "Goiás", "Goiatuba", 
-  "Gouvelândia", "Guapó", "Guaraíta", "Guarani de Goiás", "Guarinos", "Heitoraí", "Hidrolândia", "Hidrolina", "Iaciara", 
+  "Gouvelândia", "Guapó", "Guaraíta", "Guarani de Goiás", "Guarani de Goiás", "Guarinos", "Heitoraí", "Hidrolândia", "Hidrolina", "Iaciara", 
   "Inaciolândia", "Indiara", "Inhumas", "Ipameri", "Ipiranga de Goiás", "Iporá", "Israelândia", "Itaberaí", "Itaguari", 
   "Itaguaru", "Itajá", "Itapaci", "Itapirapuã", "Itapuranga", "Itarumã", "Itauçu", "Itumbiara", "Ivolândia", "Jandaia", 
   "Jaraguá", "Jataí", "Jaupaci", "Jesúpolis", "Joviânia", "Jussara", "Lagoa Santa", "Leopoldo de Bulhões", "Luziânia", 
-  "Mairipotaba", "Mambaí", "Mara Rosa", "Marzagão", "Matrinchã", "Maurilândia", "Mimoso de Goiás", "Minaçu", "Mineiros", 
-  "Moiporá", "Monte Alegre de Goiás", "Montes Claros de Goiás", "Montividiu", "Montividiu do Norte", "Morrinhos", 
-  "Morro Agudo de Goiás", "Mossâmedes", "Mozarlândia", "Mundo Novo", "Mutunópolis", "Nazário", "Nerópolis", "Niquelândia", 
-  "Nova América", "Nova Aurora", "Nova Crixás", "Nova Glória", "Nova Iguaçu de Goiás", "Nova Roma", "Nova Veneza", 
-  "Novo Brasil", "Novo Gama", "Novo Planalto", "Orizona", "Ouro Verde de Goiás", "Ouvidor", "Padre Bernardo", 
-  "Palestina de Goiás", "Palmeiras de Goiás", "Palmelo", "Palminópolis", "Panamá", "Paranaiguara", "Paraúna", 
-  "Perolândia", "Petrolina de Goiás", "Pilar de Goiás", "Piracanjuba", "Piranhas", "Pirenópolis", "Pires do Rio", 
-  "Planaltina", "Pontalina", "Porangatu", "Porteirão", "Portelândia", "Posse", "Professor Jamil", "Quirinópolis", 
-  "Rialma", "Rianápolis", "Rio Quente", "Rio Verde", "Rubiataba", "Sanclerlândia", "Santa Bárbara de Goiás", 
-  "Santa Cruz de Goiás", "Santa Fé de Goiás", "Santa Helena de Goiás", "Santa Isabel", "Santa Rita do Novo Destino", 
-  "Santa Rita do Araguaia", "Santa Rosa de Goiás", "Santa Tereza de Goiás", "Santa Terezinha de Goiás", 
-  "Santo Antônio da Barra", "Santo Antônio de Goiás", "Santo Antônio do Descoberto", "São Domingos", "São Francisco de Goiás", 
-  "São João d'Aliança", "São João da Paraúna", "São Luís de Montes Claros", "São Luíz do Norte", "São Miguel do Araguaia", 
-  "São Miguel do Passa Quatro", "São Patrício", "São Simão", "Senador Canedo", "Serranópolis", "Silvânia", "Simolândia", 
-  "Sítio d'Abadia", "Taquaral de Goiás", "Teresina de Goiás", "Terezópolis de Goiás", "Três Ranchos", "Trindade", 
-  "Turvânia", "Turvelândia", "Uirapuru", "Uruaçu", "Uruana", "Urutaí", "Valparaíso de Goiás", "Varjão", "Vianópolis", 
-  "Vicentinópolis", "Vila Boa", "Vila Propício"
+  "Mairipotaba", "Mambaí", "Mara Rosa", "Marzagão", "Maurilândia", "Mimoso de Goiás", "Mineiros", "Moiporá", 
+  "Monte Alegre de Goiás", "Montes Claros de Goiás", "Montividiu", "Montividiu do Norte", "Morrinhos", "Morro Agudo de Goiás", 
+  "Mossâmedes", "Mozarlândia", "Mundo Novo", "Mutunópolis", "Nazário", "Nerópolis", "Niquelândia", "Nova América", 
+  "Nova Aurora", "Nova Crixás", "Nova Glória", "Nova Iguaçu de Goiás", "Nova Roma", "Nova Veneza", "Novo Brasil", 
+  "Novo Gama", "Novo Planalto", "Orizona", "Ouro Verde de Goiás", "Ouvidor", "Padre Bernardo", "Palestina de Goiás", 
+  "Palmeiras de Goiás", "Palmelo", "Palminópolis", "Panamá", "Paranaiguara", "Paraúna", "Perolândia", "Petrolina de Goiás", 
+  "Pilar de Goiás", "Piracanjuba", "Piranhas", "Pirenópolis", "Pires do Rio", "Planaltina", "Pontalina", "Porangatu", 
+  "Porteirão", "Portelândia", "Posse", "Professor Jamil", "Quirinópolis", "Rialma", "Rianápolis", "Rio Quente", 
+  "Rio Verde", "Rubiataba", "Sanclerlândia", "Santa Bárbara de Goiás", "Santa Cruz de Goiás", "Santa Fé de Goiás", 
+  "Santa Helena de Goiás", "Santa Isabel", "Santa Rita do Araguaia", "Santa Rita do Novo Destino", "Santa Rosa de Goiás", 
+  "Santa Tereza de Goiás", "Santa Terezinha de Goiás", "Santo Antônio da Barra", "Santo Antônio de Goiás", 
+  "Santo Antônio do Descoberto", "São Domingos", "São Francisco de Goiás", "São João d'Aliança", "São João da Paraúna", 
+  "São Luís de Montes Belos", "São Luíz do Norte", "São Miguel do Araguaia", "São Miguel do Passa Quatro", 
+  "São Patrício", "São Simão", "Senador Canedo", "Serranópolis", "Silvânia", "Simolândia", "Sítio d'Abadia", 
+  "Taquaral de Goiás", "Teresina de Goiás", "Terezópolis de Goiás", "Três Ranchos", "Trindade", "Trombas", "Turvânia", 
+  "Turvelândia", "Uirapuru", "Uruaçu", "Uruana", "Urutaí", "Valparaíso de Goiás", "Varjão", "Vianópolis", "Vicentinópolis", 
+  "Vila Boa", "Vila Propício"
 ];
 
 export const GOIAS_DEPUTIES = [
-  "Alessandro Moreira", "Amauri Ribeiro", "Amilton Filho", "Anderson Teodoro", "André do Premium", "Antônio Gomide", 
-  "Bia de Lima", "Bruno Peixoto (Presidência)", "Cairo Salim", "Charles Bento", "Clécio Alves", "Coronel Adailton", 
-  "Cristiano Galindo", "Cristóvão Tormin", "Delegado Eduardo Prado", "Dr. George Morais", "Dra. Zélia", 
-  "Gugu Nader", "Henrique César", "Issy Quinan", "Jamil Calife", "José Machado", "Karlos Cabral", "Lineu Olímpio", 
-  "Lucas Calil", "Lucas do Vale", "Mauro Rubem", "Paulo Cezar Martins", "Quirino", "Renato de Castro", 
-  "Ricardo Quirino", "Rosângela Rezende", "Talles Barreto", "Thiago Albernaz", "Uebe Rezeck", "Veter Martins", 
-  "Virmondes Cruvinel", "Vivian Naves", "Wagner Neto", "Wilde Cambão", "Zeli Fritsche", "Governo de Goiás (Execução Direta)"
+  "Adriana Accorsi",
+  "Alessandro Moreira",
+  "Amilton Filho",
+  "Amauri Ribeiro",
+  "Anderson Teodoro",
+  "Antônio Gomide",
+  "Bia de Lima",
+  "Bruno Peixoto",
+  "Cairo Salim",
+  "Charles Bento",
+  "Clécio Alves",
+  "Cristiano Galindo",
+  "Delegado Eduardo Prado",
+  "Dra. Zélia",
+  "Dr. George Morais",
+  "Dr. José Machado",
+  "Gugu Nader",
+  "Gustavo Sebba",
+  "Henrique César",
+  "Issy Quinan",
+  "Jamil Calife",
+  "Karlos Cabral",
+  "Lineu Olimpio",
+  "Lincoln Tejota",
+  "Lucas Calil",
+  "Lucas do Vale",
+  "Major Araújo",
+  "Mauro Rubem",
+  "Paulo Cezar Martins",
+  "Renato de Castro",
+  "Ricardo Quirino",
+  "Talles Barreto",
+  "Veter Martins",
+  "Vívian Naves",
+  "Wilde Cambão",
+  "Zequinha Conti"
 ];
 
 export const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Carlos Silva', email: 'admin@gesa.subipei.go.gov.br', role: Role.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Carlos+Silva&background=0d457a&color=fff' },
-  { id: 'u2', name: 'Mariana Costa', email: 'operador@gesa.subipei.go.gov.br', role: Role.OPERATOR, avatarUrl: 'https://ui-avatars.com/api/?name=Mariana+Costa&background=0d457a&color=fff' }
-];
-
-export const MOCK_AMENDMENTS: any[] = [
-  {
-    id: 'a1',
-    code: 'EM-2025-0001',
-    year: 2025,
-    type: AmendmentType.IMPOSITIVA,
-    seiNumber: '202500042000001',
-    value: 500000,
-    municipality: 'Anápolis',
-    deputyName: 'Bruno Peixoto (Presidência)',
-    object: 'Aquisição de ambulância tipo B e equipamentos hospitalares',
-    status: Status.PROCESSING,
-    currentSector: 'GESA - Protocolo Central',
-    healthUnit: 'Unidade GESA',
-    entryDate: '2025-02-24',
-    suinfra: false,
-    sutis: false,
-    createdAt: '2025-02-24T08:00:00Z',
-    movements: [
-      {
-        id: 'm1',
-        amendmentId: 'a1',
-        fromSector: 'Gabinete Parlamentar',
-        toSector: 'GESA - Protocolo Central',
-        dateIn: '2025-02-24T08:00:00Z',
-        dateOut: null,
-        deadline: '2025-02-25T08:00:00Z',
-        daysSpent: 0,
-        handledBy: 'Protocolo Central GESA'
-      }
-    ]
+  { 
+    id: 'u-01', 
+    name: 'Administrador GESA', 
+    email: 'admin@gesa.subipei.go.gov.br', 
+    role: Role.ADMIN, 
+    avatarUrl: 'https://ui-avatars.com/api/?name=Admin&background=0d457a&color=fff', 
+    lgpdAccepted: true 
+  },
+  { 
+    id: 'u-02', 
+    name: 'Operador Técnico', 
+    email: 'operador@gesa.subipei.go.gov.br', 
+    role: Role.OPERATOR, 
+    avatarUrl: 'https://ui-avatars.com/api/?name=Operador&background=0d457a&color=fff', 
+    lgpdAccepted: true 
   }
 ];
 
+export const MOCK_AMENDMENTS: Amendment[] = [];
+
 export const MOCK_AUDIT_LOGS: AuditLog[] = [
   {
-    id: 'l1',
-    actorId: 'u1',
-    actorName: 'Carlos Silva',
+    id: 'aud-01',
+    actorId: 'u-01',
+    actorName: 'Administrador GESA',
     action: AuditAction.LOGIN,
-    targetResource: 'Autenticação',
-    details: 'Login efetuado com sucesso via SSO Institucional GESA/SUBIPEI.',
+    severity: AuditSeverity.INFO,
+    targetResource: 'Sessão de Usuário',
+    details: 'Login administrativo realizado com sucesso.',
     timestamp: new Date().toISOString(),
-    ipAddress: '10.20.30.44'
+    ipAddress: '10.20.15.42',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
   }
 ];
