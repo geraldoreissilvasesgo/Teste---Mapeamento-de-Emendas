@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rastreio de Emendas - SES/GO</title>
+    <title>Rastreio de Emendas - GESA/SUBIPEI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -32,20 +33,17 @@
         }
 
         /* 2. Reseta os containers específicos do Layout.tsx que têm overflow */
-        /* Procura por classes usadas no layout (overflow-hidden, h-screen, etc) */
         .flex.h-screen, 
         .overflow-hidden, 
         .overflow-y-auto, 
         .flex-1 {
-          display: block !important; /* Remove flexbox dos containers pai para soltar o fluxo */
+          display: block !important; 
           height: auto !important;
           overflow: visible !important;
           position: static !important;
         }
 
-        /* 3. Reativa Grid/Flex apenas para o CONTEÚDO (Cards, Gráficos) se necessário */
-        /* Mas cuidado: os pais foram transformados em block. */
-        /* Vamos garantir que o main ocupe tudo */
+        /* 3. Reativa Grid/Flex apenas para o CONTEÚDO se necessário */
         main {
            width: 100% !important;
            padding: 0 !important;
@@ -71,7 +69,7 @@
 
         /* Ajuste para Recharts na impressão */
         .recharts-responsive-container {
-           min-height: 300px !important; /* Garante altura se o JS falhar no redimensionamento */
+           min-height: 300px !important; 
         }
       }
     </style>

@@ -1,12 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
-import { Amendment, Status, Sector, Role, AmendmentType, TransferMode } from '../types';
+import { Amendment, Status, Role, AmendmentType, TransferMode, SectorConfig, SystemMode } from '../types';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
-import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, Calendar, FileText, User, Tag, Landmark, HardHat, MonitorCheck, ShieldOff } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, User, Building2, Send, ChevronDown, Landmark, Award, Layers } from 'lucide-react';
 
 interface AmendmentListProps {
   amendments: Amendment[];
+  sectors: SectorConfig[];
   userRole: Role;
+  systemMode: SystemMode;
   onSelect: (amendment: Amendment) => void;
   onCreate: (amendment: Amendment) => void;
   onUpdate: (amendment: Amendment) => void;
@@ -15,9 +17,13 @@ interface AmendmentListProps {
 
 const ITEMS_PER_PAGE = 12;
 
+type MacroCategory = 'ALL' | 'PARLIAMENTARY' | 'GOIAS_CRESCIMENTO';
+
 export const AmendmentList: React.FC<AmendmentListProps> = ({ 
   amendments, 
+  sectors,
   userRole, 
+  systemMode,
   onSelect,
   onCreate,
   onUpdate,
@@ -25,33 +31,43 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [macroCategory, setMacroCategory] = useState<MacroCategory>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  const initialFormState: Partial<Amendment> = {
+  const [originSearch, setOriginSearch] = useState('');
+  const [destSearch, setDestSearch] = useState('');
+  const [showOriginList, setShowOriginList] = useState(false);
+  const [showDestList, setShowDestList] = useState(false);
+
+  const initialFormState: Partial<Amendment & { initialOrigin: string; initialDestination: string }> = {
     year: new Date().getFullYear(),
     type: AmendmentType.IMPOSITIVA,
     status: Status.PROCESSING,
-    currentSector: Sector.PROTOCOL,
+    currentSector: 'GESA - Protocolo Central',
     object: '',
     municipality: '',
     deputyName: '',
     seiNumber: '',
-    healthUnit: 'SES-GO',
+    healthUnit: 'Unidade GESA',
     value: 0,
     suinfra: false,
     sutis: false,
     transferMode: TransferMode.FUNDO_A_FUNDO,
-    entryDate: new Date().toISOString().split('T')[0]
+    entryDate: new Date().toISOString().split('T')[0],
+    initialOrigin: '',
+    initialDestination: 'GESA - Protocolo Central'
   };
 
-  const [formData, setFormData] = useState<Partial<Amendment>>(initialFormState);
+  const [formData, setFormData] = useState<Partial<Amendment & { initialOrigin: string; initialDestination: string }>>(initialFormState);
 
-  // Optimized Filtering using useMemo
   const filteredAmendments = useMemo(() => {
     const term = searchTerm.toLowerCase();
     return amendments.filter(a => {
+      if (macroCategory === 'PARLIAMENTARY' && a.type === AmendmentType.GOIAS_CRESCIMENTO) return false;
+      if (macroCategory === 'GOIAS_CRESCIMENTO' && a.type !== AmendmentType.GOIAS_CRESCIMENTO) return false;
+
       const matchesSearch = 
         !term ||
         (a.seiNumber && a.seiNumber.toLowerCase().includes(term)) ||
@@ -61,49 +77,39 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
       const matchesStatus = statusFilter === 'all' || a.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [amendments, searchTerm, statusFilter]);
+  }, [amendments, searchTerm, statusFilter, macroCategory]);
 
-  const totalPages = useMemo(() => Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE), [filteredAmendments.length]);
-  
-  const paginatedAmendments = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredAmendments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredAmendments, currentPage]);
+  const totalPages = Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE);
+  const paginatedAmendments = filteredAmendments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.seiNumber || !formData.value || !formData.municipality) {
-      alert("Por favor, preencha os campos obrigatórios básicos (SEI, Valor e Município).");
-      return;
-    }
-
-    if (formData.type === AmendmentType.IMPOSITIVA && !formData.deputyName) {
-      alert("Para Emendas Impositivas, a identificação do Parlamentar é obrigatória.");
+    if (!formData.seiNumber || !formData.value || !formData.municipality || !formData.initialDestination) {
+      alert("Campos obrigatórios: SEI, Valor, Município e Setor de Destino.");
       return;
     }
 
     if (editingId) {
       onUpdate({ ...formData, id: editingId } as Amendment);
     } else {
+      const destSector = formData.initialDestination || 'GESA - Protocolo Central';
       const created: Amendment = {
         ...formData as Amendment,
         id: Math.random().toString(36).substr(2, 9),
         code: `EM-${formData.year}-${Math.floor(Math.random() * 90000 + 10000)}`,
         createdAt: new Date().toISOString(),
-        deputyName: formData.type === AmendmentType.GOIAS_CRESCIMENTO && !formData.deputyName 
-          ? 'Diretoria Executiva / Governo' 
-          : formData.deputyName,
+        currentSector: destSector,
         movements: [{
           id: Math.random().toString(36).substr(2, 9),
           amendmentId: '',
-          fromSector: null,
-          toSector: Sector.PROTOCOL,
+          fromSector: formData.initialOrigin || 'Gabinete Parlamentar',
+          toSector: destSector,
           dateIn: new Date().toISOString(),
           dateOut: null,
           deadline: new Date().toISOString(),
           daysSpent: 0,
-          handledBy: 'Administrador'
+          handledBy: userRole === Role.ADMIN ? 'Administrador' : 'Operador GESA'
         }]
       };
       onCreate(created);
@@ -112,72 +118,76 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     setIsModalOpen(false);
   };
 
-  const handleEdit = (amendment: Amendment, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (amendment.status === Status.INACTIVE) {
-      alert("Este registro está inativado e não permite alterações cadastrais.");
-      return;
-    }
-    setEditingId(amendment.id);
-    setFormData({ ...amendment });
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (amendment: Amendment, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (amendment.status === Status.INACTIVE) {
-      alert("Este registro já se encontra inativado.");
-      return;
-    }
-    onDelete(amendment.id);
-  };
-
   const resetForm = () => {
     setFormData(initialFormState);
     setEditingId(null);
+    setOriginSearch('');
+    setDestSearch('');
   };
+
+  const filteredOriginSectors = sectors.filter(s => s.name.toLowerCase().includes(originSearch.toLowerCase()));
+  const filteredDestSectors = sectors.filter(s => s.name.toLowerCase().includes(destSearch.toLowerCase()));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#0d457a] uppercase tracking-tight">Emendas e Processos SEI</h2>
-          <p className="text-slate-500 text-sm">Gestão de tramitação e conformidade técnica.</p>
+          <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Gestão de Processos GESA/SUBIPEI</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Monitoramento de Emendas e Recursos do Executivo.</p>
         </div>
         
-        <div className="flex gap-2">
-          {userRole !== Role.VIEWER && (
-            <button 
-                onClick={() => { resetForm(); setIsModalOpen(true); }} 
-                className="bg-[#0d457a] text-white px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 uppercase text-xs shadow-md hover:bg-[#0a365f] transition-all active:scale-95"
-            >
-                <Plus size={18} /> Novo Registro Completo
-            </button>
-          )}
-        </div>
+        {userRole !== Role.VIEWER && (
+          <button 
+              onClick={() => { resetForm(); setIsModalOpen(true); }} 
+              className="bg-[#0d457a] text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 uppercase text-xs shadow-xl hover:bg-[#0a365f] transition-all active:scale-95"
+          >
+              <Plus size={18} /> Novo Cadastro SEI
+          </button>
+        )}
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
+      <div className="flex flex-wrap gap-2 p-1 bg-slate-200/50 rounded-2xl w-fit">
+        <button 
+          onClick={() => { setMacroCategory('ALL'); setCurrentPage(1); }}
+          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${macroCategory === 'ALL' ? 'bg-[#0d457a] text-white shadow-md' : 'text-slate-500 hover:bg-slate-300/50'}`}
+        >
+          Todos os Processos
+        </button>
+        <button 
+          onClick={() => { setMacroCategory('PARLIAMENTARY'); setCurrentPage(1); }}
+          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${macroCategory === 'PARLIAMENTARY' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-300/50'}`}
+        >
+          <Landmark size={14} /> Emendas Parlamentares
+        </button>
+        <button 
+          onClick={() => { setMacroCategory('GOIAS_CRESCIMENTO'); setCurrentPage(1); }}
+          className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${macroCategory === 'GOIAS_CRESCIMENTO' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-300/50'}`}
+        >
+          <Award size={14} /> Goiás em Crescimento
+        </button>
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Pesquisar por SEI, Parlamentar, Município ou Objeto..." 
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none transition-all text-sm"
+            placeholder="Pesquisar por SEI, Parlamentar, Município..." 
+            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all text-sm font-medium"
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
           />
         </div>
         <div className="flex items-center gap-2">
-           <Filter size={18} className="text-slate-400" />
+           <Filter size={16} className="text-slate-400" />
            <select 
-             className="p-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-[#0d457a]"
-             value={statusFilter}
-             onChange={e => setStatusFilter(e.target.value)}
-           >
-             <option value="all">Todos os Status</option>
-             {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
-           </select>
+              className="p-3 bg-slate-50 border-none rounded-2xl text-xs font-black uppercase outline-none focus:ring-2 focus:ring-[#0d457a] text-slate-600"
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="all">Status: Todos</option>
+              {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
         </div>
       </div>
 
@@ -186,60 +196,42 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           <div 
             key={amendment.id} 
             onClick={() => onSelect(amendment)} 
-            className={`group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer hover:shadow-xl hover:border-[#0d457a]/30 transition-all transform hover:-translate-y-1 
-              ${amendment.status === Status.INACTIVE ? 'opacity-60 bg-slate-50' : ''}`}
+            className={`group bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#0d457a]/20 transition-all transform hover:-translate-y-1 
+              ${amendment.status === Status.INACTIVE ? 'opacity-60 grayscale' : ''}`}
           >
             <div className={`h-1.5 w-full ${
                 amendment.status === Status.CONCLUDED ? 'bg-emerald-500' : 
-                amendment.status === Status.INACTIVE ? 'bg-slate-900' :
+                amendment.status === Status.INACTIVE ? 'bg-slate-800' :
                 amendment.status.includes('diligência') ? 'bg-amber-500' : 
-                'bg-[#0d457a]'
+                amendment.type === AmendmentType.GOIAS_CRESCIMENTO ? 'bg-indigo-600' : 'bg-[#0d457a]'
             }`} />
-            <div className="p-5">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Processo SEI</p>
-                  <h3 className={`text-base font-bold transition-colors truncate ${amendment.status === Status.INACTIVE ? 'text-slate-500 line-through' : 'text-[#0d457a] group-hover:text-blue-700'}`}>{amendment.seiNumber}</h3>
-                </div>
-                <div className="flex gap-1 ml-2 no-print">
-                   {userRole !== Role.VIEWER && (
-                     <>
-                        <button 
-                          onClick={(e) => handleEdit(amendment, e)}
-                          className={`p-1.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all ${amendment.status === Status.INACTIVE ? 'cursor-not-allowed opacity-30' : ''}`}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button 
-                          onClick={(e) => handleDelete(amendment, e)}
-                          className={`p-1.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all ${amendment.status === Status.INACTIVE ? 'cursor-not-allowed opacity-30' : ''}`}
-                        >
-                          <ShieldOff size={14} />
-                        </button>
-                     </>
-                   )}
-                </div>
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Processo SEI</p>
+                <span className={`text-[8px] px-2 py-0.5 rounded-md font-black uppercase ${amendment.type === AmendmentType.GOIAS_CRESCIMENTO ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+                   {amendment.type.includes('Impositiva') ? 'Parlamentar' : 'Executivo'}
+                </span>
               </div>
+              <h3 className="text-base font-black text-[#0d457a] mb-4 truncate">{amendment.seiNumber}</h3>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <User size={14} className="text-slate-400 shrink-0" />
-                    <span className="text-xs text-slate-600 font-medium truncate">{amendment.deputyName || 'Governo / Executivo'}</span>
+                    <span className="text-xs text-slate-600 font-bold uppercase truncate">{amendment.deputyName || 'Execução Direta'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin size={14} className="text-slate-400 shrink-0" />
-                    <span className="text-xs text-slate-600 font-medium truncate">{amendment.municipality}</span>
+                    <span className="text-xs text-slate-600 font-bold uppercase truncate">{amendment.municipality}</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 line-clamp-2 h-8 leading-relaxed italic mt-1">"{amendment.object}"</p>
               </div>
 
-              <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-50">
+              <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-50">
                 <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">Valor</span>
-                  <span className="font-bold text-base text-[#0d457a]">R$ {amendment.value.toLocaleString('pt-BR')}</span>
+                  <span className="text-[9px] text-slate-400 uppercase font-black tracking-tight">Recurso</span>
+                  <span className="font-black text-lg text-[#0d457a]">R$ {amendment.value.toLocaleString('pt-BR')}</span>
                 </div>
-                <div className="h-7 w-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#0d457a] group-hover:text-white transition-all shadow-sm">
-                    <ArrowRight size={14} />
+                <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-[#0d457a] group-hover:text-white transition-all">
+                    <ArrowRight size={16} />
                 </div>
               </div>
             </div>
@@ -247,195 +239,150 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         ))}
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 py-6">
-            <button 
-                disabled={currentPage === 1}
-                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(prev - 1, 1)); }}
-                className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#0d457a] disabled:opacity-30 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-                Anterior
-            </button>
-            <span className="flex items-center px-4 text-xs font-bold text-slate-500 uppercase">
-                Página {currentPage} de {totalPages}
-            </span>
-            <button 
-                disabled={currentPage === totalPages}
-                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(prev + 1, totalPages)); }}
-                className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#0d457a] disabled:opacity-30 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-                Próxima
-            </button>
-        </div>
-      )}
-
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0d457a]/80 p-4 backdrop-blur-md overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl my-8">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0d457a]/90 p-4 backdrop-blur-xl overflow-y-auto">
+          <div className="bg-white rounded-[40px] w-full max-w-4xl shadow-2xl my-8 overflow-hidden">
+            <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
               <div>
-                <h3 className="text-2xl font-bold text-[#0d457a] flex items-center gap-2 uppercase tracking-tight">
-                  {editingId ? <Pencil className="bg-blue-600 text-white p-1 rounded" /> : <Plus className="bg-[#0d457a] text-white p-1 rounded" />}
-                  {editingId ? 'Alterar Registro de Emenda' : 'Novo Registro Completo'}
+                <h3 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">
+                  {editingId ? 'Editar Registro GESA' : 'Novo Cadastro SEI'}
                 </h3>
-                <p className="text-slate-500 text-sm mt-1">
-                  {editingId ? `Editando o processo SEI ${formData.seiNumber}` : 'Insira todos os dados técnicos e parlamentares.'}
-                </p>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Configuração de Fonte e Tramitação</p>
               </div>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
-              >
-                <X size={24} className="text-slate-400" />
+              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
+                <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 ml-1">Número do Processo SEI</label>
-                  <div className="relative">
-                    <FileText className="absolute left-3 top-3 text-slate-300" size={18} />
-                    <input 
-                        required 
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all" 
-                        value={formData.seiNumber} 
-                        onChange={e => setFormData({...formData, seiNumber: e.target.value})} 
-                        placeholder="Ex: 20250004..."
-                    />
+            <form onSubmit={handleSubmit} className="p-10 space-y-8">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Fonte de Recurso</label>
+                  <div className="flex gap-2">
+                    {Object.values(AmendmentType).map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          const isCrescimento = type === AmendmentType.GOIAS_CRESCIMENTO;
+                          setFormData({
+                            ...formData, 
+                            type, 
+                            deputyName: isCrescimento ? 'Governo de Goiás (Execução Direta)' : formData.deputyName 
+                          });
+                        }}
+                        className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all border-2 ${formData.type === type ? 'bg-[#0d457a] text-white border-[#0d457a] shadow-lg' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'}`}
+                      >
+                        {type}
+                      </button>
+                    ))}
                   </div>
                 </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 ml-1">Valor do Repasse (R$)</label>
-                  <div className="relative">
-                    <Landmark className="absolute left-3 top-3 text-slate-300" size={18} />
-                    <input 
-                        type="number" 
-                        step="0.01" 
-                        required 
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all" 
-                        value={formData.value} 
-                        onChange={e => setFormData({...formData, value: parseFloat(e.target.value)})} 
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 ml-1">Exercício (Ano)</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-3 text-slate-300" size={18} />
-                    <input 
-                        type="number" 
-                        required 
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all" 
-                        value={formData.year} 
-                        onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} 
-                    />
-                  </div>
+                <div className="space-y-2">
+                   <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Transferência</label>
+                   <select className="w-full px-5 py-3 bg-white rounded-xl outline-none font-bold text-slate-700 text-xs uppercase" value={formData.transferMode} onChange={e => setFormData({...formData, transferMode: e.target.value as TransferMode})}>
+                      {Object.values(TransferMode).map(m => <option key={m} value={m}>{m}</option>)}
+                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 ml-1">Tipo de Emenda</label>
-                  <select 
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none bg-white font-medium"
-                      value={formData.type}
-                      onChange={e => setFormData({...formData, type: e.target.value as AmendmentType})}
-                  >
-                      {Object.values(AmendmentType).map(v => <option key={v} value={v}>{v}</option>)}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nº do Processo SEI</label>
+                  <input required className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none transition-all font-bold text-slate-700" value={formData.seiNumber} onChange={e => setFormData({...formData, seiNumber: e.target.value})} placeholder="2025000..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Valor (R$)</label>
+                  <input type="number" step="0.01" required className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none transition-all font-bold text-slate-700" value={formData.value} onChange={e => setFormData({...formData, value: parseFloat(e.target.value)})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Exercício</label>
+                  <input type="number" required className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none transition-all font-bold text-slate-700" value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Município Beneficiado</label>
+                  <select required className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700" value={formData.municipality} onChange={e => setFormData({...formData, municipality: e.target.value})}>
+                    <option value="">Selecione...</option>
+                    {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 ml-1">Município de Destino</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 text-slate-300" size={18} />
-                    <select 
-                      required
-                      className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none bg-white appearance-none"
-                      value={formData.municipality}
-                      onChange={e => setFormData({...formData, municipality: e.target.value})}
-                    >
-                      <option value="">Selecione o Município</option>
-                      {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1 md:col-span-2">
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 ml-1">
-                    Parlamentar Autor {formData.type === AmendmentType.IMPOSITIVA && <span className="text-red-500 font-black"> - OBRIGATÓRIO</span>}
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 text-slate-300" size={18} />
-                    <select 
-                      className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none bg-white appearance-none"
-                      value={formData.deputyName}
-                      onChange={e => setFormData({...formData, deputyName: e.target.value})}
-                    >
-                      <option value="">{formData.type === AmendmentType.GOIAS_CRESCIMENTO ? 'Não Aplicável - Programa Executivo' : 'Selecione o Parlamentar'}</option>
-                      {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Parlamentar / Autor</label>
+                  <select 
+                    disabled={formData.type === AmendmentType.GOIAS_CRESCIMENTO}
+                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 disabled:opacity-50" 
+                    value={formData.deputyName} 
+                    onChange={e => setFormData({...formData, deputyName: e.target.value})}
+                  >
+                    <option value="">{formData.type === AmendmentType.GOIAS_CRESCIMENTO ? 'Governo de Goiás (Execução Direta)' : 'Selecione o Parlamentar...'}</option>
+                    {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-500 ml-1">Objeto / Finalidade do Recurso</label>
-                <textarea 
-                  required
-                  rows={3}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none resize-none font-medium text-sm"
-                  value={formData.object}
-                  onChange={e => setFormData({...formData, object: e.target.value})}
-                  placeholder="Ex: Aquisição de Ambulância tipo A, Custeio MAC..."
-                />
+              <div className="bg-[#0d457a]/5 p-8 rounded-3xl border-2 border-[#0d457a]/10 space-y-6">
+                 <div className="flex items-center gap-2">
+                    <Building2 size={20} className="text-[#0d457a]" />
+                    <h4 className="text-xs font-black text-[#0d457a] uppercase tracking-wider">Gestão Técnica de Tramitação (De/Para)</h4>
+                 </div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                    <div className="relative">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Vindo de (Origem)</label>
+                      <input 
+                        type="text" 
+                        className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-[#0d457a] font-bold text-xs uppercase"
+                        value={formData.initialOrigin || originSearch}
+                        onFocus={() => { setShowOriginList(true); setShowDestList(false); }}
+                        onChange={e => { setOriginSearch(e.target.value); if(formData.initialOrigin) setFormData({...formData, initialOrigin: ''}); }}
+                        placeholder="Ex: Gabinete Parlamentar..."
+                      />
+                      {showOriginList && (
+                        <div className="absolute z-10 top-full left-0 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-48 overflow-y-auto">
+                           {filteredOriginSectors.map(s => (
+                             <button key={s.id} type="button" onClick={() => { setFormData({...formData, initialOrigin: s.name}); setShowOriginList(false); }} className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-50 text-xs font-black uppercase text-[#0d457a]">{s.name}</button>
+                           ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 ml-1">Entrando em (Destino)</label>
+                      <input 
+                        type="text" 
+                        required
+                        className="w-full px-5 py-4 bg-white border-2 border-blue-100 rounded-2xl outline-none focus:border-blue-600 font-bold text-xs uppercase text-blue-900"
+                        value={formData.initialDestination || destSearch}
+                        onFocus={() => { setShowDestList(true); setShowOriginList(false); }}
+                        onChange={e => { setDestSearch(e.target.value); if(formData.initialDestination) setFormData({...formData, initialDestination: ''}); }}
+                        placeholder="Setor Técnico GESA..."
+                      />
+                      {showDestList && (
+                        <div className="absolute z-10 top-full left-0 w-full mt-2 bg-white border border-blue-200 rounded-2xl shadow-2xl max-h-48 overflow-y-auto">
+                           {filteredDestSectors.map(s => (
+                             <button key={s.id} type="button" onClick={() => { setFormData({...formData, initialDestination: s.name}); setShowDestList(false); }} className="w-full text-left px-5 py-3 hover:bg-blue-50 border-b border-blue-50 flex justify-between items-center group">
+                               <span className="text-xs font-black uppercase text-blue-900">{s.name}</span>
+                               <span className="text-[9px] font-black text-blue-400">SLA: {s.defaultSlaDays}D</span>
+                             </button>
+                           ))}
+                        </div>
+                      )}
+                    </div>
+                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-6 pt-2">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
-                          type="checkbox" 
-                          className="w-5 h-5 rounded border-slate-300 text-[#0d457a] focus:ring-[#0d457a]"
-                          checked={formData.suinfra}
-                          onChange={e => setFormData({...formData, suinfra: e.target.checked})}
-                      />
-                      <div className="flex items-center gap-2">
-                          <HardHat size={18} className={formData.suinfra ? 'text-orange-600' : 'text-slate-400'} />
-                          <span className="text-[10px] font-bold uppercase text-slate-600">Requer SUINFRA (Obras)</span>
-                      </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
-                          type="checkbox" 
-                          className="w-5 h-5 rounded border-slate-300 text-[#0d457a] focus:ring-[#0d457a]"
-                          checked={formData.sutis}
-                          onChange={e => setFormData({...formData, sutis: e.target.checked})}
-                      />
-                      <div className="flex items-center gap-2">
-                          <MonitorCheck size={18} className={formData.sutis ? 'text-indigo-600' : 'text-slate-400'} />
-                          <span className="text-[10px] font-bold uppercase text-slate-600">Requer SUTIS (TI)</span>
-                      </div>
-                  </label>
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Objeto do Processo</label>
+                <textarea required rows={3} className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none transition-all font-medium text-slate-600" value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} placeholder="Finalidade do recurso..." />
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex flex-col md:flex-row gap-4">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-6 py-3 border border-slate-300 text-slate-600 rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-slate-50 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-[2] px-6 py-3 bg-[#0d457a] text-white rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-[#0a365f] shadow-lg transition-all flex items-center justify-center gap-2"
-                >
-                  {editingId ? <Pencil size={18} /> : <Landmark size={18} />}
-                  {editingId ? 'Salvar Alterações' : 'Finalizar Cadastro'}
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition-all">Cancelar</button>
+                <button type="submit" className="flex-[2] py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-2xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3">
+                  {editingId ? 'Salvar Alterações' : 'Concluir Cadastro SEI'} <Send size={16} />
                 </button>
               </div>
             </form>

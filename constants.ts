@@ -1,16 +1,19 @@
 
-import { Role, Sector, Status, User, AuditLog, AuditAction, SectorConfig, AnalysisType, AmendmentType, TransferMode } from './types';
+import { Role, Status, User, AuditLog, AuditAction, SectorConfig, AnalysisType, AmendmentType, TransferMode } from './types';
 
 export const APP_NAME = "Rastreio de Emendas";
 export const DEPARTMENT = "Gerência de Suporte Administrativo - GESA/SUBIPEI";
 
+// Reset e Reconfiguração oficial GESA/SUBIPEI
 export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [
-  { id: 's1', name: 'Protocolo', defaultSlaDays: 2, analysisType: AnalysisType.TECHNICAL },
-  { id: 's2', name: 'Gerência de Orçamento', defaultSlaDays: 5, analysisType: AnalysisType.BUDGET_RESERVE },
-  { id: 's3', name: 'Análise Técnica', defaultSlaDays: 10, analysisType: AnalysisType.TECHNICAL },
-  { id: 's4', name: 'Jurídico', defaultSlaDays: 15, analysisType: AnalysisType.LEGAL },
-  { id: 's5', name: 'Gabinete', defaultSlaDays: 3, analysisType: AnalysisType.FINAL_APPROVAL },
-  { id: 's6', name: 'Pagamento', defaultSlaDays: 7, analysisType: AnalysisType.PAYMENT_PROC }
+  { id: 'sec-01', name: 'GESA - Protocolo Central', defaultSlaDays: 1, analysisType: AnalysisType.TECHNICAL },
+  { id: 'sec-02', name: 'Gerência de Orçamento', defaultSlaDays: 3, analysisType: AnalysisType.BUDGET_RESERVE },
+  { id: 'sec-03', name: 'SUINFRA - Engenharia e Infraestrutura', defaultSlaDays: 10, analysisType: AnalysisType.TECHNICAL },
+  { id: 'sec-04', name: 'SUTIS - Tecnologia da Informação', defaultSlaDays: 10, analysisType: AnalysisType.TECHNICAL },
+  { id: 'sec-05', name: 'Coordenação de Convênios', defaultSlaDays: 7, analysisType: AnalysisType.DOC_COMPLEMENT },
+  { id: 'sec-06', name: 'Procuradoria Setorial (Jurídico)', defaultSlaDays: 15, analysisType: AnalysisType.LEGAL },
+  { id: 'sec-07', name: 'Gabinete da Direção GESA', defaultSlaDays: 3, analysisType: AnalysisType.FINAL_APPROVAL },
+  { id: 'sec-08', name: 'Gerência de Finanças (Pagamento)', defaultSlaDays: 5, analysisType: AnalysisType.PAYMENT_PROC }
 ];
 
 export const GOIAS_CITIES = [
@@ -61,8 +64,8 @@ export const GOIAS_DEPUTIES = [
 ];
 
 export const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Carlos Silva', email: 'admin@saude.go.gov.br', role: Role.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Carlos+Silva&background=0d457a&color=fff' },
-  { id: 'u2', name: 'Mariana Costa', email: 'operador@saude.go.gov.br', role: Role.OPERATOR, avatarUrl: 'https://ui-avatars.com/api/?name=Mariana+Costa&background=0d457a&color=fff' }
+  { id: 'u1', name: 'Carlos Silva', email: 'admin@gesa.subipei.go.gov.br', role: Role.ADMIN, avatarUrl: 'https://ui-avatars.com/api/?name=Carlos+Silva&background=0d457a&color=fff' },
+  { id: 'u2', name: 'Mariana Costa', email: 'operador@gesa.subipei.go.gov.br', role: Role.OPERATOR, avatarUrl: 'https://ui-avatars.com/api/?name=Mariana+Costa&background=0d457a&color=fff' }
 ];
 
 export const MOCK_AMENDMENTS: any[] = [
@@ -77,8 +80,8 @@ export const MOCK_AMENDMENTS: any[] = [
     deputyName: 'Bruno Peixoto (Presidência)',
     object: 'Aquisição de ambulância tipo B e equipamentos hospitalares',
     status: Status.PROCESSING,
-    currentSector: 'Protocolo',
-    healthUnit: 'Hospital Municipal de Anápolis',
+    currentSector: 'GESA - Protocolo Central',
+    healthUnit: 'Unidade GESA',
     entryDate: '2025-02-24',
     suinfra: false,
     sutis: false,
@@ -87,13 +90,13 @@ export const MOCK_AMENDMENTS: any[] = [
       {
         id: 'm1',
         amendmentId: 'a1',
-        fromSector: null,
-        toSector: 'Protocolo',
+        fromSector: 'Gabinete Parlamentar',
+        toSector: 'GESA - Protocolo Central',
         dateIn: '2025-02-24T08:00:00Z',
         dateOut: null,
-        deadline: '2025-02-26T08:00:00Z',
+        deadline: '2025-02-25T08:00:00Z',
         daysSpent: 0,
-        handledBy: 'Protocolo Central SES'
+        handledBy: 'Protocolo Central GESA'
       }
     ]
   }
@@ -106,7 +109,7 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
     actorName: 'Carlos Silva',
     action: AuditAction.LOGIN,
     targetResource: 'Autenticação',
-    details: 'Login efetuado com sucesso via SSO Institucional.',
+    details: 'Login efetuado com sucesso via SSO Institucional GESA/SUBIPEI.',
     timestamp: new Date().toISOString(),
     ipAddress: '10.20.30.44'
   }

@@ -13,7 +13,7 @@ import { RepositoryModule } from './components/RepositoryModule';
 import { ReportModule } from './components/ReportModule';
 import { SectorManagement } from './components/SectorManagement';
 import { DeadlinePanel } from './components/DeadlinePanel';
-import { User, Amendment, Role, Status, AuditLog, AuditAction, SectorConfig, AmendmentMovement, Sector, Notification, AnalysisType } from './types';
+import { User, Amendment, Role, Status, AuditLog, AuditAction, SectorConfig, AmendmentMovement, Sector, Notification, AnalysisType, SystemMode } from './types';
 import { MOCK_AMENDMENTS, MOCK_USERS, MOCK_AUDIT_LOGS, DEFAULT_SECTOR_CONFIGS } from './constants';
 
 const App: React.FC = () => {
@@ -21,18 +21,17 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null);
+  const [systemMode, setSystemMode] = useState<SystemMode>(SystemMode.TEST);
   
   const [amendments, setAmendments] = useState<Amendment[]>(MOCK_AMENDMENTS);
   const [sectors, setSectors] = useState<SectorConfig[]>(DEFAULT_SECTOR_CONFIGS);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_AUDIT_LOGS);
 
-  // Memoize selected amendment for performance
   const selectedAmendment = useMemo(() => 
     amendments.find(a => a.id === selectedAmendmentId) || null,
   [amendments, selectedAmendmentId]);
 
-  // SLA Overdue Detector - Memoized calculation
   const notifications = useMemo(() => {
     const today = new Date();
     return amendments
@@ -60,7 +59,7 @@ const App: React.FC = () => {
           name: user.displayName || user.email?.split('@')[0],
           email: user.email,
           role: isAdmin ? Role.ADMIN : Role.OPERATOR,
-          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email)}&background=0d457a&color=fff`
+          avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email || 'User')}&background=0d457a&color=fff`
         });
       } else {
         setCurrentUser(null);
@@ -77,12 +76,12 @@ const App: React.FC = () => {
       actorName: currentUser?.name || 'Sistema',
       action,
       targetResource: target,
-      details,
+      details: `${systemMode === SystemMode.TEST ? '[TESTE] ' : ''}${details}`,
       timestamp: new Date().toISOString(),
       ipAddress: '10.20.30.' + Math.floor(Math.random() * 255)
     };
     setAuditLogs(prev => [newLog, ...prev]);
-  }, [currentUser]);
+  }, [currentUser, systemMode]);
 
   const handleMoveAmendment = useCallback((movement: AmendmentMovement) => {
     setAmendments(prev => prev.map(a => {
@@ -102,13 +101,17 @@ const App: React.FC = () => {
   }, [selectedAmendment, addAuditLog]);
 
   const handleCreateAmendment = useCallback((newAmendment: Amendment) => {
-    const protocolSla = sectors.find(s => s.name === Sector.PROTOCOL)?.defaultSlaDays || 2;
+    const targetSector = sectors.find(s => s.name === newAmendment.currentSector);
+    const sla = targetSector?.defaultSlaDays || 2;
     const deadline = new Date();
-    deadline.setDate(deadline.getDate() + protocolSla);
-    newAmendment.movements[0].deadline = deadline.toISOString();
+    deadline.setDate(deadline.getDate() + sla);
+    
+    if (newAmendment.movements.length > 0) {
+      newAmendment.movements[0].deadline = deadline.toISOString();
+    }
     
     setAmendments(prev => [newAmendment, ...prev]);
-    addAuditLog(AuditAction.CREATE, `Processo ${newAmendment.seiNumber}`, `Nova emenda cadastrada no protocolo.`);
+    addAuditLog(AuditAction.CREATE, `Processo ${newAmendment.seiNumber}`, `Novo registro cadastrado em ${newAmendment.currentSector}.`);
   }, [sectors, addAuditLog]);
 
   const handleUpdateAmendment = useCallback((updated: Amendment) => {
@@ -117,7 +120,7 @@ const App: React.FC = () => {
   }, [addAuditLog]);
 
   const handleInactivateAmendment = useCallback((id: string) => {
-    const reason = window.prompt("JUSTIFICATIVA OBRIGATÓRIA:\nPor que este registro de emenda está sendo inativado?");
+    const reason = window.prompt("JUSTIFICATIVA OBRIGATÓRIA:\nPor que este registro está sendo inativado?");
     
     if (reason === null) return;
     if (reason.trim().length < 10) {
@@ -164,7 +167,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#0d457a] flex flex-col items-center justify-center p-6 text-white text-center">
         <div className="h-16 w-16 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4" />
-        <h2 className="text-xl font-bold uppercase tracking-widest">Iniciando GESA-SES</h2>
+        <h2 className="text-xl font-bold uppercase tracking-widest">Iniciando GESA / SUBIPEI</h2>
         <p className="text-white/50 text-xs mt-2 uppercase font-medium">Carregando módulos de segurança e dados...</p>
       </div>
     );
@@ -181,6 +184,7 @@ const App: React.FC = () => {
           amendment={selectedAmendment}
           currentUser={currentUser}
           sectors={sectors}
+          systemMode={systemMode}
           onBack={() => setSelectedAmendmentId(null)}
           onMove={handleMoveAmendment}
           onStatusChange={(id, status) => {
@@ -193,11 +197,13 @@ const App: React.FC = () => {
     }
 
     switch (currentView) {
-      case 'dashboard': return <Dashboard amendments={activeAmendments} />;
+      case 'dashboard': return <Dashboard amendments={activeAmendments} systemMode={systemMode} />;
       case 'amendments': return (
         <AmendmentList 
           amendments={amendments} 
+          sectors={sectors}
           userRole={currentUser.role}
+          systemMode={systemMode}
           onSelect={(a) => setSelectedAmendmentId(a.id)}
           onCreate={handleCreateAmendment}
           onUpdate={handleUpdateAmendment}
@@ -217,7 +223,7 @@ const App: React.FC = () => {
       case 'import': return <ImportModule onImport={(data) => { setAmendments(prev => [...data, ...prev]); addAuditLog(AuditAction.CREATE, 'Importação em Massa', `${data.length} registros importados.`); }} />;
       case 'security': return <SecurityModule users={users} onAddUser={(u) => setUsers(prev => [...prev, u])} onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))} />;
       case 'audit': return <AuditModule logs={auditLogs} />;
-      default: return <Dashboard amendments={activeAmendments} />;
+      default: return <Dashboard amendments={activeAmendments} systemMode={systemMode} />;
     }
   };
 
@@ -226,6 +232,8 @@ const App: React.FC = () => {
       currentUser={currentUser} 
       currentView={currentView}
       notifications={notifications}
+      systemMode={systemMode}
+      onSetSystemMode={setSystemMode}
       onNavigate={setCurrentView}
       onLogout={() => { logout(); setCurrentUser(null); }}
     >

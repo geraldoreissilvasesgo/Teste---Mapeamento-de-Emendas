@@ -52,7 +52,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   const handleQuickLogin = () => {
-    setEmail('admin@saude.go.gov.br');
+    setEmail('admin@gesa.subipei.go.gov.br');
     setPassword('Goi@s2025!');
   };
 
@@ -64,9 +64,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <ShieldCheck size={32} />
           </div>
           <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tight">
-            {isRegistering ? 'Sistema SES-GO' : 'Acesso Restrito'}
+            {isRegistering ? 'Sistema GESA/SUBIPEI' : 'Acesso Restrito'}
           </h2>
-          <p className="text-slate-500 text-xs mt-1 font-medium">SECRETARIA DE ESTADO DA SAÚDE DE GOIÁS</p>
+          <p className="text-slate-500 text-xs mt-1 font-medium">ESTADO DE GOIÁS</p>
         </div>
 
         <form onSubmit={handleAuth} className="p-8 space-y-5">
@@ -94,7 +94,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none text-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@saude.go.gov.br"
+                placeholder="usuario@gesa.subipei.go.gov.br"
               />
             </div>
           </div>
@@ -174,7 +174,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       
       {/* Footer com Aviso de Segurança */}
       <div className="absolute bottom-6 text-white/40 text-[9px] uppercase tracking-[0.2em] font-medium text-center">
-        Acesso monitorado pela Subsecretaria de Tecnologia - SES/GO
+        Acesso monitorado - GESA / SUBIPEI
       </div>
     </div>
   );

@@ -72,7 +72,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport }) => {
           notes: cols[12]?.trim(),
           year: new Date().getFullYear(),
           deputyName: 'Importado via Planilha',
-          healthUnit: 'SES-GO',
+          healthUnit: 'Unidade GESA',
           currentSector: Sector.PROTOCOL,
           createdAt: new Date().toISOString(),
           movements: []

@@ -1,7 +1,12 @@
 
+export enum SystemMode {
+  TEST = 'Teste/Simulação',
+  PRODUCTION = 'Produção/Real'
+}
+
 export enum Role {
   ADMIN = 'Administrador',
-  OPERATOR = 'Operador SES',
+  OPERATOR = 'Operador GESA',
   VIEWER = 'Consultor'
 }
 
@@ -16,13 +21,14 @@ export enum AnalysisType {
 }
 
 export enum Sector {
-  PROTOCOL = 'Protocolo',
+  PROTOCOL = 'GESA - Protocolo Central',
   BUDGET = 'Gerência de Orçamento',
-  TECHNICAL = 'Análise Técnica',
-  LEGAL = 'Jurídico',
-  SECRETARY = 'Gabinete',
-  PAYMENT = 'Pagamento',
-  SGI = 'Coordenação SGI',
+  TECHNICAL_ENG = 'SUINFRA - Engenharia e Infraestrutura',
+  TECHNICAL_IT = 'SUTIS - Tecnologia da Informação',
+  CONVENANTS = 'Coordenação de Convênios',
+  LEGAL = 'Procuradoria Setorial (Jurídico)',
+  SECRETARY = 'Gabinete da Secretária',
+  PAYMENT = 'Gerência de Finanças (Pagamento)',
   ARCHIVE = 'Arquivo/Inativos'
 }
 

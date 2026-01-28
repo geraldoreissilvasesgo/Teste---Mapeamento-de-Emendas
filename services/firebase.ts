@@ -52,7 +52,7 @@ export const auth = authInstance;
 export const signIn = async (email: string, pass: string) => {
   if (isMockMode) {
     // Simulação de login de teste
-    if (email === "admin@saude.go.gov.br" && pass === "Goi@s2025!") {
+    if (email === "admin@gesa.subipei.go.gov.br" && pass === "Goi@s2025!") {
       const mockUser = { uid: 'test-123', email, displayName: 'Gestor de Teste' };
       authInstance.currentUser = mockUser;
       if (mockAuthCallback) mockAuthCallback(mockUser);

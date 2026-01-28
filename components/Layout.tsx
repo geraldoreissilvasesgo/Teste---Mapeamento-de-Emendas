@@ -14,9 +14,14 @@ import {
   Settings2,
   AlarmClockCheck,
   Bell,
-  Search
+  Search,
+  Zap,
+  TestTube2,
+  Lock,
+  Globe,
+  AlertTriangle
 } from 'lucide-react';
-import { User, Role, Notification } from '../types';
+import { User, Role, Notification, SystemMode } from '../types';
 import { APP_NAME, DEPARTMENT } from '../constants';
 
 interface LayoutProps {
@@ -24,6 +29,8 @@ interface LayoutProps {
   currentUser: User;
   currentView: string;
   notifications: Notification[];
+  systemMode: SystemMode;
+  onSetSystemMode: (mode: SystemMode) => void;
   onNavigate: (view: string) => void;
   onLogout: () => void;
 }
@@ -33,153 +40,164 @@ export const Layout: React.FC<LayoutProps> = ({
   currentUser, 
   currentView, 
   notifications,
-  onNavigate,
-  onLogout
+  systemMode,
+  onSetSystemMode,
+  onNavigate, 
+  onLogout 
 }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const [showNotifications, setShowNotifications] = React.useState(false);
 
-  const GO_NAVY = "bg-[#0d457a]";
+  const isTest = systemMode === SystemMode.TEST;
 
-  const NavItem = ({ view, icon: Icon, label }: { view: string, icon: any, label: string }) => (
-    <button
-      onClick={() => {
-        onNavigate(view);
-        setIsMobileMenuOpen(false);
-      }}
-      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors rounded-lg mb-1 uppercase tracking-wide
-        ${currentView === view 
-          ? 'bg-white/10 text-white shadow-md border-l-4 border-slate-400' 
-          : 'text-slate-300 hover:bg-white/5 hover:text-white'
-        }`}
-    >
-      <Icon size={20} />
-      {label}
-    </button>
-  );
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'amendments', label: 'Processos SEI', icon: FileText },
+    { id: 'deadlines', label: 'Prazos/SLA', icon: AlarmClockCheck },
+    { id: 'repository', label: 'Repositório', icon: Database },
+    { id: 'reports', label: 'Relatórios', icon: FileBarChart },
+    { id: 'import', label: 'Importação', icon: UploadCloud },
+    { id: 'sectors', label: 'Setores', icon: Settings2 },
+    { id: 'security', label: 'Segurança', icon: ShieldCheck, roles: [Role.ADMIN] },
+    { id: 'audit', label: 'Auditoria', icon: ClipboardList, roles: [Role.ADMIN] },
+  ];
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden font-inter">
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 ${GO_NAVY} shadow-2xl transform transition-transform duration-300 ease-in-out
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:relative md:translate-x-0 flex flex-col text-white print:hidden
-      `}>
-        <div className="h-24 flex items-center justify-center border-b border-white/10 shadow-sm px-6">
-          <div className="text-left w-full">
-            <h1 className="text-white font-bold text-xl tracking-tight leading-none">GESA</h1>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-1">Gerência de Suporte Administrativo - GESA/SUBIPEI</p>
+    <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-inter">
+      {/* Sidebar */}
+      <aside className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 ${isSidebarOpen ? 'w-72' : 'w-20'}`}>
+        <div className="p-6 flex items-center gap-3 border-b border-white/10 bg-[#0a365f]">
+          <div className="bg-white p-2 rounded-xl text-[#0d457a] shadow-lg shrink-0">
+            <ShieldCheck size={24} />
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto py-8 px-4">
-          <div className="mb-8">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 px-4">Menu Principal</p>
-            <NavItem view="dashboard" icon={LayoutDashboard} label="Visão Geral" />
-            <NavItem view="amendments" icon={FileText} label="Emendas & SEI" />
-            <NavItem view="deadlines" icon={AlarmClockCheck} label="Monitor de Prazos" />
-            <NavItem view="repository" icon={Database} label="Repositório Geral" />
-            <NavItem view="reports" icon={FileBarChart} label="Central Relatórios" />
-            
-            {currentUser.role === Role.ADMIN && (
-              <>
-                <div className="mt-4 mb-2 border-t border-white/5"></div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-4 mt-4">Configurações SES</p>
-                <NavItem view="sectors" icon={Settings2} label="Configurar Setores" />
-                <NavItem view="import" icon={UploadCloud} label="Importar Dados" />
-                <NavItem view="security" icon={ShieldCheck} label="Segurança (RBAC)" />
-                <NavItem view="audit" icon={ClipboardList} label="Auditoria" />
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-white/10 bg-[#082f54]">
-          <div className="flex items-center gap-3 mb-4 p-2 rounded-lg bg-white/5">
-            <img 
-              src={currentUser.avatarUrl || 'https://via.placeholder.com/40'} 
-              alt={currentUser.name} 
-              className="w-10 h-10 rounded-full border-2 border-slate-400"
-            />
+          {isSidebarOpen && (
             <div className="overflow-hidden">
-              <p className="text-sm font-bold text-white truncate uppercase">{currentUser.name}</p>
-              <p className="text-[10px] text-slate-300 truncate uppercase tracking-wider">{currentUser.role}</p>
+              <h1 className="font-black text-sm uppercase tracking-tighter leading-none">{APP_NAME}</h1>
+              <p className="text-[9px] text-white/50 font-bold uppercase mt-1">GESA / SUBIPEI</p>
             </div>
-          </div>
+          )}
+        </div>
+
+        <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+          {menuItems.map((item) => {
+            if (item.roles && !item.roles.includes(currentUser.role)) return null;
+            const Icon = item.icon;
+            const isActive = currentView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all group ${
+                  isActive 
+                    ? 'bg-white text-[#0d457a] shadow-xl font-black' 
+                    : 'hover:bg-white/5 text-white/70 hover:text-white font-bold'
+                }`}
+              >
+                <Icon size={20} className={isActive ? 'text-[#0d457a]' : 'text-white/40 group-hover:text-white'} />
+                {isSidebarOpen && <span className="text-xs uppercase tracking-wider">{item.label}</span>}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className={`p-4 border-t border-white/10 bg-[#0a365f]/50 ${!isSidebarOpen && 'items-center'}`}>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-red-200 hover:bg-red-900/30 hover:text-white rounded-md transition-colors uppercase font-semibold tracking-wide"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/20 text-red-300 transition-all font-black text-xs uppercase"
           >
-            <LogOut size={16} />
-            Encerrar Sessão
+            <LogOut size={20} />
+            {isSidebarOpen && <span>Sair do Sistema</span>}
           </button>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-8 z-10 border-b border-gray-200 print:hidden">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Header */}
+        <header className={`h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40 transition-colors duration-500 ${isTest ? 'border-b-amber-200' : ''}`}>
           <div className="flex items-center gap-4">
-            <button 
-              className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-md"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X /> : <Menu />}
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors text-slate-500">
+              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <div className="flex flex-col">
-              <h2 className="text-lg font-bold text-[#0d457a] tracking-tight uppercase">{APP_NAME}</h2>
-              <span className="text-xs text-slate-500 hidden sm:block uppercase tracking-wide">{DEPARTMENT}</span>
+            
+            {/* AMBIENTE SELECTOR */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl">
+               <button 
+                 onClick={() => onSetSystemMode(SystemMode.PRODUCTION)}
+                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${!isTest ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+               >
+                 <Globe size={14} /> Produção
+               </button>
+               <button 
+                 onClick={() => onSetSystemMode(SystemMode.TEST)}
+                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${isTest ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+               >
+                 <TestTube2 size={14} /> Teste
+               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-             <div className="relative">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 text-slate-400 hover:text-[#0d457a] hover:bg-slate-50 rounded-full transition-all relative"
-                >
-                  <Bell size={20} />
-                  {notifications.length > 0 && (
-                    <span className="absolute top-1 right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white ring-1 ring-red-500 animate-bounce">
-                      {notifications.length}
-                    </span>
-                  )}
-                </button>
+          <div className="flex items-center gap-6">
+             {isTest && (
+               <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-full">
+                  <AlertTriangle size={14} className="text-amber-600" />
+                  <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Ambiente de Simulação</span>
+               </div>
+             )}
 
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[100] overflow-hidden">
-                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                      <h4 className="text-xs font-bold text-[#0d457a] uppercase tracking-wider">Alertas de SLA</h4>
-                      <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{notifications.length} Críticos</span>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 text-xs italic">Nenhuma pendência crítica identificada.</div>
-                      ) : (
-                        notifications.map(n => (
-                          <div key={n.id} className="p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer">
-                            <p className="text-[10px] font-bold text-red-500 uppercase mb-1">{n.title}</p>
-                            <p className="text-xs text-slate-600 leading-tight mb-2">{n.message}</p>
-                            <div className="flex justify-between items-center text-[9px] text-slate-400 font-bold">
-                              <span>SEI: {n.seiNumber}</span>
-                              <span>{new Date(n.timestamp).toLocaleTimeString()}</span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all relative group"
+              >
+                <Bell size={20} className="text-slate-500 group-hover:text-[#0d457a]" />
+                {notifications.length > 0 && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse" />
                 )}
-             </div>
-             <div className="h-6 w-px bg-slate-200 mx-1"></div>
-             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest">Online</span>
-             </div>
+              </button>
+              
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-slate-200 py-4 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-6 pb-3 border-b border-slate-100 flex justify-between items-center">
+                    <h4 className="font-black text-[#0d457a] text-xs uppercase tracking-widest">Notificações</h4>
+                    <span className="bg-red-50 text-red-500 text-[10px] font-black px-2 py-0.5 rounded-full">{notifications.length}</span>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length > 0 ? (
+                      notifications.map(n => (
+                        <div key={n.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group">
+                          <p className="text-[10px] font-black text-red-500 uppercase mb-1">{n.title}</p>
+                          <p className="text-xs text-slate-600 font-bold leading-tight group-hover:text-[#0d457a]">{n.message}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase">Nenhum alerta crítico</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 pl-6 border-l border-slate-200">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-black text-[#0d457a] leading-none uppercase tracking-tighter">{currentUser.name}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+              </div>
+              <img src={currentUser.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-2xl shadow-md border-2 border-white ring-1 ring-slate-100" />
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-4 md:p-8">
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
           {children}
+          
+          {/* TEST MODE WATERMARK */}
+          {isTest && (
+            <div className="fixed bottom-10 right-10 pointer-events-none z-0 opacity-10 select-none rotate-12">
+               <h1 className="text-8xl font-black text-slate-900 uppercase">Ambiente de Teste</h1>
+            </div>
+          )}
         </main>
       </div>
     </div>

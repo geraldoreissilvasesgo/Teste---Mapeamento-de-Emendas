@@ -13,19 +13,30 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { Amendment, Status, Sector } from '../types';
-import { TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, Zap } from 'lucide-react';
+import { Amendment, Status, Sector, AmendmentType, SystemMode } from '../types';
+import { TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, Zap, Landmark, Award, Info, TestTube2 } from 'lucide-react';
 
 interface DashboardProps {
   amendments: Amendment[];
+  systemMode: SystemMode;
 }
 
-const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#0d457a'];
+const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#4f46e5'];
 
-export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
-  // Memoize all heavy aggregations
+export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) => {
+  const isTest = systemMode === SystemMode.TEST;
+
   const stats = useMemo(() => {
     const totalValue = amendments.reduce((acc, curr) => acc + curr.value, 0);
+    
+    const impositivaValue = amendments
+      .filter(a => a.type === AmendmentType.IMPOSITIVA)
+      .reduce((acc, curr) => acc + curr.value, 0);
+    
+    const goiasCrescimentoValue = amendments
+      .filter(a => a.type === AmendmentType.GOIAS_CRESCIMENTO)
+      .reduce((acc, curr) => acc + curr.value, 0);
+
     const totalCount = amendments.length;
     const approvedCount = amendments.filter(a => a.status === Status.CONCLUDED || a.status === Status.PAID).length;
     const processingCount = amendments.filter(a => a.status === Status.PROCESSING || a.status === Status.DILIGENCE).length;
@@ -47,17 +58,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
       return lastMovement && new Date(lastMovement.deadline) < today;
     }).length;
 
-    return { totalValue, totalCount, approvedCount, processingCount, statusData, sectorData, overdueCount };
+    return { totalValue, impositivaValue, goiasCrescimentoValue, totalCount, approvedCount, processingCount, statusData, sectorData, overdueCount };
   }, [amendments]);
 
   const StatCard = ({ title, value, icon: Icon, colorClass, subtext, alert }: any) => (
     <div className={`bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-start justify-between hover:shadow-md transition-shadow ${alert ? 'ring-2 ring-red-500/20 bg-red-50/10' : ''}`}>
-      <div>
-        <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">{title}</p>
-        <h3 className={`text-2xl font-black ${alert ? 'text-red-600' : 'text-[#0d457a]'}`}>{value}</h3>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest truncate">{title}</p>
+        <h3 className={`text-xl lg:text-2xl font-black truncate ${alert ? 'text-red-600' : 'text-[#0d457a]'}`}>{value}</h3>
         {subtext && <p className={`text-[10px] mt-2 font-black uppercase tracking-tight ${alert ? 'text-red-500' : 'text-emerald-600'}`}>{subtext}</p>}
       </div>
-      <div className={`p-3 rounded-2xl shadow-lg ${colorClass}`}>
+      <div className={`p-3 rounded-2xl shadow-lg shrink-0 ml-4 ${colorClass}`}>
         <Icon size={24} className="text-white" />
       </div>
     </div>
@@ -65,31 +76,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
 
   return (
     <div className="space-y-6">
+      {isTest && (
+        <div className="bg-amber-500 text-white p-4 rounded-3xl shadow-xl flex items-center justify-between gap-4 border-2 border-amber-400">
+           <div className="flex items-center gap-4">
+              <div className="bg-white/20 p-2 rounded-xl">
+                 <TestTube2 size={24} />
+              </div>
+              <div>
+                 <h4 className="text-sm font-black uppercase tracking-tighter">Ambiente de Homologação Ativo</h4>
+                 <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Os dados abaixo são simulados para validação da GESA/SUBIPEI.</p>
+              </div>
+           </div>
+           <Info size={20} className="opacity-50" />
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Cockpit Gerencial</h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Métricas de Performance SES-GO</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Métricas de Performance e Finanças GESA/SUBIPEI</p>
         </div>
         <div className="flex gap-2">
           <span className="text-[10px] text-[#0d457a] bg-white px-4 py-2 rounded-xl border border-slate-200 uppercase font-black tracking-widest flex items-center gap-2">
-            <Zap size={14} className="text-amber-500" /> Versão 2.5
+            <Zap size={14} className="text-amber-500" /> Versão 2.7
           </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard 
-          title="Consolidado Financeiro" 
+          title="Total Consolidado" 
           value={`R$ ${stats.totalValue.toLocaleString('pt-BR')}`} 
           icon={TrendingUp} 
           colorClass="bg-[#0d457a]" 
+          subtext={`${stats.totalCount} processos totais`}
         />
+        <StatCard 
+          title="Emendas Impositivas" 
+          value={`R$ ${stats.impositivaValue.toLocaleString('pt-BR')}`} 
+          icon={Landmark} 
+          colorClass="bg-blue-600" 
+          subtext="Recursos ALEGO"
+        />
+        <StatCard 
+          title="Goiás em Crescimento" 
+          value={`R$ ${stats.goiasCrescimentoValue.toLocaleString('pt-BR')}`} 
+          icon={Award} 
+          colorClass="bg-indigo-600" 
+          subtext="Recursos do Executivo"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Eficiência (Pagos)" 
           value={`${stats.approvedCount}`} 
           icon={CheckCircle} 
           colorClass="bg-emerald-500"
-          subtext={`${((stats.approvedCount/stats.totalCount)*100 || 0).toFixed(1)}% taxa de sucesso`} 
+          subtext={`${((stats.approvedCount/stats.totalCount)*100 || 0).toFixed(1)}% de liquidação`} 
         />
         <StatCard 
           title="Em Tramitação" 
@@ -105,6 +149,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments }) => {
           alert={stats.overdueCount > 0}
           subtext={stats.overdueCount > 0 ? "Ação imediata requerida" : "Fluxo em conformidade"}
         />
+        <div className="bg-[#0d457a] p-6 rounded-3xl shadow-lg flex flex-col justify-center text-white">
+            <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">Distribuição de Custo</p>
+            <div className="flex items-end gap-1">
+                <span className="text-2xl font-black">
+                    {stats.totalValue > 0 ? ((stats.impositivaValue/stats.totalValue)*100).toFixed(0) : 0}%
+                </span>
+                <span className="text-[10px] font-bold uppercase mb-1.5 opacity-70">Impositivas</span>
+            </div>
+            <div className="w-full h-1.5 bg-white/20 rounded-full mt-2">
+                <div 
+                  className="h-full bg-blue-400 rounded-full" 
+                  style={{ width: `${(stats.impositivaValue/stats.totalValue)*100 || 0}%` }}
+                ></div>
+            </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
