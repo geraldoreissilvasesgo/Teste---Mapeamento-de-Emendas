@@ -1,33 +1,45 @@
 
+/**
+ * DICIONÁRIO DE DADOS - GESA/SUBIPEI
+ * Este arquivo centraliza todas as definições de tipos, enums e interfaces
+ * utilizados em toda a aplicação. Alterações aqui impactam todo o sistema.
+ */
+
+// Define o ambiente de execução do sistema
 export enum SystemMode {
   TEST = 'Teste/Simulação',
   PRODUCTION = 'Produção/Real'
 }
 
+// Perfis de Acesso (RBAC - Role Based Access Control)
 export enum Role {
-  ADMIN = 'Administrador',
-  OPERATOR = 'Operador GESA',
-  AUDITOR = 'Auditor Fiscal',
-  VIEWER = 'Consultor Externo'
+  ADMIN = 'Administrador',       // Acesso total (CRUD + Auditoria + Segurança)
+  OPERATOR = 'Operador GESA',    // Acesso operacional (Tramitação + Edição)
+  AUDITOR = 'Auditor Fiscal',    // Apenas leitura (Visualização + Logs)
+  VIEWER = 'Consultor Externo'   // Apenas visualização básica
 }
 
+// Tipologia das Emendas Parlamentares e Recursos
 export enum AmendmentType {
-  IMPOSITIVA = 'Emenda Impositiva',
-  GOIAS_CRESCIMENTO = 'Goiás em Crescimento',
-  ESPECIAL = 'Emenda Especial'
+  IMPOSITIVA = 'Emenda Impositiva',          // Obrigatórias
+  GOIAS_CRESCIMENTO = 'Goiás em Crescimento', // Programa do Executivo
+  ESPECIAL = 'Emenda Especial'               // Transferência Especial
 }
 
+// Modalidade de Transferência do Recurso
 export enum TransferMode {
   FUNDO_A_FUNDO = 'Fundo a Fundo',
   CONVENIO = 'Convênio / Repasse',
   DIRETA = 'Execução Direta'
 }
 
+// Grupo de Natureza de Despesa
 export enum GNDType {
-  CUSTEIO = '3 - Custeio',
-  INVESTIMENTO = '4 - Investimento'
+  CUSTEIO = '3 - Custeio',       // Manutenção, serviços, material de consumo
+  INVESTIMENTO = '4 - Investimento' // Obras, equipamentos, material permanente
 }
 
+// Interface para Notificações do Sistema (Alertas no Header)
 export interface Notification {
   id: string;
   title: string;
@@ -35,12 +47,14 @@ export interface Notification {
   type?: 'info' | 'alert' | 'critical';
 }
 
+// Estrutura de resposta da IA (Gemini)
 export interface AIAnalysisResult {
-  summary: string;
-  bottleneck: string;
-  recommendation: string;
+  summary: string;        // Resumo do trâmite
+  bottleneck: string;     // Gargalo identificado
+  recommendation: string; // Sugestão de ação
 }
 
+// Tipos de Análise Técnica realizada pelos setores
 export enum AnalysisType {
   TECHNICAL = 'Análise Técnica',
   LEGAL = 'Análise Jurídica',
@@ -51,6 +65,7 @@ export enum AnalysisType {
   INACTIVATION = 'Inativação de Registro'
 }
 
+// Setores padrão do sistema (Hardcoded para fallback)
 export enum Sector {
   PROTOCOL = 'GESA - Protocolo Central',
   BUDGET = 'Gerência de Orçamento',
@@ -63,13 +78,15 @@ export enum Sector {
   ARCHIVE = 'Arquivo/Inativos'
 }
 
+// Configuração dinâmica de setores (gerenciado no SectorManagement)
 export interface SectorConfig {
   id: string;
   name: string;
-  defaultSlaDays: number;
-  analysisType: AnalysisType;
+  defaultSlaDays: number;     // Tempo limite padrão para este setor (SLA)
+  analysisType: AnalysisType; // Tipo de trabalho realizado
 }
 
+// Status do Ciclo de Vida do Processo
 export enum Status {
   DRAFT = 'Rascunho',
   IN_PROGRESS = 'Em Andamento',
@@ -79,85 +96,90 @@ export enum Status {
   APPROVED = 'Aprovada',
   REJECTED = 'Rejeitada',
   PAID = 'Paga',
-  DILIGENCE = 'Em Diligência',
+  DILIGENCE = 'Em Diligência', // Aguardando correção externa
   CONCLUDED = 'Concluída',
   INACTIVE = 'Inativada'
 }
 
+// Registro de Movimentação (Histórico de Tramitação)
 export interface AmendmentMovement {
   id: string;
   amendmentId: string;
-  fromSector: string | null;
-  toSector: string;
-  dateIn: string;
-  dateOut: string | null;
-  deadline: string;
-  daysSpent: number;
-  handledBy: string;
-  analysisType?: AnalysisType;
-  justification?: string;
+  fromSector: string | null; // Origem
+  toSector: string;          // Destino
+  dateIn: string;            // Data de entrada no setor (ISO String)
+  dateOut: string | null;    // Data de saída (null se ainda estiver lá)
+  deadline: string;          // Data limite baseada no SLA
+  daysSpent: number;         // Dias corridos no setor
+  handledBy: string;         // Usuário responsável pela tramitação
+  analysisType?: AnalysisType; // Tipo de análise realizada
 }
 
+// Entidade Principal: Emenda / Processo
 export interface Amendment {
   id: string;
-  code: string;
-  year: number;
-  type: AmendmentType;
-  seiNumber: string;
-  value: number;
-  municipality: string;
-  deputyName?: string;
-  party?: string;
-  object: string;
-  status: Status;
-  statusDescription?: string;
-  currentSector: string;
-  healthUnit: string;
-  movements: AmendmentMovement[];
-  suinfra?: boolean;
-  sutis?: boolean;
-  entryDate?: string;
-  exitDate?: string | null;
-  notes?: string;
-  transferMode?: TransferMode;
-  gnd?: GNDType;
-  institutionName?: string;
-  createdAt?: string;
+  code: string;               // Código Interno (Ex: EM-2025-001)
+  seiNumber: string;          // Número do Processo SEI (Chave de Negócio)
+  year: number;               // Exercício Financeiro
+  type: AmendmentType;        // Fonte do Recurso
+  deputyName?: string;        // Autor (Parlamentar) ou Governo
+  municipality: string;       // Beneficiário
+  object: string;             // Descrição do Objeto
+  value: number;              // Valor Financeiro
+  status: Status;             // Estado Atual
+  statusDescription?: string; // Descrição textual do status (importação)
+  currentSector: string;      // Localização Atual
+  movements: AmendmentMovement[]; // Histórico de Movimentações
+  
+  // Metadados Técnicos
+  healthUnit?: string;        // Unidade de Saúde (se aplicável)
+  suinfra?: boolean;          // Requer análise de engenharia?
+  sutis?: boolean;            // Requer análise de TI?
+  transferMode?: TransferMode;// Modalidade de repasse
+  gnd?: GNDType;              // Grupo de Natureza de Despesa
+  
+  entryDate?: string;         // Data de criação
+  exitDate?: string | null;   // Data de conclusão
+  createdAt: string;
+  notes?: string;             // Observações gerais
+  institutionName?: string;   // Instituição beneficiária (se houver)
 }
 
+// Usuário do Sistema
 export interface User {
   id: string;
   name: string;
   email: string;
   role: Role;
-  mfaEnabled?: boolean;
-  lgpdAccepted?: boolean;
   avatarUrl?: string;
-  password?: string;
-  department?: string;
+  lgpdAccepted: boolean;      // Flag de aceite do termo de privacidade
+  mfaEnabled?: boolean;       // Se requer autenticação de dois fatores
+  department?: string;        // Departamento de lotação
+  password?: string;          // (Apenas frontend - não persistido em prod idealmente)
 }
 
+// Ações de Auditoria
 export enum AuditAction {
-  LOGIN = 'LOGIN_ACESSO',
-  LOGIN_FAIL = 'LOGIN_FALHA',
-  MFA_VERIFY = 'MFA_VERIFICACAO',
-  CREATE = 'CADASTRO_NOVO',
-  UPDATE = 'ALTERACAO_DADOS',
-  DELETE = 'EXCLUSAO_LOGICA',
-  MOVE = 'TRAMITACAO_FLUXO',
-  SECURITY = 'ALTERACAO_SEGURANCA',
-  ERROR = 'ERRO_SISTEMA',
-  LGPD_CONSENT = 'LGPD_CONSENTIMENTO'
+  LOGIN = 'Login / Acesso',
+  CREATE = 'Criação de Registro',
+  UPDATE = 'Atualização de Dados',
+  DELETE = 'Exclusão / Inativação',
+  MOVE = 'Tramitação de Processo',
+  LGPD_CONSENT = 'Consentimento LGPD',
+  SECURITY = 'Segurança / Acessos',
+  ERROR = 'Erro do Sistema'
 }
 
+// Níveis de Severidade de Auditoria
 export enum AuditSeverity {
   INFO = 'Informativo',
-  LOW = 'Baixo',
-  MEDIUM = 'Médio',
-  HIGH = 'Alto',
-  CRITICAL = 'Crítico'
+  LOW = 'Baixa',
+  MEDIUM = 'Média',
+  HIGH = 'Alta',
+  CRITICAL = 'Crítica'
 }
 
+// Log de Auditoria
 export interface AuditLog {
   id: string;
   actorId: string;
@@ -166,9 +188,9 @@ export interface AuditLog {
   severity: AuditSeverity;
   targetResource: string;
   details: string;
-  payloadBefore?: string;
-  payloadAfter?: string;
   timestamp: string;
   ipAddress: string;
   userAgent: string;
+  payloadBefore?: string; // Snapshot JSON antes da mudança
+  payloadAfter?: string;  // Snapshot JSON depois da mudança
 }
