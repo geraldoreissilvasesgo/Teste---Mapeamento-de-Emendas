@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rastreio de Emendas - SES/GO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      
+      /* Configuração Global de Impressão */
+      @media print {
+        @page {
+          size: A4;
+          margin: 1cm;
+        }
+        
+        /* 1. Desativa travas de scroll e altura da aplicação */
+        html, body, #root {
+          height: auto !important;
+          min-height: 100% !important;
+          overflow: visible !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background-color: white !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        /* 2. Reseta os containers específicos do Layout.tsx que têm overflow */
+        /* Procura por classes usadas no layout (overflow-hidden, h-screen, etc) */
+        .flex.h-screen, 
+        .overflow-hidden, 
+        .overflow-y-auto, 
+        .flex-1 {
+          display: block !important; /* Remove flexbox dos containers pai para soltar o fluxo */
+          height: auto !important;
+          overflow: visible !important;
+          position: static !important;
+        }
+
+        /* 3. Reativa Grid/Flex apenas para o CONTEÚDO (Cards, Gráficos) se necessário */
+        /* Mas cuidado: os pais foram transformados em block. */
+        /* Vamos garantir que o main ocupe tudo */
+        main {
+           width: 100% !important;
+           padding: 0 !important;
+           margin: 0 !important;
+        }
+
+        /* 4. Elementos a esconder */
+        aside, header, button, .no-print, [role="navigation"] {
+          display: none !important;
+        }
+
+        /* 5. Ajustes visuais finos */
+        * {
+          box-shadow: none !important;
+          text-shadow: none !important;
+        }
+
+        /* 6. Evita quebra de componentes importantes */
+        .print\:break-inside-avoid {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+
+        /* Ajuste para Recharts na impressão */
+        .recharts-responsive-container {
+           min-height: 300px !important; /* Garante altura se o JS falhar no redimensionamento */
+        }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-50 text-gray-900">
+    <div id="root"></div>
+  </body>
+</html>
