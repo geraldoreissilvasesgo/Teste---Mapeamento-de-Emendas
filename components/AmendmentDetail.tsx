@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Amendment, Status, User, Role, AIAnalysisResult, SectorConfig, AmendmentMovement, AnalysisType, SystemMode, GNDType } from '../types';
 import { 
   ArrowLeft, Send, Sparkles, MapPin, Calendar, Clock, AlertTriangle, 
@@ -31,17 +31,13 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   onDelete
 }) => {
   const [sectorSearch, setSectorSearch] = useState('');
-  const [originSearch, setOriginSearch] = useState('');
   
   // Lista de destinos selecionados para tramitação paralela
   const [selectedDestinations, setSelectedDestinations] = useState<SectorConfig[]>([]);
   const [selectedOrigin, setSelectedOrigin] = useState<SectorConfig | null>(
-    sectors.find(s => amendment.currentSector.split(' | ').includes(s.name)) || 
-    sectors.find(s => s.name === 'GESA - Protocolo Central') || 
-    null
+    sectors.find(s => amendment.currentSector.split(' | ').includes(s.name)) || null
   );
 
-  const [showOriginList, setShowOriginList] = useState(false);
   const [showDestList, setShowDestList] = useState(false);
 
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -57,11 +53,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
       !selectedDestinations.some(d => d.id === s.id)
     );
   }, [sectors, sectorSearch, selectedOrigin, selectedDestinations]);
-
-  const filteredOriginSectors = useMemo(() => {
-    const term = originSearch.toLowerCase();
-    return sectors.filter(s => s.name.toLowerCase().includes(term));
-  }, [sectors, originSearch]);
 
   const addDestination = (sector: SectorConfig) => {
     setSelectedDestinations(prev => [...prev, sector]);
@@ -102,20 +93,19 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     setSelectedDestinations([]);
     setSectorSearch('');
     setShowDestList(false);
-    setShowOriginList(false);
   };
 
-  const handleDelete = () => {
-    const confirmed = window.confirm(`ATENÇÃO: Deseja realmente INATIVAR o processo SEI ${amendment.seiNumber}? Esta ação será registrada na trilha de auditoria e o processo sairá da lista ativa.`);
+  const handleDelete = useCallback(() => {
+    const confirmed = window.confirm(`CONFIRMAÇÃO DE ARQUIVAMENTO PERMANENTE:\n\nProcesso SEI: ${amendment.seiNumber}\n\nEsta ação é IRREVERSÍVEL para fins de auditoria. O processo será movido para o arquivo morto e não poderá mais ser tramitado.\n\nConfirma a inativação?`);
     if (confirmed) {
       onDelete(amendment.id);
-      onBack();
+      // A chamada onBack() foi removida para evitar race conditions e permitir que o usuário veja o resultado da ação na tela.
     }
-  };
+  }, [amendment.id, amendment.seiNumber, onDelete]);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     window.print();
-  };
+  }, []);
 
   const runAiAnalysis = async () => {
     setIsAiLoading(true);
@@ -204,37 +194,21 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                 <div className="space-y-2 relative">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-2">Setor de Origem</label>
                   <div className="relative">
-                    <Building2 className="absolute left-4 top-4 text-slate-400" size={20} />
-                    <input 
-                      type="text" 
-                      placeholder="Origem do processo..."
-                      className="w-full pl-12 pr-10 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-slate-400 transition-all font-bold text-slate-700 uppercase text-sm"
-                      value={selectedOrigin ? selectedOrigin.name : originSearch}
-                      onFocus={() => { setShowOriginList(true); setShowDestList(false); }}
-                      onChange={(e) => {
-                        setOriginSearch(e.target.value);
-                        if (selectedOrigin) setSelectedOrigin(null);
-                      }}
-                    />
-                    <ChevronDown className="absolute right-4 top-4 text-slate-300" size={20} />
-                    
-                    {showOriginList && (
-                      <div className="absolute z-30 top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-60 overflow-y-auto">
-                        {filteredOriginSectors.map(s => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => { setSelectedOrigin(s); setShowOriginList(false); setOriginSearch(''); }}
-                            className="w-full text-left p-4 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
-                          >
-                            <p className="text-sm font-black text-[#0d457a] uppercase">{s.name}</p>
-                          </button>
+                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+                    <select
+                        className="w-full pl-12 pr-10 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-slate-400 transition-all font-bold text-slate-700 uppercase text-sm appearance-none"
+                        value={selectedOrigin?.id || ''}
+                        onChange={(e) => {
+                            const sector = sectors.find(s => s.id === e.target.value);
+                            setSelectedOrigin(sector || null);
+                        }}
+                    >
+                        <option value="" disabled>Selecione um setor de origem...</option>
+                        {sectors.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
-                        {filteredOriginSectors.length === 0 && (
-                          <div className="p-4 text-center text-xs text-slate-400">Nenhum setor encontrado</div>
-                        )}
-                      </div>
-                    )}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={20} />
                   </div>
                 </div>
 
@@ -257,7 +231,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                         placeholder="Pesquisar e adicionar setor..."
                         className="w-full pl-12 pr-10 py-4 bg-white border-2 border-blue-100 rounded-2xl outline-none focus:border-blue-500 transition-all font-bold text-blue-900 uppercase text-sm"
                         value={sectorSearch}
-                        onFocus={() => { setShowDestList(true); setShowOriginList(false); }}
+                        onFocus={() => setShowDestList(true)}
                         onChange={(e) => setSectorSearch(e.target.value)}
                       />
                       <ChevronDown className="absolute right-4 top-4 text-blue-300" size={20} />

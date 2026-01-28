@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [sectors, setSectors] = useState<SectorConfig[]>(DEFAULT_SECTOR_CONFIGS);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_AUDIT_LOGS);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const currentUserRef = useRef<User | null>(null);
   useEffect(() => {
@@ -66,6 +67,21 @@ const App: React.FC = () => {
 
     setAuditLogs(prev => [newLog, ...prev]);
   }, []);
+
+  const handleImportData = (data: Amendment[]) => {
+    setAmendments(prev => [...data, ...prev]);
+    addAuditLog({
+        action: AuditAction.CREATE,
+        severity: AuditSeverity.MEDIUM,
+        target: 'Importação em Lote',
+        details: `Importação em massa de ${data.length} registros realizada com sucesso.`
+    });
+    setCurrentView('amendments'); // Navega para a lista de processos
+    setSuccessMessage(`${data.length} registros importados com sucesso! A base de dados foi atualizada.`);
+    setTimeout(() => {
+        setSuccessMessage(null);
+    }, 5000); // Limpa a mensagem após 5 segundos
+  };
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
@@ -155,32 +171,52 @@ const App: React.FC = () => {
     });
   }, [addAuditLog]);
 
-  const handleResetSectors = useCallback(() => {
-    if (window.confirm("ATENÇÃO: Deseja restaurar todos os setores para a configuração original? Todas as personalizações manuais serão perdidas.")) {
-      const before = sectors;
-      setSectors(DEFAULT_SECTOR_CONFIGS);
-      addAuditLog({
-        action: AuditAction.UPDATE,
-        severity: AuditSeverity.HIGH,
-        target: 'Gerenciamento de Setores',
-        details: 'Restauração manual de todos os setores para a configuração padrão.',
-        before: before,
-        after: DEFAULT_SECTOR_CONFIGS
-      });
-    }
-  }, [sectors, addAuditLog]);
-
-  const handleDeleteSector = useCallback((id: string) => {
-    const sector = sectors.find(s => s.id === id);
-    setSectors(prev => prev.filter(s => s.id !== id));
+  const handleUpdateAmendment = useCallback((updatedAmendment: Amendment) => {
+    if (currentUserRef.current?.role === Role.AUDITOR) return;
+    
+    const before = amendments.find(a => a.id === updatedAmendment.id);
+    setAmendments(prev => prev.map(a => a.id === updatedAmendment.id ? updatedAmendment : a));
+    
     addAuditLog({
-        action: AuditAction.UPDATE,
-        severity: AuditSeverity.MEDIUM,
-        target: 'Setor Técnico',
-        details: `Setor ${sector?.name} removido da configuração.`,
-        before: sector
+      action: AuditAction.UPDATE,
+      severity: AuditSeverity.MEDIUM,
+      target: updatedAmendment.seiNumber,
+      details: 'Registro de processo SEI foi atualizado.',
+      before: before,
+      after: updatedAmendment
     });
-  }, [sectors, addAuditLog]);
+    setSuccessMessage('Processo atualizado com sucesso!');
+    setTimeout(() => setSuccessMessage(null), 5000);
+  }, [amendments, addAuditLog]);
+
+  const handleInactivateAmendment = useCallback((id: string) => {
+    if (currentUserRef.current?.role !== Role.ADMIN && currentUserRef.current?.role !== Role.OPERATOR) {
+      alert("Permissão insuficiente para inativar registros.");
+      return;
+    }
+    
+    const before = amendments.find(a => a.id === id);
+    if (!before) return;
+    
+    const after = { 
+      ...before, 
+      status: Status.INACTIVE,
+      object: `[ARQUIVADO] ${before.object}`, // Adiciona uma marcação visual permanente
+      currentSector: 'Arquivo Morto' // Move para um setor final não operacional
+    };
+    setAmendments(prev => prev.map(a => a.id === id ? after : a));
+    
+    addAuditLog({ 
+        action: AuditAction.DELETE, 
+        severity: AuditSeverity.HIGH,
+        target: before.seiNumber, 
+        details: 'Registro de processo foi permanentemente arquivado (Status: INACTIVE). A ação é irreversível para fins de auditoria.',
+        before: before,
+        after: after
+    });
+    setSuccessMessage('Processo arquivado com sucesso!');
+    setTimeout(() => setSuccessMessage(null), 5000);
+  }, [amendments, addAuditLog]);
 
   if (isInitializing) {
     return (
@@ -214,6 +250,7 @@ const App: React.FC = () => {
       currentView={currentView}
       notifications={[]}
       systemMode={systemMode}
+      successMessage={successMessage}
       onNavigate={setCurrentView}
       onLogout={() => {
         addAuditLog({ action: AuditAction.LOGIN, severity: AuditSeverity.INFO, details: 'Logout realizado pelo servidor.', target: 'Sessão' });
@@ -241,22 +278,7 @@ const App: React.FC = () => {
               after: { ...before, status }
             });
           }}
-          onDelete={(id) => {
-            if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.OPERATOR) {
-              alert("Permissão insuficiente para inativar registros.");
-              return;
-            }
-            const before = amendments.find(a => a.id === id);
-            setAmendments(prev => prev.map(a => a.id === id ? { ...a, status: Status.INACTIVE } : a));
-            addAuditLog({ 
-                action: AuditAction.DELETE, 
-                severity: AuditSeverity.HIGH,
-                target: id, 
-                details: 'Registro inativado por operador autorizado.',
-                before,
-                after: { ...before, status: Status.INACTIVE }
-            });
-          }}
+          onDelete={handleInactivateAmendment}
         />
       ) : (
         <>
@@ -269,8 +291,8 @@ const App: React.FC = () => {
               systemMode={systemMode} 
               onSelect={a => setSelectedAmendmentId(a.id)} 
               onCreate={handleCreateAmendment} 
-              onUpdate={() => {}} 
-              onDelete={() => {}} 
+              onUpdate={handleUpdateAmendment} 
+              onInactivate={handleInactivateAmendment} 
             />
           )}
           {currentView === 'audit' && <AuditModule logs={auditLogs} />}
@@ -291,12 +313,9 @@ const App: React.FC = () => {
           )}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
-          {currentView === 'sectors' && <SectorManagement sectors={sectors} onAdd={s => setSectors(prev => [...prev, s])} onDelete={handleDeleteSector} onReset={handleResetSectors} />}
+          {currentView === 'sectors' && <SectorManagement sectors={sectors} onAdd={s => setSectors(prev => [...prev, s])} />}
           {currentView === 'deadlines' && <DeadlinePanel amendments={amendments} onSelect={a => setSelectedAmendmentId(a.id)} />}
-          {currentView === 'import' && <ImportModule onImport={data => {
-            setAmendments(prev => [...data, ...prev]);
-            addAuditLog({ action: AuditAction.CREATE, severity: AuditSeverity.MEDIUM, target: 'Batch Import', details: `Importação em massa de ${data.length} registros.` });
-          }} />}
+          {currentView === 'import' && <ImportModule onImport={handleImportData} sectors={sectors} />}
         </>
       )}
     </Layout>

@@ -1,16 +1,14 @@
 
 import React, { useState } from 'react';
 import { SectorConfig, AnalysisType } from '../types';
-import { Settings, Plus, Clock, ShieldCheck, RotateCcw, Trash2 } from 'lucide-react';
+import { Settings, Plus, Clock, ShieldCheck } from 'lucide-react';
 
 interface SectorManagementProps {
   sectors: SectorConfig[];
   onAdd: (sector: SectorConfig) => void;
-  onDelete: (id: string) => void;
-  onReset: () => void;
 }
 
-export const SectorManagement: React.FC<SectorManagementProps> = ({ sectors, onAdd, onDelete, onReset }) => {
+export const SectorManagement: React.FC<SectorManagementProps> = ({ sectors, onAdd }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSector, setNewSector] = useState<Partial<SectorConfig>>({
     name: '',
@@ -41,12 +39,6 @@ export const SectorManagement: React.FC<SectorManagementProps> = ({ sectors, onA
         </div>
         <div className="flex gap-3">
           <button
-            onClick={onReset}
-            className="bg-white text-slate-500 border border-slate-200 px-4 py-2 rounded-xl font-black flex items-center gap-2 uppercase text-[10px] tracking-widest shadow-sm hover:bg-slate-50 transition-all"
-          >
-            <RotateCcw size={14} /> Resetar Base
-          </button>
-          <button
             onClick={() => setIsModalOpen(true)}
             className="bg-[#0d457a] text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all"
           >
@@ -63,14 +55,6 @@ export const SectorManagement: React.FC<SectorManagementProps> = ({ sectors, onA
                 <h3 className="font-black text-[#0d457a] uppercase truncate pr-4 text-sm tracking-tight">{sector.name}</h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{sector.id}</p>
               </div>
-              <button 
-                onClick={() => {
-                  if(window.confirm(`Excluir o setor ${sector.name}?`)) onDelete(sector.id);
-                }}
-                className="p-2 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-              >
-                <Trash2 size={16} />
-              </button>
             </div>
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-3">

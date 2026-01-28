@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { 
   BarChart, 
@@ -38,15 +39,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
     const approvedCount = amendments.filter(a => a.status === Status.CONCLUDED || a.status === Status.PAID).length;
     const processingCount = amendments.filter(a => a.status === Status.PROCESSING || a.status === Status.DILIGENCE).length;
     
-    const statusData = Object.values(Status).map(status => ({
-      name: status,
-      count: amendments.filter(a => a.status === status).length
-    })).filter(d => d.count > 0);
+    const sectorDistribution = (() => {
+      const sectorCounts: { [key: string]: number } = {};
+      const activeAmendments = amendments.filter(a => 
+          a.status !== Status.CONCLUDED && 
+          a.status !== Status.PAID &&
+          a.status !== Status.INACTIVE
+      );
 
-    const sectorData = Object.values(Sector).map(sector => ({
-      name: sector.split(' ')[0], 
-      count: amendments.filter(a => a.currentSector === sector).length
-    })).filter(d => d.count > 0);
+      activeAmendments.forEach(amendment => {
+          const currentSectors = amendment.currentSector.split(' | ');
+          currentSectors.forEach(sectorName => {
+              const trimmedSector = sectorName.trim();
+              if (trimmedSector) {
+                  sectorCounts[trimmedSector] = (sectorCounts[trimmedSector] || 0) + 1;
+              }
+          });
+      });
+
+      return Object.entries(sectorCounts)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count);
+    })();
 
     const today = new Date();
     const overdueCount = amendments.filter(a => {
@@ -55,7 +69,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
       return lastMovement && new Date(lastMovement.deadline) < today;
     }).length;
 
-    return { totalValue, impositivaValue, goiasCrescimentoValue, totalCount, approvedCount, processingCount, statusData, sectorData, overdueCount };
+    return { totalValue, impositivaValue, goiasCrescimentoValue, totalCount, approvedCount, processingCount, sectorDistribution, overdueCount };
   }, [amendments]);
 
   const StatCard = ({ title, value, icon: Icon, colorClass, subtext, alert }: any) => (
@@ -151,21 +165,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
           <h3 className="text-xs font-black text-[#0d457a] mb-8 border-b border-slate-100 pb-4 uppercase tracking-[0.2em] flex items-center gap-2">
-            <Zap size={16} className="text-amber-500"/> Ciclo de Vida dos Processos
+            <Building2 size={16} className="text-blue-500"/> Processos Ativos por Setor
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={stats.statusData}
+                  data={stats.sectorDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={70}
                   outerRadius={100}
                   paddingAngle={8}
                   dataKey="count"
+                  nameKey="name"
                 >
-                  {stats.statusData.map((entry, index) => (
+                  {stats.sectorDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -184,7 +199,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.sectorData}>
+              <BarChart data={stats.sectorDistribution}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'bold'}} axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />

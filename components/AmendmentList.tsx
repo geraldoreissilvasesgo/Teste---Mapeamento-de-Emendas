@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Amendment, Status, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
-import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, User, Building2, Send, ChevronDown, Landmark, Award, Layers } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, User, Send, ChevronDown, Landmark, XCircle } from 'lucide-react';
 
 interface AmendmentListProps {
   amendments: Amendment[];
@@ -12,7 +12,7 @@ interface AmendmentListProps {
   onSelect: (amendment: Amendment) => void;
   onCreate: (amendment: Amendment) => void;
   onUpdate: (amendment: Amendment) => void;
-  onDelete: (id: string) => void;
+  onInactivate: (id: string) => void;
 }
 
 const ITEMS_PER_PAGE = 12;
@@ -27,7 +27,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   onSelect,
   onCreate,
   onUpdate,
-  onDelete
+  onInactivate
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -36,32 +36,23 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  const [originSearch, setOriginSearch] = useState('');
-  const [destSearch, setDestSearch] = useState('');
-  const [showOriginList, setShowOriginList] = useState(false);
-  const [showDestList, setShowDestList] = useState(false);
-
-  const initialFormState: Partial<Amendment & { initialOrigin: string; initialDestination: string }> = {
+  const initialFormState: Partial<Amendment> = {
     year: new Date().getFullYear(),
     type: AmendmentType.IMPOSITIVA,
     status: Status.IN_PROGRESS,
-    currentSector: 'GESA - Protocolo Central',
     object: '',
     municipality: '',
     deputyName: '',
     seiNumber: '',
-    healthUnit: 'Unidade GESA',
     value: 0,
     suinfra: false,
     sutis: false,
     transferMode: TransferMode.FUNDO_A_FUNDO,
     gnd: GNDType.CUSTEIO,
     entryDate: new Date().toISOString().split('T')[0],
-    initialOrigin: '',
-    initialDestination: 'GESA - Protocolo Central'
   };
 
-  const [formData, setFormData] = useState<Partial<Amendment & { initialOrigin: string; initialDestination: string }>>(initialFormState);
+  const [formData, setFormData] = useState<Partial<Amendment>>(initialFormState);
 
   const filteredAmendments = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -94,37 +85,53 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
       default: return 'bg-[#0d457a]';
     }
   };
+  
+  const handleEdit = (amendment: Amendment) => {
+    setEditingId(amendment.id);
+    setFormData({
+      ...amendment,
+      entryDate: amendment.entryDate ? new Date(amendment.entryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleInactivate = (e: React.MouseEvent, id: string, seiNumber: string) => {
+    e.stopPropagation();
+    if (window.confirm(`CONFIRMAÇÃO DE ARQUIVAMENTO PERMANENTE:\n\nProcesso SEI: ${seiNumber}\n\nEsta ação é IRREVERSÍVEL para fins de auditoria. O processo será movido para o arquivo morto e não poderá mais ser tramitado.\n\nConfirma a inativação?`)) {
+      onInactivate(id);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.seiNumber || !formData.value || !formData.municipality || !formData.initialDestination) {
-      alert("Campos obrigatórios: SEI, Valor, Município e Setor de Destino.");
+    if (!formData.seiNumber || !formData.value || !formData.municipality) {
+      alert("Campos obrigatórios: SEI, Valor e Município.");
       return;
     }
 
     if (editingId) {
       onUpdate({ ...formData, id: editingId } as Amendment);
     } else {
-      const destSector = formData.initialDestination || 'GESA - Protocolo Central';
+      const destSector = 'GESA - Protocolo Central';
       const created: Amendment = {
-        ...formData as Amendment,
+        ...formData,
         id: Math.random().toString(36).substr(2, 9),
         code: `EM-${formData.year}-${Math.floor(Math.random() * 90000 + 10000)}`,
         createdAt: new Date().toISOString(),
         currentSector: destSector,
         movements: [{
           id: Math.random().toString(36).substr(2, 9),
-          amendmentId: '',
-          fromSector: formData.initialOrigin || 'Gabinete Parlamentar',
+          amendmentId: '', // Será preenchido na lógica superior
+          fromSector: 'Cadastro Inicial no Sistema',
           toSector: destSector,
           dateIn: new Date().toISOString(),
           dateOut: null,
-          deadline: new Date().toISOString(),
+          deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
           daysSpent: 0,
           handledBy: userRole === Role.ADMIN ? 'Administrador' : 'Operador GESA'
         }]
-      };
+      } as Amendment;
       onCreate(created);
     }
     resetForm();
@@ -134,12 +141,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const resetForm = () => {
     setFormData(initialFormState);
     setEditingId(null);
-    setOriginSearch('');
-    setDestSearch('');
   };
-
-  const filteredOriginSectors = sectors.filter(s => s.name.toLowerCase().includes(originSearch.toLowerCase()));
-  const filteredDestSectors = sectors.filter(s => s.name.toLowerCase().includes(destSearch.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -188,9 +190,30 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           <div 
             key={amendment.id} 
             onClick={() => onSelect(amendment)} 
-            className={`group bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#0d457a]/20 transition-all transform hover:-translate-y-1 
+            className={`group relative bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#0d457a]/20 transition-all transform hover:-translate-y-1 
               ${amendment.status === Status.INACTIVE ? 'opacity-60 grayscale' : ''}`}
           >
+            {userRole !== Role.VIEWER && userRole !== Role.AUDITOR && amendment.status !== Status.INACTIVE && (
+              <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(amendment);
+                  }}
+                  className="p-2 bg-white/80 backdrop-blur-sm text-blue-600 rounded-lg shadow-md hover:bg-blue-500 hover:text-white transition-all"
+                  title="Editar Registro"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={(e) => handleInactivate(e, amendment.id, amendment.seiNumber)}
+                  className="p-2 bg-white/80 backdrop-blur-sm text-red-500 rounded-lg shadow-md hover:bg-red-500 hover:text-white transition-all"
+                  title="Inativar Registro"
+                >
+                  <XCircle size={14} />
+                </button>
+              </div>
+            )}
             <div className={`h-1.5 w-full ${getStatusColor(amendment.status)}`} />
             <div className="p-6">
               <div className="flex justify-between items-start mb-2">
@@ -234,21 +257,19 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                 <h3 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">
                   {editingId ? 'Editar Registro GESA' : 'Novo Cadastro SEI'}
                 </h3>
+                {editingId && <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Processo: {formData.seiNumber}</p>}
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
                 <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-10 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <form onSubmit={handleSubmit} className="p-10 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Status Inicial</label>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Status do Processo</label>
                     <select className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 uppercase text-xs" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Status})}>
-                       <option value={Status.IN_PROGRESS}>Em Andamento</option>
-                       <option value={Status.FORWARDING}>Encaminhamento</option>
-                       <option value={Status.CONSOLIDATION}>Consolidação de Processo</option>
-                       <option value={Status.PROCESSING}>Em Tramitação</option>
+                       {Object.values(Status).filter(s => s !== Status.INACTIVE).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                  </div>
                  <div className="space-y-2">
@@ -257,6 +278,20 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                        {Object.values(GNDType).map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                  </div>
+                 <div className="space-y-2">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Tipologia do Recurso</label>
+                    <select
+                      className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 uppercase text-xs"
+                      value={formData.type}
+                      onChange={e => {
+                        const newType = e.target.value as AmendmentType;
+                        const deputyName = newType === AmendmentType.GOIAS_CRESCIMENTO ? '' : formData.deputyName;
+                        setFormData({...formData, type: newType, deputyName });
+                      }}
+                    >
+                      {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -299,6 +334,30 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
               <div className="space-y-2">
                 <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Objeto do Processo</label>
                 <textarea required rows={3} className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none transition-all font-medium text-slate-600" value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} placeholder="Finalidade do recurso..." />
+              </div>
+
+              <div className="border-t border-slate-100 pt-8">
+                <h4 className="text-sm font-black text-[#0d457a] uppercase tracking-widest mb-6">Parâmetros Técnicos & Transferência</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="md:col-span-1 space-y-2">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Modalidade</label>
+                    <select className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 uppercase text-xs" value={formData.transferMode} onChange={e => setFormData({...formData, transferMode: e.target.value as TransferMode})}>
+                      {Object.values(TransferMode).map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-center pt-5">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="h-5 w-5 rounded border-slate-300 text-[#0d457a] focus:ring-[#0d457a]" checked={!!formData.suinfra} onChange={e => setFormData({...formData, suinfra: e.target.checked})} />
+                      <span className="text-xs font-black text-slate-700 uppercase">Requer SUINFRA</span>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-center pt-5">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="h-5 w-5 rounded border-slate-300 text-[#0d457a] focus:ring-[#0d457a]" checked={!!formData.sutis} onChange={e => setFormData({...formData, sutis: e.target.checked})} />
+                      <span className="text-xs font-black text-slate-700 uppercase">Requer SUTIS</span>
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-4 pt-4">

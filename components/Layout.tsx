@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -14,7 +15,8 @@ import {
   AlarmClockCheck,
   Bell,
   Globe,
-  Terminal
+  Terminal,
+  CheckCircle2 // Ícone para mensagem de sucesso
 } from 'lucide-react';
 import { User, Role, Notification, SystemMode } from '../types';
 import { APP_NAME, DEPARTMENT } from '../constants';
@@ -25,6 +27,7 @@ interface LayoutProps {
   currentView: string;
   notifications: Notification[];
   systemMode: SystemMode;
+  successMessage: string | null; // Prop para a mensagem de sucesso
   onNavigate: (view: string) => void;
   onLogout: () => void;
 }
@@ -35,6 +38,7 @@ export const Layout: React.FC<LayoutProps> = ({
   currentView, 
   notifications,
   systemMode,
+  successMessage, // Recebe a mensagem
   onNavigate, 
   onLogout 
 }) => {
@@ -166,6 +170,15 @@ export const Layout: React.FC<LayoutProps> = ({
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
+          {successMessage && (
+            <div className="absolute top-6 right-8 z-50 bg-emerald-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              <CheckCircle2 size={28} />
+              <div>
+                <h4 className="font-black text-sm uppercase">Operação Concluída</h4>
+                <p className="text-xs font-medium mt-1">{successMessage}</p>
+              </div>
+            </div>
+          )}
           {children}
         </main>
       </div>
