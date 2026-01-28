@@ -1,172 +1,180 @@
-import React, { useState } from 'react';
-import { User, Role, Sector } from '../types';
-import { MOCK_USERS, APP_NAME, DEPARTMENT } from '../constants';
-import { LogIn, Lock, Mail, ArrowRight, ShieldCheck, Grid } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { signIn, signUp } from '../services/firebase';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, UserPlus, LogIn, AlertCircle, Info } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: any) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(0);
 
-  // Simulation of Microsoft SSO Login
-  const handleMicrosoftLogin = () => {
-    setIsLoading(true);
-    setError('');
-    
-    // Simulate network delay for Azure AD handshake
-    setTimeout(() => {
-      // Logic to mock a successful SSO response
-      // In production, this would use MSAL (Microsoft Authentication Library)
-      const mockSSOUser = MOCK_USERS[0]; // Logging in as Admin for demo
-      onLogin(mockSSOUser);
-      setIsLoading(false);
-    }, 1500);
-  };
+  useEffect(() => {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
+    setPasswordStrength(strength);
+  }, [password]);
 
-  const handleStandardLogin = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    setTimeout(() => {
-      // Procura usuário pelo email e verifica a senha
-      const foundUser = MOCK_USERS.find(u => u.email === email);
-      
-      if (foundUser && foundUser.password === password) {
-        onLogin(foundUser);
+    try {
+      if (isRegistering) {
+        if (passwordStrength < 3) throw new Error("Aumente a segurança da senha.");
+        await signUp(email, password, name);
       } else {
-        setError('Credenciais inválidas. Verifique seu email e senha.');
-        setIsLoading(false);
+        await signIn(email, password);
       }
-    }, 1000);
+    } catch (err: any) {
+      console.error(err);
+      switch (err.code) {
+        case 'auth/wrong-password': setError('Senha incorreta.'); break;
+        case 'auth/user-not-found': setError('Usuário não encontrado.'); break;
+        case 'auth/email-already-in-use': setError('E-mail já cadastrado.'); break;
+        default: setError('Falha na autenticação. Verifique os dados.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuickLogin = () => {
+    setEmail('admin@saude.go.gov.br');
+    setPassword('Goi@s2025!');
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50 font-inter">
-      {/* Left Side - Branding (GESA Identity) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#0d457a] text-white flex-col justify-between p-12 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-           <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-             <path d="M0 100 C 20 0 50 0 100 100 Z" fill="white" />
-           </svg>
+    <div className="min-h-screen flex bg-[#0d457a] font-inter items-center justify-center p-6">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-white/20">
+        <div className="bg-slate-50 p-8 text-center border-b border-slate-100">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#0d457a] rounded-xl text-white mb-4 shadow-lg ring-4 ring-blue-50">
+            <ShieldCheck size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tight">
+            {isRegistering ? 'Sistema SES-GO' : 'Acesso Restrito'}
+          </h2>
+          <p className="text-slate-500 text-xs mt-1 font-medium">SECRETARIA DE ESTADO DA SAÚDE DE GOIÁS</p>
         </div>
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-6">
-            <ShieldCheck size={40} className="text-emerald-400" />
+        <form onSubmit={handleAuth} className="p-8 space-y-5">
+          {isRegistering && (
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">GESA</h1>
-              <p className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Gerência de Suporte Administrativo - GESA/SUBIPEI</p>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Nome Completo</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none text-sm"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nome do Servidor"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">E-mail Institucional</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
+              <input
+                type="email"
+                required
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none text-sm"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="usuario@saude.go.gov.br"
+              />
             </div>
           </div>
-        </div>
 
-        <div className="relative z-10 max-w-lg">
-          <h2 className="text-4xl font-bold mb-4 leading-tight">
-            Gestão Transparente de Emendas Parlamentares
-          </h2>
-          <p className="text-slate-300 text-lg leading-relaxed">
-            Acesse o sistema oficial de rastreamento e controle de fluxo. 
-            Segurança, agilidade e integração com o processo SEI.
-          </p>
-        </div>
-
-        <div className="relative z-10 text-xs text-slate-400 uppercase tracking-wider">
-          © {new Date().getFullYear()} Gerência de Suporte Administrativo - GESA/SUBIPEI. Todos os direitos reservados.
-        </div>
-      </div>
-
-      {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-[#0d457a] mb-2">Acesso ao Sistema</h2>
-            <p className="text-slate-500">Identifique-se para continuar.</p>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Senha de Acesso</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                className="w-full pl-10 pr-12 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0d457a] outline-none text-sm"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {isRegistering && password.length > 0 && (
+              <div className="mt-2 space-y-1 px-1">
+                <div className="flex gap-1 h-1">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className={`flex-1 rounded-full ${i < passwordStrength ? (passwordStrength <= 2 ? 'bg-amber-400' : 'bg-emerald-500') : 'bg-slate-200'}`} />
+                  ))}
+                </div>
+                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Nível de Segurança: {['Fraco', 'Médio', 'Bom', 'Forte'][passwordStrength-1] || 'Inexistente'}</p>
+              </div>
+            )}
           </div>
 
-          {/* Microsoft Login Button */}
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-[11px] font-bold border border-red-100 flex items-center gap-2 animate-shake">
+              <AlertCircle size={14} />
+              {error}
+            </div>
+          )}
+
           <button
-            onClick={handleMicrosoftLogin}
+            type="submit"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 p-3 rounded-md shadow-sm transition-all group font-medium relative overflow-hidden"
+            className="w-full py-3 bg-[#0d457a] text-white rounded-lg font-bold uppercase tracking-widest hover:bg-[#0a365f] shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 text-xs"
           >
             {isLoading ? (
-              <div className="h-5 w-5 border-2 border-slate-300 border-t-[#0d457a] rounded-full animate-spin"></div>
+              <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <>
-                <Grid size={20} className="text-[#00a4ef]" /> {/* Microsoft Blue */}
-                <span>Entrar com conta <strong className="text-slate-900">Microsoft</strong></span>
-              </>
+              isRegistering ? <><UserPlus size={16}/> Solicitar Acesso</> : <><LogIn size={16}/> Entrar no Sistema</>
             )}
           </button>
 
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink-0 mx-4 text-slate-400 text-xs uppercase font-semibold">Ou acesse com credenciais</span>
-            <div className="flex-grow border-t border-slate-200"></div>
-          </div>
-
-          <form onSubmit={handleStandardLogin} className="space-y-5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Institucional</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail size={18} className="text-slate-400" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-md text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0d457a] focus:border-transparent sm:text-sm"
-                  placeholder="usuario@saude.go.gov.br"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Senha</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock size={18} className="text-slate-400" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-md text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0d457a] focus:border-transparent sm:text-sm"
-                  placeholder="••••••"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="text-red-500 text-sm font-medium bg-red-50 p-3 rounded-md border border-red-100 flex items-center gap-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-red-500"></div>
-                {error}
-              </div>
+          <div className="flex flex-col gap-3 pt-2">
+            {!isRegistering && (
+              <button
+                type="button"
+                onClick={handleQuickLogin}
+                className="text-[10px] font-bold text-slate-400 hover:text-[#0d457a] flex items-center justify-center gap-1 transition-colors uppercase tracking-widest"
+              >
+                <Info size={12} /> Preencher usuário de teste
+              </button>
             )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-[#0d457a] hover:bg-[#0a365f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0d457a] uppercase tracking-wide transition-colors"
-            >
-              {isLoading ? 'Autenticando...' : 'Acessar Painel'}
-            </button>
             
-            <div className="mt-4 text-center">
-               <p className="text-xs text-slate-400">Para testes: Senha padrão <strong className="text-slate-600">123</strong></p>
-            </div>
-          </form>
-        </div>
+            <button
+              type="button"
+              onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+              className="text-xs font-bold text-[#0d457a] hover:underline uppercase tracking-wide"
+            >
+              {isRegistering ? 'Já possuo credenciais' : 'Ainda não sou cadastrado'}
+            </button>
+          </div>
+        </form>
+      </div>
+      
+      {/* Footer com Aviso de Segurança */}
+      <div className="absolute bottom-6 text-white/40 text-[9px] uppercase tracking-[0.2em] font-medium text-center">
+        Acesso monitorado pela Subsecretaria de Tecnologia - SES/GO
       </div>
     </div>
   );

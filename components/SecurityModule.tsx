@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { User, Role, Sector } from '../types';
-import { Trash2, UserPlus, Shield, Mail, Building } from 'lucide-react';
+import { Trash2, UserPlus, Shield, Mail, Building, Lock, Eye, EyeOff } from 'lucide-react';
 
 interface SecurityModuleProps {
   users: User[];
@@ -10,7 +11,11 @@ interface SecurityModuleProps {
 
 export const SecurityModule: React.FC<SecurityModuleProps> = ({ users, onAddUser, onDeleteUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState<Partial<User>>({ role: Role.VIEWER });
+  const [showPassword, setShowPassword] = useState(false);
+  const [newUser, setNewUser] = useState<Partial<User>>({ 
+    role: Role.VIEWER,
+    password: ''
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,10 +26,12 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({ users, onAddUser
         email: newUser.email,
         role: newUser.role,
         department: newUser.department,
+        password: newUser.password,
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newUser.name)}&background=random&color=fff&background=0d457a`
       });
       setIsModalOpen(false);
-      setNewUser({ role: Role.VIEWER });
+      setShowPassword(false);
+      setNewUser({ role: Role.VIEWER, password: '' });
     }
   };
 
@@ -123,14 +130,40 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({ users, onAddUser
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Institucional</label>
-                <input 
-                  type="email" 
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
-                  value={newUser.email || ''}
-                  onChange={e => setNewUser({...newUser, email: e.target.value})}
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                  <input 
+                    type="email" 
+                    required
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    value={newUser.email || ''}
+                    onChange={e => setNewUser({...newUser, email: e.target.value})}
+                  />
+                </div>
               </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Senha de Acesso</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    required
+                    className="w-full pl-9 pr-10 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    value={newUser.password || ''}
+                    onChange={e => setNewUser({...newUser, password: e.target.value})}
+                    placeholder="****"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Perfil de Acesso</label>

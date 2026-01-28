@@ -1,16 +1,23 @@
 /**
  * DEFINIÇÕES DE TIPOS E INTERFACES DO SISTEMA
  * Este arquivo centraliza todas as estruturas de dados utilizadas no Rastreio de Emendas.
+ * A tipagem forte garante consistência e facilita a manutenção do código.
  */
 
-// Define os papéis (roles) para controle de acesso baseado em funções (RBAC)
+/**
+ * Papéis de Usuário (RBAC)
+ * Define os níveis de acesso para garantir a segurança da informação.
+ */
 export enum Role {
-  ADMIN = 'Administrador', // Acesso total ao sistema e auditoria
-  OPERATOR = 'Operador SES', // Pode criar e tramitar emendas
-  VIEWER = 'Consultor'      // Acesso apenas de leitura para relatórios
+  ADMIN = 'Administrador', // Acesso total, incluindo auditoria e gestão de usuários
+  OPERATOR = 'Operador SES', // Pode criar, editar e tramitar processos SEI
+  VIEWER = 'Consultor'      // Acesso apenas de leitura para relatórios e consulta
 }
 
-// Setores da Secretaria de Saúde e Gabinete para o fluxo de tramitação
+/**
+ * Setores da SES-GO (Tramitação)
+ * Representa os departamentos por onde o processo administrativo circula.
+ */
 export enum Sector {
   PROTOCOL = 'Protocolo',
   BUDGET = 'Gerência de Orçamento',
@@ -20,99 +27,109 @@ export enum Sector {
   PAYMENT = 'Pagamento'
 }
 
-// Estados possíveis de uma emenda parlamentar
+/**
+ * Estados da Emenda (Status)
+ * Reflete a situação atual do processo no fluxo administrativo.
+ */
 export enum Status {
   DRAFT = 'Rascunho',
   PROCESSING = 'Em Tramitação',
   APPROVED = 'Aprovada',
   REJECTED = 'Rejeitada',
   PAID = 'Paga',
-  
-  // Status específicos solicitados para o fluxo de Goiás
-  DILIGENCE_SUINFRA = 'Em diligência Suinfra',
-  DILIGENCE_SUTIS = 'Em diligência Sutis',
+  DILIGENCE_SUINFRA = 'Em diligência Suinfra', // Pendência em obras/infraestrutura
+  DILIGENCE_SUTIS = 'Em diligência Sutis',     // Pendência em tecnologia/equipamentos
   DILIGENCE_BOTH = 'Em diligência Suinfra / Sutis',
-  DILIGENCE_SGI = 'Em diligência SGI',
+  DILIGENCE_SGI = 'Em diligência SGI',         // Pendência no sistema de gestão
   CONCLUDED = 'Concluída'
 }
 
-// Distinção entre emendas de parlamentares e programas de governo
+/**
+ * Categorias de Emenda
+ */
 export enum AmendmentType {
-  IMPOSITIVA = 'Emenda Impositiva',
-  GOIAS_CRESCIMENTO = 'Goiás em Crescimento'
+  IMPOSITIVA = 'Emenda Impositiva', // Origem ALEGO
+  GOIAS_CRESCIMENTO = 'Goiás em Crescimento' // Programa do Executivo
 }
 
-// Modalidades de repasse de recursos financeiros
+/**
+ * Formas de Repasse Financeiro
+ */
 export enum TransferMode {
-  FUNDO_A_FUNDO = 'Fundo a Fundo',
-  CONVENIO = 'Convênio'
+  FUNDO_A_FUNDO = 'Fundo a Fundo', // Repasse direto SES para Fundo Municipal
+  CONVENIO = 'Convênio'            // Instrumento jurídico específico
 }
 
-// Estrutura do usuário autenticado no sistema
+/**
+ * Dados do Usuário do Sistema
+ */
 export interface User {
   id: string;
   name: string;
   email: string;
   role: Role;
-  department?: Sector; // Setor ao qual o operador está vinculado
+  department?: Sector;
   avatarUrl?: string;
-  password?: string;   // Armazenado para simulação de login
+  password?: string; // Utilizado apenas para simulação de login
 }
 
-// Registro de uma movimentação entre setores (histórico)
+/**
+ * Registro de Movimentação (Tramitação)
+ * Armazena o histórico de entrada e saída de cada setor.
+ */
 export interface Movement {
   id: string;
   amendmentId: string;
   fromSector: Sector | null;
   toSector: Sector;
-  dateIn: string;        // Data de entrada no setor (ISO)
-  dateOut: string | null; // Data de saída do setor (ISO)
-  daysSpent: number;     // Cálculo de tempo de permanência no setor
+  dateIn: string;        // ISO format
+  dateOut: string | null; // ISO format
+  daysSpent: number;     // Cálculo automático de permanência
   notes?: string;
-  handledBy: string;     // ID do usuário que realizou a movimentação
+  handledBy: string;     // Nome/ID do operador responsável
 }
 
-// Objeto principal: A Emenda Parlamentar / Processo SEI
+/**
+ * Estrutura Principal da Emenda / Processo SEI
+ */
 export interface Amendment {
   id: string;
-  code: string;       // Código interno (Ex: EM-2025-XXXX)
+  code: string;       // Código interno (Ex: EM-2025-XXXXX)
   type: AmendmentType; 
-  
-  seiNumber: string;  // Número do Processo no SEI (Identificador Principal)
+  seiNumber: string;  // Número do Processo no SEI (Chave de busca principal)
   value: number;      // Valor em Reais (R$)
   municipality: string; // Município de Goiás beneficiado
-  object: string;     // Descrição do que será adquirido/realizado
-  
+  object: string;     // Objeto da emenda (Ex: Ambulância, Custeio)
   transferMode?: TransferMode; 
   institutionName?: string; 
-
-  suinfra: boolean; // Indica se o processo depende da área de obras
-  sutis: boolean;   // Indica se depende da área de tecnologia/equipamentos
-  
-  statusDescription?: string; // Descrição textual vinda de importações
-  status: Status;             // Status padronizado do sistema
-  
-  entryDate?: string; // Data de entrada física/digital no sistema
-  exitDate?: string;  // Data de conclusão final do processo
-  notes?: string;     // Observações de texto livre
-
-  year: number;        // Ano do exercício financeiro
-  deputyName?: string; // Nome do Deputado (ALEGO) ou Suplente
+  suinfra: boolean; // Requer análise da área de obras
+  sutis: boolean;   // Requer análise da área de tecnologia
+  statusDescription?: string; 
+  status: Status;             
+  entryDate?: string; 
+  exitDate?: string;  
+  notes?: string;     
+  year: number;        // Ano do exercício (Exercício Financeiro)
+  deputyName?: string; // Nome do Parlamentar (Titular ou Suplente)
   party: string;
-  healthUnit: string;  // Unidade de Saúde destino (Ex: SES-GO)
-  currentSector: Sector; // Setor onde o processo se encontra agora
+  healthUnit: string;  
+  currentSector: Sector; 
   createdAt: string;
-  movements: Movement[]; // Lista cronológica de tramitações
+  movements: Movement[]; 
 }
 
-// Resultado da análise processada pela IA Gemini
+/**
+ * Resultado da Inteligência Artificial Gemini
+ */
 export interface AIAnalysisResult {
-  summary: string;     // Resumo da trajetória do processo
-  bottleneck: string;  // Identificação de onde o processo parou (gargalo)
-  recommendation: string; // Sugestão técnica para destravar o processo
+  summary: string;     // Resumo do percurso
+  bottleneck: string;  // Identificação de onde o processo parou
+  recommendation: string; // Sugestão para destravar o fluxo
 }
 
-// Tipos de ações registradas na Auditoria do Sistema
+/**
+ * Tipos de Log de Auditoria
+ */
 export enum AuditAction {
   LOGIN = 'LOGIN',
   CREATE = 'CRIAÇÃO',
@@ -123,14 +140,16 @@ export enum AuditAction {
   SECURITY = 'SEGURANÇA'
 }
 
-// Registro individual de auditoria (Log)
+/**
+ * Registro individual de auditoria
+ */
 export interface AuditLog {
   id: string;
-  actorId: string;   // Quem fez
-  actorName: string; // Nome de quem fez
+  actorId: string;   
+  actorName: string; 
   action: AuditAction; 
-  targetResource: string; // Qual recurso foi afetado (Ex: Número SEI)
-  details: string;   // Detalhamento do que foi alterado
-  timestamp: string; // Quando ocorreu
-  ipAddress: string; // IP de origem (Simulado)
+  targetResource: string; 
+  details: string;   
+  timestamp: string; 
+  ipAddress: string; 
 }
