@@ -1,6 +1,9 @@
 
 /**
  * COMPONENTE DE LISTA DE PROCESSOS (EMENDAS) - REFINADO
+ * 
+ * Este componente gerencia a visualização e filtragem da base ativa de processos.
+ * Atualização: Implementação de filtros avançados por Autor, Município e Faixa de Valor.
  */
 import React, { useState, useMemo } from 'react';
 import { Amendment, Status, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types';
@@ -20,7 +23,7 @@ interface AmendmentListProps {
   onSelect: (amendment: Amendment) => void;
   onCreate: (amendment: Amendment) => void;
   onUpdate: (amendment: Amendment) => void;
-  onInactivate: (id: string) => void;
+  onInactivate: (id: string, justification: string) => void;
 }
 
 const ITEMS_PER_PAGE = 12;
@@ -37,6 +40,11 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [deputyFilter, setDeputyFilter] = useState<string>('all');
+  const [municipalityFilter, setMunicipalityFilter] = useState<string>('all');
+  const [minValFilter, setMinValFilter] = useState<string>('');
+  const [maxValFilter, setMaxValFilter] = useState<string>('');
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -62,6 +70,9 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 
   const filteredAmendments = useMemo(() => {
     const term = searchTerm.toLowerCase();
+    const minVal = minValFilter ? parseFloat(minValFilter) : -Infinity;
+    const maxVal = maxValFilter ? parseFloat(maxValFilter) : Infinity;
+
     return amendments.filter(a => {
       const matchesSearch = 
         !term ||
@@ -69,13 +80,29 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         (a.deputyName && a.deputyName.toLowerCase().includes(term)) ||
         (a.municipality && a.municipality.toLowerCase().includes(term)) ||
         (a.object && a.object.toLowerCase().includes(term));
+      
       const matchesStatus = statusFilter === 'all' || a.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesDeputy = deputyFilter === 'all' || a.deputyName === deputyFilter;
+      const matchesMunicipality = municipalityFilter === 'all' || a.municipality === municipalityFilter;
+      const matchesValue = a.value >= minVal && a.value <= maxVal;
+
+      return matchesSearch && matchesStatus && matchesDeputy && matchesMunicipality && matchesValue;
     }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [amendments, searchTerm, statusFilter]);
+  }, [amendments, searchTerm, statusFilter, deputyFilter, municipalityFilter, minValFilter, maxValFilter]);
 
   const totalPages = Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE);
   const paginatedAmendments = filteredAmendments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDeputyFilter('all');
+    setMunicipalityFilter('all');
+    setMinValFilter('');
+    setMaxValFilter('');
+  };
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || deputyFilter !== 'all' || municipalityFilter !== 'all' || minValFilter || maxValFilter;
 
   const getStatusColor = (status: Status) => {
     switch (status) {
@@ -130,26 +157,95 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 flex flex-col md:flex-row gap-5 items-center">
-        <div className="relative flex-1 w-full">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={22} />
-            <input 
-              type="text"
-              placeholder="Pesquisar por SEI, Parlamentar ou Município..."
-              className="w-full pl-16 pr-8 py-5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-bold text-slate-600 uppercase placeholder:text-slate-200 text-sm"
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-        </div>
-        <div className="relative w-full md:w-auto">
-            <Filter className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-            <select
-                className="w-full md:w-72 pl-16 pr-12 py-5 bg-slate-50 border border-slate-100 rounded-2xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[11px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
-                onChange={(e) => setStatusFilter(e.target.value)}
+      <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200 space-y-6">
+        <div className="flex flex-col md:flex-row gap-5 items-center">
+          <div className="relative flex-1 w-full">
+              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={22} />
+              <input 
+                type="text"
+                value={searchTerm}
+                placeholder="Pesquisar por SEI, Parlamentar ou Município..."
+                className="w-full pl-16 pr-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-bold text-slate-600 uppercase placeholder:text-slate-200 text-sm"
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+          </div>
+          {hasActiveFilters && (
+            <button 
+              onClick={clearFilters}
+              className="px-6 py-5 bg-red-50 text-red-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
             >
-                <option value="all">Todos os Status</option>
-                {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <ChevronDown size={18} className="absolute right-6 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
+              <X size={16} /> Limpar Filtros
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Filtro de Status */}
+          <div className="relative">
+              <Filter className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              <select
+                  value={statusFilter}
+                  className="w-full pl-16 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[11px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
+                  onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                  <option value="all">Status: Todos</option>
+                  {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <ChevronDown size={18} className="absolute right-6 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
+          </div>
+
+          {/* Filtro de Deputado */}
+          <div className="relative">
+              <User className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              <select
+                  value={deputyFilter}
+                  className="w-full pl-16 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[11px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
+                  onChange={(e) => setDeputyFilter(e.target.value)}
+              >
+                  <option value="all">Autor: Todos</option>
+                  {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
+                  <option value="Executivo Estadual">Executivo Estadual</option>
+              </select>
+              <ChevronDown size={18} className="absolute right-6 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
+          </div>
+
+          {/* Filtro de Município */}
+          <div className="relative">
+              <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              <select
+                  value={municipalityFilter}
+                  className="w-full pl-16 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[11px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
+                  onChange={(e) => setMunicipalityFilter(e.target.value)}
+              >
+                  <option value="all">Município: Todos</option>
+                  {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <ChevronDown size={18} className="absolute right-6 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
+          </div>
+
+          {/* Filtro de Valor */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+              <input 
+                type="number"
+                value={minValFilter}
+                placeholder="Valor Mín."
+                className="w-full pl-10 pr-3 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/5 outline-none font-bold text-[10px] text-[#0d457a] uppercase"
+                onChange={(e) => setMinValFilter(e.target.value)}
+              />
+            </div>
+            <div className="relative flex-1">
+              <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+              <input 
+                type="number"
+                value={maxValFilter}
+                placeholder="Valor Máx."
+                className="w-full pl-10 pr-3 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/5 outline-none font-bold text-[10px] text-[#0d457a] uppercase"
+                onChange={(e) => setMaxValFilter(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -222,6 +318,12 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                                 {amendment.suinfra && <span className="bg-orange-50 text-orange-600 border border-orange-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase flex items-center gap-2">Engenharia</span>}
                                 {amendment.sutis && <span className="bg-purple-50 text-purple-600 border border-purple-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase flex items-center gap-2">Tecnologia</span>}
                              </div>
+                             <div className="col-span-2 bg-slate-50 p-4 rounded-2xl">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Autor</span>
+                                <span className="text-[10px] font-black text-[#0d457a] uppercase flex items-center gap-2">
+                                  <User size={12} className="text-blue-500" /> {amendment.deputyName || 'Executivo'}
+                                </span>
+                             </div>
                           </div>
                         )}
                     </div>
@@ -264,8 +366,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             </button>
         </div>
       )}
-
-      {/* Modal remains the same structure for operational integrity */}
     </div>
   );
 };

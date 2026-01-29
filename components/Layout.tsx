@@ -26,7 +26,8 @@ import {
   Activity,
   UserCog,
   Workflow,
-  SearchCode
+  SearchCode,
+  BookOpen
 } from 'lucide-react';
 import { User, Role, Notification, SystemMode } from '../types';
 import { APP_NAME, DEPARTMENT } from '../constants';
@@ -90,6 +91,7 @@ export const Layout: React.FC<LayoutProps> = ({
       items: [
         { id: 'audit', label: 'Trilha de Auditoria', icon: ClipboardList, roles: [Role.ADMIN] },
         { id: 'database', label: 'Console Técnico', icon: SearchCode, roles: [Role.ADMIN] },
+        { id: 'govdocs', label: 'Documentação (ITIL)', icon: BookOpen, roles: [Role.ADMIN] },
       ]
     }
   ];

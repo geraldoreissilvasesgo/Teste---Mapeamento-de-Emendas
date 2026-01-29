@@ -4,7 +4,7 @@
  * 
  * Este componente exibe uma visão completa e aprofundada de um único processo SEI.
  * Ele é o núcleo para a tramitação e análise individual.
- * Alteração: Remoção de IA e simplificação do Acervo Digital.
+ * Alteração: Justificativa obrigatória para arquivamento.
  */
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Amendment, Status, User, Role, SectorConfig, AmendmentMovement, AnalysisType, SystemMode, GNDType } from '../types';
@@ -12,7 +12,7 @@ import {
   ArrowLeft, Send, MapPin, Calendar, Clock, AlertTriangle, 
   CheckCircle2, FileText, Building2, ShieldOff, 
   ShieldCheck, Printer, FileSearch, Zap, XCircle, Search, ArrowRight, X, ChevronDown,
-  Landmark, Layers, Plus, Trash2, User as UserIcon, DollarSign, MessageSquare, ArrowRightLeft, FastForward, Upload, FileUp
+  Landmark, Layers, Plus, Trash2, User as UserIcon, DollarSign, MessageSquare, ArrowRightLeft, FastForward, Upload, FileUp, AlertCircle
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -23,7 +23,7 @@ interface AmendmentDetailProps {
   onBack: () => void;
   onMove: (movements: AmendmentMovement[]) => void;
   onStatusChange: (amendmentId: string, status: Status) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, justification: string) => void;
 }
 
 export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({ 
@@ -40,11 +40,12 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   const [selectedDestinations, setSelectedDestinations] = useState<SectorConfig[]>([]);
   const [remarks, setRemarks] = useState('');
   const [showDestList, setShowDestList] = useState(false);
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const [archiveJustification, setArchiveJustification] = useState('');
   const tramitacaoRef = useRef<HTMLDivElement>(null);
 
   const isInactive = amendment.status === Status.ARCHIVED;
 
-  // Determina o setor atual para exibição como origem
   const currentSectorsNames = amendment.currentSector.split(' | ');
   
   const filteredDestSectors = useMemo(() => {
@@ -97,6 +98,15 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     setRemarks('');
   };
 
+  const confirmArchive = () => {
+    if (!archiveJustification.trim()) {
+      alert("A justificativa é obrigatória para o arquivamento.");
+      return;
+    }
+    onDelete(amendment.id, archiveJustification);
+    setIsArchiveModalOpen(false);
+  };
+
   const scrollToTramitacao = () => {
     tramitacaoRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -138,7 +148,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                 <Printer size={16} /> Imprimir
             </button>
             {!isInactive && canEdit && (
-                <button onClick={() => onDelete(amendment.id)} className="flex items-center gap-2 bg-red-50 text-red-500 px-4 py-2.5 rounded-2xl hover:bg-red-100 transition-all text-[10px] font-black uppercase tracking-widest border border-red-100">
+                <button onClick={() => setIsArchiveModalOpen(true)} className="flex items-center gap-2 bg-red-50 text-red-500 px-4 py-2.5 rounded-2xl hover:bg-red-100 transition-all text-[10px] font-black uppercase tracking-widest border border-red-100">
                     <XCircle size={16} /> Arquivar
                 </button>
             )}
@@ -146,7 +156,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
       </div>
       
       <div id="protocol-content" className="bg-white rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden">
-        {/* Cabeçalho do Documento */}
         <div className={`p-10 border-b-4 ${statusStyle.bg.replace('50', '100')} border-dashed`}>
            <div className="flex justify-between items-start">
               <div className="space-y-4">
@@ -205,7 +214,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
               
               <div className="space-y-8 relative z-10">
                 <div className="flex flex-col lg:flex-row gap-8 items-start">
-                   {/* ORIGEM */}
                    <div className="w-full lg:w-1/3">
                       <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Setor de Origem (Custódia)</label>
                       <div className="px-6 py-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-[28px] text-base font-black text-white flex items-center gap-4 shadow-inner group-hover:bg-white/15 transition-all">
@@ -214,12 +222,10 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                       </div>
                    </div>
                    
-                   {/* INDICADOR DE DIREÇÃO */}
                    <div className="hidden lg:flex items-center justify-center pt-14 text-white/30">
                       <FastForward size={48} className="animate-pulse" />
                    </div>
 
-                   {/* DESTINOS */}
                    <div className="flex-1 w-full relative">
                       <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Selecionar Destinos Técnicos</label>
                       <div className="bg-white rounded-[28px] flex flex-wrap gap-2.5 p-4 min-h-[72px] shadow-2xl focus-within:ring-4 ring-emerald-500/30 transition-all">
@@ -243,7 +249,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                           />
                       </div>
                       
-                      {/* Lista Dropdown de Setores */}
                       {showDestList && sectorSearch && filteredDestSectors.length > 0 && (
                           <div className="absolute top-full left-0 w-full mt-4 bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-100 z-50 max-h-72 overflow-y-auto p-3 animate-in slide-in-from-top-4">
                               {filteredDestSectors.map(s => (
@@ -288,7 +293,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-             {/* Histórico Vertical */}
              <div className="space-y-10">
                 <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.4em] flex items-center gap-4 mb-14">
                     <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-[#0d457a] shadow-sm"><Clock size={20} /></div>
@@ -325,7 +329,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                 </div>
              </div>
 
-             {/* Acervo Digital Vinculado */}
              <div className="space-y-12">
                 <div className="bg-white p-10 rounded-[56px] border border-slate-200 shadow-sm relative overflow-hidden">
                    <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full translate-x-1/2 -translate-y-1/2 -z-10"></div>
@@ -356,6 +359,63 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de Arquivamento com Justificativa Obrigatória */}
+      {isArchiveModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-red-900/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[48px] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+             <div className="p-10 border-b border-slate-100 bg-red-50 flex items-center gap-5">
+                <div className="p-4 bg-red-500 text-white rounded-[24px] shadow-lg">
+                   <AlertCircle size={32} />
+                </div>
+                <div>
+                   <h3 className="text-2xl font-black text-red-600 uppercase tracking-tighter leading-none">Confirmação de Arquivamento</h3>
+                   <p className="text-red-400 text-[10px] font-black uppercase tracking-widest mt-2">Protocolo de Desativação SEI: {amendment.seiNumber}</p>
+                </div>
+             </div>
+             
+             <div className="p-10 space-y-8">
+                <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100">
+                   <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                      O arquivamento removerá o processo da fila ativa de tramitação. 
+                      Esta ação exige uma <strong>justificativa técnica detalhada</strong> para fins de auditoria interna.
+                   </p>
+                </div>
+                
+                <div className="space-y-4">
+                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Justificativa do Arquivamento (Obrigatório)</label>
+                   <textarea 
+                      className={`w-full p-6 bg-slate-50 border-2 rounded-[32px] outline-none transition-all min-h-[160px] font-bold text-[#0d457a] uppercase text-sm ${archiveJustification.trim().length > 10 ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-100 focus:border-red-500'}`}
+                      placeholder="Descreva detalhadamente o motivo do arquivamento (ex: duplicidade, cancelamento da emenda, erro de cadastro)..."
+                      value={archiveJustification}
+                      onChange={(e) => setArchiveJustification(e.target.value)}
+                   />
+                   <div className="flex justify-between items-center px-4">
+                      <span className={`text-[9px] font-black uppercase ${archiveJustification.trim().length > 10 ? 'text-emerald-500' : 'text-slate-300'}`}>
+                         {archiveJustification.trim().length > 10 ? '✓ Justificativa capturada' : 'Mínimo de caracteres pendente'}
+                      </span>
+                   </div>
+                </div>
+             </div>
+
+             <div className="p-10 bg-slate-50 border-t border-slate-100 flex gap-4">
+                <button 
+                  onClick={() => setIsArchiveModalOpen(false)}
+                  className="flex-1 py-5 rounded-[24px] font-black uppercase text-[10px] tracking-widest text-slate-400 border border-slate-200 bg-white hover:bg-slate-50 transition-all"
+                >
+                   Cancelar
+                </button>
+                <button 
+                  onClick={confirmArchive}
+                  disabled={!archiveJustification.trim() || archiveJustification.trim().length < 5}
+                  className="flex-1 py-5 bg-red-500 text-white rounded-[24px] font-black uppercase text-[10px] tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all disabled:opacity-30 disabled:grayscale"
+                >
+                   Efetivar Arquivamento
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

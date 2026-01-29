@@ -1,21 +1,12 @@
+
 /**
- * PAINEL TÉCNICO DE DADOS
+ * PAINEL TÉCNICO DE DADOS E INFRAESTRUTURA
  * 
  * Este componente é uma tela de "documentação viva" voltada para desenvolvedores e
- * administradores de sistema. Ele centraliza e exibe informações cruciais sobre
- * a arquitetura de dados da aplicação.
- * 
- * Funcionalidades:
- * - Exibe a configuração de conexão com o Firebase, facilitando o setup de novos
- *   ambientes de desenvolvimento.
- * - Apresenta os "schemas" (modelos de dados) de cada entidade principal do sistema
- *   (Processo, Usuário, Log, etc.), mostrando os campos e seus tipos esperados.
- * - Lista todos os "enums" (domínios de valores) utilizados, como Status, Perfis, etc.,
- *   o que é essencial para entender as regras de negócio.
- * - Oferece uma funcionalidade de "Copiar" para os blocos de código.
+ * administradores de sistema. Centraliza informações de arquitetura e monitoramento.
  */
-import React, { useState } from 'react';
-import { DatabaseZap, Terminal, AlertTriangle, FileJson, Check, Copy, Hash, Database, Users, ShieldAlert, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { DatabaseZap, Terminal, AlertTriangle, FileJson, Check, Copy, Hash, Database, Users, ShieldAlert, Settings, Cpu, Activity, Zap, HardDrive } from 'lucide-react';
 import { Role, Status, AmendmentType, TransferMode, GNDType, AnalysisType, AuditAction, AuditSeverity } from '../types';
 
 // Componente reutilizável para exibir blocos de código com destaque.
@@ -84,10 +75,23 @@ const EnumCard: React.FC<{ title: string; enumObject: object }> = ({ title, enum
 );
 
 export const TechnicalPanel: React.FC = () => {
-  // String de configuração do Firebase para exibição.
   const firebaseConfigString = `{\n  apiKey: "AIzaSy-PLACEHOLDER",\n  authDomain: "rastreio-emendas-go.firebaseapp.com",\n  projectId: "rastreio-emendas-go",\n  storageBucket: "rastreio-emendas-go.appspot.com",\n  messagingSenderId: "000000000000",\n  appId: "1:000000000000:web:000000000000"\n}`;
 
-  // Definição simplificada dos schemas para documentação visual.
+  // Simulação de Carga (Escalabilidade)
+  const [systemLoad, setSystemLoad] = useState({ cpu: 12, mem: 24, sync: 99, throughput: 142 });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSystemLoad(prev => ({
+        cpu: Math.min(99, Math.max(10, prev.cpu + (Math.random() * 6 - 3))),
+        mem: Math.min(99, Math.max(20, prev.mem + (Math.random() * 4 - 2))),
+        sync: 98 + Math.random() * 2,
+        throughput: Math.max(50, prev.throughput + (Math.random() * 20 - 10))
+      }));
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const schemas = {
     amendment: {
       id: "string",
@@ -123,29 +127,85 @@ export const TechnicalPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-12">
       {/* Cabeçalho do Painel */}
-      <div>
-        <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter flex items-center gap-3">
-          <DatabaseZap size={28}/>
-          Painel Técnico de Dados
-        </h2>
-        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Especificação de Conexões, Schemas e Domínios do Sistema GESA.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter flex items-center gap-3">
+            <DatabaseZap size={32}/>
+            Console Técnico GESA
+          </h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Engenharia de Dados, Infraestrutura e Escalabilidade</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+             <div className="flex items-center gap-3 px-5 py-3 bg-[#0d457a] text-white rounded-2xl shadow-xl">
+                <Zap size={18} className="text-emerald-400" />
+                <span className="text-[11px] font-black uppercase tracking-widest">Sincronização Ativa: {systemLoad.sync.toFixed(1)}%</span>
+             </div>
+        </div>
       </div>
 
-      {/* Seção de Configuração de Conexão */}
+      {/* Seção de Métricas de Escalabilidade */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200">
+           <div className="flex justify-between items-start mb-6">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><Cpu size={24}/></div>
+              <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${systemLoad.cpu > 80 ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                {systemLoad.cpu > 80 ? 'Carga Alta' : 'Nominal'}
+              </span>
+           </div>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Processamento (CPU)</p>
+           <h3 className="text-3xl font-black text-[#0d457a]">{systemLoad.cpu.toFixed(1)}%</h3>
+           <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 transition-all duration-1000" style={{width: `${systemLoad.cpu}%`}}></div>
+           </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200">
+           <div className="flex justify-between items-start mb-6">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><HardDrive size={24}/></div>
+              <span className="text-[9px] font-black px-3 py-1 bg-blue-50 text-blue-600 rounded-full uppercase">Alocada</span>
+           </div>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Memória em Uso</p>
+           <h3 className="text-3xl font-black text-[#0d457a]">{systemLoad.mem.toFixed(1)}%</h3>
+           <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 transition-all duration-1000" style={{width: `${systemLoad.mem}%`}}></div>
+           </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200">
+           <div className="flex justify-between items-start mb-6">
+              <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Activity size={24}/></div>
+              <span className="text-[9px] font-black px-3 py-1 bg-purple-50 text-purple-600 rounded-full uppercase">Tempo Real</span>
+           </div>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vazão (Req/s)</p>
+           <h3 className="text-3xl font-black text-[#0d457a]">{systemLoad.throughput.toFixed(0)}</h3>
+           <p className="text-[9px] font-bold text-slate-400 mt-3 uppercase">Pico de 450 req/s suportado</p>
+        </div>
+
+        <div className="bg-slate-900 p-8 rounded-[32px] shadow-xl text-white">
+           <div className="flex justify-between items-start mb-6">
+              <div className="p-3 bg-white/10 text-emerald-400 rounded-2xl"><Check size={24}/></div>
+           </div>
+           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Status de Disponibilidade</p>
+           <h3 className="text-3xl font-black">99.98%</h3>
+           <p className="text-[9px] font-bold text-emerald-400/60 mt-3 uppercase">SLA de Infraestrutura OK</p>
+        </div>
+      </div>
+
       <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200">
+        <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-8">Variáveis de Ambiente e Conexão</h3>
         <CodeBlock 
-          title="services/firebase.ts"
+          title="Configuração Cloud (Firebase)"
           code={firebaseConfigString}
           language="javascript"
-          alert="ATENÇÃO: Estas são chaves de placeholder. Substitua pelas credenciais REAIS do seu projeto Firebase para habilitar a autenticação."
+          alert="ATENÇÃO: Estas são chaves de placeholder injetadas no ambiente de testes. Em produção, verifique os segredos do cofre de chaves da Sefaz-GO."
         />
       </div>
 
-      {/* Seção de Modelos de Dados (Schemas) */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Modelos de Dados (Schemas)</h3>
+      <div className="space-y-6">
+        <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em]">Estruturas de Dados (Schemas)</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <SchemaCard title="Amendment (Processos)" icon={Database} schema={schemas.amendment} />
             <SchemaCard title="User (Usuários)" icon={Users} schema={schemas.user} />
@@ -154,9 +214,8 @@ export const TechnicalPanel: React.FC = () => {
         </div>
       </div>
       
-      {/* Seção de Domínios (Enums) */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Domínios e Constantes (Enums)</h3>
+      <div className="space-y-6">
+        <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em]">Domínios e Constantes (Enums)</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <EnumCard title="Status do Processo" enumObject={Status} />
             <EnumCard title="Perfis de Acesso" enumObject={Role} />

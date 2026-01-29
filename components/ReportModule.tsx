@@ -12,8 +12,10 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { Amendment, Status, AmendmentType } from '../types';
-// Fixed missing 'DollarSign' and 'Landmark' imports from 'lucide-react'
-import { Printer, Filter, TrendingUp, Calendar, Layers, PieChart as PieIcon, BarChart3, DollarSign, Landmark } from 'lucide-react';
+import { 
+  Printer, Filter, TrendingUp, Calendar, Layers, PieChart as PieIcon, 
+  BarChart3, DollarSign, Landmark, User, CalendarRange, X
+} from 'lucide-react';
 
 interface ReportModuleProps {
   amendments: Amendment[];
@@ -28,22 +30,43 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
     return years;
   }, [amendments]);
 
-  // Filtro de ano: 'all' para consolidado ou o número do ano específico
+  // Filtros de estado
   const [yearFilter, setYearFilter] = useState<number | 'all'>(() => {
     if (availableYears.length > 0) return availableYears[0];
     return new Date().getFullYear();
   });
-  
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   // Filtragem principal dos dados
   const filteredData = useMemo(() => {
     return amendments.filter(a => {
       const matchYear = yearFilter === 'all' || a.year === Number(yearFilter);
       const matchType = typeFilter === 'all' || a.type === typeFilter;
-      return matchYear && matchType;
+      
+      // Filtro de Data de Entrada (Período)
+      let matchDate = true;
+      if (a.entryDate) {
+        const entry = new Date(a.entryDate).getTime();
+        if (startDate) {
+          const start = new Date(startDate).getTime();
+          if (entry < start) matchDate = false;
+        }
+        if (endDate) {
+          const end = new Date(endDate).getTime();
+          // Ajusta end para o final do dia
+          const endOfDay = end + (24 * 60 * 60 * 1000) - 1;
+          if (entry > endOfDay) matchDate = false;
+        }
+      } else if (startDate || endDate) {
+        // Se houver filtro de data mas o registro não tiver data de entrada, oculta por segurança
+        matchDate = false;
+      }
+
+      return matchYear && matchType && matchDate;
     });
-  }, [amendments, yearFilter, typeFilter]);
+  }, [amendments, yearFilter, typeFilter, startDate, endDate]);
 
   // Cálculos para Gráfico de Composição (Pizza)
   const typeDistribution = useMemo(() => {
@@ -65,12 +88,30 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
   }, [filteredData]);
+
+  // Cálculos para Top 5 Parlamentares (Barras)
+  const topParliamentarians = useMemo(() => {
+    const data = filteredData.reduce((acc, curr) => {
+       const name = curr.deputyName || 'Executivo/Outros';
+       acc[name] = (acc[name] || 0) + curr.value;
+       return acc;
+   }, {} as Record<string, number>);
+   return Object.entries(data)
+     .map(([name, value]) => ({ name, value }))
+     .sort((a, b) => b.value - a.value)
+     .slice(0, 5);
+ }, [filteredData]);
   
   const totalValue = filteredData.reduce((acc, curr) => acc + curr.value, 0);
   const totalCount = filteredData.length;
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const clearDateFilter = () => {
+    setStartDate('');
+    setEndDate('');
   };
 
   const formatCurrency = (val: number) => 
@@ -82,9 +123,10 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
       <div className="hidden print:block text-center mb-10 border-b-2 border-slate-200 pb-6">
         <h1 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">Relatório Consolidado GESA/SUBIPEI</h1>
         <div className="flex justify-center gap-6 mt-2 text-xs font-bold text-slate-500 uppercase">
-           <span>Exercício: {yearFilter === 'all' ? 'Consolidado (Todos os Anos)' : yearFilter}</span>
-           <span>Fonte: {typeFilter === 'all' ? 'Todas as Fontes' : typeFilter}</span>
-           <span>Data de Emissão: {new Date().toLocaleDateString()}</span>
+           <span>Exercício: {yearFilter === 'all' ? 'Consolidado' : yearFilter}</span>
+           <span>Fonte: {typeFilter === 'all' ? 'Todas' : typeFilter}</span>
+           {(startDate || endDate) && <span>Período: {startDate || '...'} até {endDate || '...'}</span>}
+           <span>Emissão: {new Date().toLocaleDateString()}</span>
         </div>
       </div>
 
@@ -102,47 +144,80 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
         </button>
       </div>
 
-      {/* Barra de Filtros */}
-      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 flex flex-col md:flex-row gap-8 print:hidden">
-        <div className="flex flex-col gap-2 flex-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
-                <Calendar size={12} /> Selecionar Exercício
-            </label>
-            <div className="relative">
-                <select 
-                    value={yearFilter} 
-                    onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-[#0d457a] focus:ring-2 focus:ring-[#0d457a] outline-none appearance-none cursor-pointer"
-                >
-                    <option value="all">TODOS OS EXERCÍCIOS (CONSOLIDADO)</option>
-                    {availableYears.map(year => (
-                        <option key={year} value={year}>{year}</option>
-                    ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <Filter size={16} />
+      {/* Barra de Filtros Expansível */}
+      <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 space-y-8 print:hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Filtro de Exercício */}
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                    <Calendar size={12} /> Exercício
+                </label>
+                <div className="relative">
+                    <select 
+                        value={yearFilter} 
+                        onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#0d457a] focus:ring-2 focus:ring-[#0d457a] outline-none appearance-none cursor-pointer"
+                    >
+                        <option value="all">TODOS OS ANOS</option>
+                        {availableYears.map(year => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
+                    <Filter size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
                 </div>
             </div>
-        </div>
 
-        <div className="flex flex-col gap-2 flex-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
-                <Layers size={12} /> Origem do Recurso
-            </label>
-            <div className="relative">
-                <select 
-                    value={typeFilter} 
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-[#0d457a] outline-none appearance-none cursor-pointer"
-                >
-                    <option value="all">TODAS AS FONTES DE RECURSO</option>
-                    {Object.values(AmendmentType).map(t => (
-                        <option key={t} value={t}>{t}</option>
-                    ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <Filter size={16} />
+            {/* Filtro de Fonte */}
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                    <Layers size={12} /> Fonte
+                </label>
+                <div className="relative">
+                    <select 
+                        value={typeFilter} 
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-[#0d457a] outline-none appearance-none cursor-pointer"
+                    >
+                        <option value="all">TODAS AS FONTES</option>
+                        {Object.values(AmendmentType).map(t => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </select>
+                    <Filter size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
                 </div>
+            </div>
+
+            {/* Filtro de Data Inicial */}
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                    <CalendarRange size={12} /> Data Inicial
+                </label>
+                <input 
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-[#0d457a] outline-none"
+                />
+            </div>
+
+            {/* Filtro de Data Final */}
+            <div className="space-y-2">
+                <div className="flex justify-between items-center pr-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                        <CalendarRange size={12} /> Data Final
+                    </label>
+                    {(startDate || endDate) && (
+                        <button onClick={clearDateFilter} className="text-[9px] font-black text-red-400 hover:text-red-500 flex items-center gap-1 uppercase">
+                            <X size={10} /> Limpar Datas
+                        </button>
+                    )}
+                </div>
+                <input 
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-[#0d457a] outline-none"
+                />
             </div>
         </div>
       </div>
@@ -226,7 +301,7 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
          {/* Top 5 Municípios */}
          <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-200 print:break-inside-avoid print:shadow-none">
              <h3 className="text-xs font-black text-[#0d457a] uppercase mb-10 tracking-[0.3em] flex items-center gap-3">
-                 <Landmark size={18} className="text-emerald-500" /> Concentração de Recursos (Top 5)
+                 <Landmark size={18} className="text-emerald-500" /> Concentração de Recursos (Top 5 Municípios)
              </h3>
              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
@@ -249,6 +324,39 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                         <Bar dataKey="value" fill="#0d457a" radius={[0, 10, 10, 0]} barSize={35}>
                             {topMunicipalities.map((entry, index) => (
                                 <Cell key={`bar-${index}`} fill={COLORS[index % COLORS.length]} opacity={0.8} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+             </div>
+         </div>
+
+         {/* Top 5 Parlamentares */}
+         <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-200 print:break-inside-avoid print:shadow-none">
+             <h3 className="text-xs font-black text-[#0d457a] uppercase mb-10 tracking-[0.3em] flex items-center gap-3">
+                 <User size={18} className="text-indigo-500" /> Alocação por Parlamentar (Top 5)
+             </h3>
+             <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topParliamentarians} layout="vertical" margin={{ left: 30, right: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                        <XAxis type="number" hide />
+                        <YAxis 
+                            type="category" 
+                            dataKey="name" 
+                            width={110} 
+                            tick={{fontSize: 9, fontWeight: 'bold', fill: '#64748b'}} 
+                            axisLine={false} 
+                            tickLine={false} 
+                        />
+                        <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            cursor={{ fill: '#f8fafc' }}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                        />
+                        <Bar dataKey="value" fill="#2563eb" radius={[0, 10, 10, 0]} barSize={35}>
+                            {topParliamentarians.map((entry, index) => (
+                                <Cell key={`bar-dep-${index}`} fill={COLORS[(index + 3) % COLORS.length]} opacity={0.8} />
                             ))}
                         </Bar>
                     </BarChart>

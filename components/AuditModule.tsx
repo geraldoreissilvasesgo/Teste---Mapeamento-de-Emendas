@@ -1,11 +1,14 @@
+
 /**
  * MÓDULO DE AUDITORIA E MONITORAMENTO
  * 
  * Este componente serve como a central de rastreabilidade do sistema. Ele exibe
  * todos os logs de auditoria, permitindo que administradores e auditores monitorem
  * todas as ações realizadas na plataforma.
+ * 
+ * Atualização: Implementada paginação para lidar com alto volume de registros.
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -17,12 +20,15 @@ import {
 import { AuditLog, AuditAction, AuditSeverity } from '../types';
 import { 
   Search, Download, Filter, User, ShieldAlert, Bug, Clock, 
-  FileUp, FilePen, Move, ShieldCheck as ShieldCheckIcon, Activity, HeartPulse, Users, LogIn, X 
+  FileUp, FilePen, Move, ShieldCheck as ShieldCheckIcon, Activity, HeartPulse, Users, LogIn, X,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 interface AuditModuleProps {
   logs: AuditLog[];
 }
+
+const ITEMS_PER_PAGE = 15;
 
 const actionVisuals = {
   [AuditAction.LOGIN]: { icon: LogIn, color: 'text-sky-500', bg: 'bg-sky-50' },
@@ -39,6 +45,7 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [actionFilter, setActionFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
   
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
@@ -51,6 +58,17 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
       return matchesSearch && matchesSeverity && matchesAction;
     }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [logs, searchTerm, severityFilter, actionFilter]);
+
+  // Reseta para a primeira página quando os filtros mudam
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, severityFilter, actionFilter]);
+
+  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredLogs.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredLogs, currentPage]);
 
   const kpis = useMemo(() => {
     const now = new Date();
@@ -94,7 +112,7 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
   );
 
   return (
-    <div className="space-y-6 font-inter">
+    <div className="space-y-6 font-inter animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Trilha de Auditoria</h2>
@@ -132,14 +150,14 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
             <input 
               type="text"
               placeholder="Buscar em logs (usuário, ação, recurso)..."
-              className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all font-bold text-slate-600 uppercase text-xs"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
          </div>
          <div className="relative">
             <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <select
-                className="w-full md:w-52 pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl appearance-none focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                className="w-full md:w-52 pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl appearance-none focus:ring-2 focus:ring-[#0d457a] outline-none transition-all font-black text-[10px] uppercase text-[#0d457a]"
                 onChange={(e) => setActionFilter(e.target.value)}
             >
                 <option value="all">Todas as Ações</option>
@@ -149,7 +167,7 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
         <div className="relative">
             <ShieldAlert className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <select
-                className="w-full md:w-52 pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl appearance-none focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                className="w-full md:w-52 pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl appearance-none focus:ring-2 focus:ring-[#0d457a] outline-none transition-all font-black text-[10px] uppercase text-[#0d457a]"
                 onChange={(e) => setSeverityFilter(e.target.value)}
             >
                 <option value="all">Todas Severidades</option>
@@ -169,7 +187,7 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-                {filteredLogs.map(log => {
+                {paginatedLogs.map(log => {
                     const Visual = actionVisuals[log.action] || { icon: Activity, color: 'text-gray-500', bg: 'bg-gray-50' };
                     const Icon = Visual.icon;
                     return (
@@ -179,24 +197,24 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
                                     <div className={`p-2 rounded-xl ${Visual.bg} ${Visual.color}`}>
                                         <Icon size={16} />
                                     </div>
-                                    <span className="text-xs font-black text-slate-600 uppercase">{log.action}</span>
+                                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{log.action}</span>
                                 </div>
                             </td>
                             <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
                                     <User size={14} className="text-slate-400"/>
-                                    <span className="text-xs font-bold text-[#0d457a]">{log.actorName}</span>
+                                    <span className="text-[11px] font-bold text-[#0d457a] uppercase">{log.actorName}</span>
                                 </div>
                             </td>
                             <td className="px-6 py-4">
                                 <div>
-                                    <span className="text-xs font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mr-2">{log.targetResource}</span>
+                                    <span className="text-[10px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mr-2">{log.targetResource}</span>
                                     <span className="text-xs text-slate-500">{log.details}</span>
                                 </div>
                             </td>
                             <td className="px-6 py-4">
-                                <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-                                    <Clock size={14} />
+                                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                                    <Clock size={12} />
                                     {new Date(log.timestamp).toLocaleString()}
                                 </div>
                             </td>
@@ -211,6 +229,36 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs }) => {
             </tbody>
         </table>
       </div>
+
+      {/* Controles de Paginação */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center bg-white p-6 rounded-[28px] shadow-sm border border-slate-200">
+           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Exibindo {paginatedLogs.length} de {filteredLogs.length} registros
+           </div>
+           <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-3 bg-slate-50 text-[#0d457a] rounded-xl hover:bg-slate-100 disabled:opacity-30 disabled:grayscale transition-all shadow-sm"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              
+              <div className="px-6 py-2.5 bg-[#0d457a] text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                 Página {currentPage} de {totalPages}
+              </div>
+
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-3 bg-slate-50 text-[#0d457a] rounded-xl hover:bg-slate-100 disabled:opacity-30 disabled:grayscale transition-all shadow-sm"
+              >
+                <ChevronRight size={20} />
+              </button>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
