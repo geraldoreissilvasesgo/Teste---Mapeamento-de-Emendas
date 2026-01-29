@@ -1,8 +1,10 @@
 
+
 import { Role, Status, User, AuditLog, AuditAction, SectorConfig, AnalysisType, AmendmentType, AuditSeverity, Amendment, TransferMode, GNDType } from './types';
 
 export const APP_NAME = "Rastreio de Emendas";
 export const DEPARTMENT = "Gerência de Suporte Administrativo - GESA/SUBIPEI";
+export const APP_VERSION = "2.7.1-prod";
 
 // Lista iniciada vazia conforme solicitação para novo cadastramento manual
 export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [];
@@ -83,38 +85,18 @@ export const GOIAS_DEPUTIES = [
   "Zequinha Conti"
 ];
 
+// Em produção, os dados são carregados de uma fonte persistente, não de mocks.
 export const MOCK_USERS: User[] = [
-  { 
-    id: 'u-01', 
-    name: 'Administrador GESA', 
-    email: 'admin@gesa.subipei.go.gov.br', 
-    role: Role.ADMIN, 
-    avatarUrl: 'https://ui-avatars.com/api/?name=Admin&background=0d457a&color=fff', 
-    lgpdAccepted: true 
-  },
-  { 
-    id: 'u-02', 
-    name: 'Operador Técnico', 
-    email: 'operador@gesa.subipei.go.gov.br', 
-    role: Role.OPERATOR, 
-    avatarUrl: 'https://ui-avatars.com/api/?name=Operador&background=0d457a&color=fff', 
-    lgpdAccepted: true 
-  }
-];
-
-export const MOCK_AMENDMENTS: Amendment[] = [];
-
-export const MOCK_AUDIT_LOGS: AuditLog[] = [
   {
-    id: 'aud-01',
-    actorId: 'u-01',
-    actorName: 'Administrador GESA',
-    action: AuditAction.LOGIN,
-    severity: AuditSeverity.INFO,
-    targetResource: 'Sessão de Usuário',
-    details: 'Login administrativo realizado com sucesso.',
-    timestamp: new Date().toISOString(),
-    ipAddress: '10.20.15.42',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    id: 'test-admin-01',
+    name: 'Admin de Teste',
+    email: 'admin.teste@gesa.go.gov.br',
+    role: Role.ADMIN,
+    avatarUrl: `https://ui-avatars.com/api/?name=Admin+Teste&background=d946ef&color=fff`,
+    lgpdAccepted: true,
+    mfaEnabled: true,
+    department: 'GESA/SUBIPEI'
   }
 ];
+export const MOCK_AMENDMENTS: Amendment[] = [];
+export const MOCK_AUDIT_LOGS: AuditLog[] = [];

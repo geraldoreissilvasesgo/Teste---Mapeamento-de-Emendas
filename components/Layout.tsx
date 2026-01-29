@@ -16,7 +16,8 @@ import {
   Bell,
   Globe,
   Terminal,
-  CheckCircle2 // Ícone para mensagem de sucesso
+  CheckCircle2, // Ícone para mensagem de sucesso
+  DatabaseZap
 } from 'lucide-react';
 import { User, Role, Notification, SystemMode } from '../types';
 import { APP_NAME, DEPARTMENT } from '../constants';
@@ -56,6 +57,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'sectors', label: 'Setores', icon: Settings2 },
     { id: 'security', label: 'Segurança', icon: ShieldCheck, roles: [Role.ADMIN] },
     { id: 'audit', label: 'Auditoria', icon: ClipboardList, roles: [Role.ADMIN] },
+    { id: 'database', label: 'Database', icon: DatabaseZap, roles: [Role.ADMIN] },
   ];
 
   return (

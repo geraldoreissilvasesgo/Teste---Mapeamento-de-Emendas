@@ -1,22 +1,22 @@
 
 /**
- * SERVIÇO DE AUTENTICAÇÃO (FIREBASE / MOCK)
- * Este arquivo gerencia a conexão com o Firebase. 
- * Se as chaves não estiverem configuradas, ele provê um Mock para testes.
+ * SERVIÇO DE AUTENTICAÇÃO (FIREBASE)
+ * Este arquivo gerencia a conexão com o Firebase para autenticação de produção.
  */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { 
   getAuth, 
-  signInWithEmailAndPassword as firebaseSignIn,
-  createUserWithEmailAndPassword as firebaseCreateUser,
-  onAuthStateChanged as firebaseOnAuth,
-  updateProfile as firebaseUpdateProfile,
-  signOut as firebaseSignOut
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  updateProfile,
+  signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
+// A configuração do Firebase deve ser preenchida com as chaves reais do projeto em produção.
 const firebaseConfig = {
-  apiKey: "AIzaSy-PLACEHOLDER", // Altere para sua chave real quando for para produção
+  apiKey: "AIzaSy-PLACEHOLDER",
   authDomain: "rastreio-emendas-go.firebaseapp.com",
   projectId: "rastreio-emendas-go",
   storageBucket: "rastreio-emendas-go.appspot.com",
@@ -24,66 +24,25 @@ const firebaseConfig = {
   appId: "1:000000000000:web:000000000000"
 };
 
-// Detecção de Modo de Desenvolvimento (Mock)
-const isMockMode = firebaseConfig.apiKey.includes("PLACEHOLDER");
+// Inicializa o Firebase e obtém a instância de autenticação
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
 
-let authInstance: any;
-
-if (!isMockMode) {
-  const app = initializeApp(firebaseConfig);
-  authInstance = getAuth(app);
-} else {
-  // Mock do objeto Auth para não quebrar o sistema sem chaves reais
-  authInstance = {
-    currentUser: null,
-    signOut: () => {
-      authInstance.currentUser = null;
-      if (mockAuthCallback) mockAuthCallback(null);
-      return Promise.resolve();
-    }
-  };
-}
-
-let mockAuthCallback: ((user: any) => void) | null = null;
-
-// Wrappers para suportar tanto Firebase Real quanto Mock de Teste
-export const auth = authInstance;
-
-export const signIn = async (email: string, pass: string) => {
-  if (isMockMode) {
-    // Simulação de login de teste
-    if (email === "admin@gesa.subipei.go.gov.br" && pass === "Goi@s2025!") {
-      const mockUser = { uid: 'test-123', email, displayName: 'Gestor de Teste' };
-      authInstance.currentUser = mockUser;
-      if (mockAuthCallback) mockAuthCallback(mockUser);
-      return { user: mockUser };
-    }
-    throw { code: 'auth/wrong-password' };
-  }
-  return firebaseSignIn(auth, email, pass);
+// Funções de Autenticação para Produção
+export const signIn = (email: string, pass: string) => {
+  return signInWithEmailAndPassword(auth, email, pass);
 };
 
 export const signUp = async (email: string, pass: string, name: string) => {
-  if (isMockMode) {
-    const mockUser = { uid: Math.random().toString(), email, displayName: name };
-    authInstance.currentUser = mockUser;
-    if (mockAuthCallback) mockAuthCallback(mockUser);
-    return { user: mockUser };
-  }
-  const creds = await firebaseCreateUser(auth, email, pass);
-  await firebaseUpdateProfile(creds.user, { displayName: name });
+  const creds = await createUserWithEmailAndPassword(auth, email, pass);
+  await updateProfile(creds.user, { displayName: name });
   return creds;
 };
 
 export const onAuthChange = (callback: (user: any) => void) => {
-  if (isMockMode) {
-    mockAuthCallback = callback;
-    callback(authInstance.currentUser);
-    return () => { mockAuthCallback = null; };
-  }
-  return firebaseOnAuth(auth, callback);
+  return onAuthStateChanged(auth, callback);
 };
 
 export const logout = () => {
-  return isMockMode ? authInstance.signOut() : firebaseSignOut(auth);
+  return signOut(auth);
 };

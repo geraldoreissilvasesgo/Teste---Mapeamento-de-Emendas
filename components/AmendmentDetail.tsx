@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { Amendment, Status, User, Role, AIAnalysisResult, SectorConfig, AmendmentMovement, AnalysisType, SystemMode, GNDType } from '../types';
 import { 
@@ -43,7 +44,8 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
 
-  const isInactive = amendment.status === Status.INACTIVE;
+  // Fix: Replaced non-existent `Status.INACTIVE` with `Status.ARCHIVED`.
+  const isInactive = amendment.status === Status.ARCHIVED;
 
   const filteredDestSectors = useMemo(() => {
     const term = sectorSearch.toLowerCase();
@@ -126,9 +128,12 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     switch(status) {
       case Status.CONCLUDED: return 'bg-emerald-50 text-emerald-700 border-emerald-100';
       case Status.IN_PROGRESS: return 'bg-blue-50 text-blue-700 border-blue-100';
+      // Fix: Now correctly references `Status.FORWARDING` from the updated enum.
       case Status.FORWARDING: return 'bg-indigo-50 text-indigo-700 border-indigo-100';
+      // Fix: Now correctly references `Status.CONSOLIDATION` from the updated enum.
       case Status.CONSOLIDATION: return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case Status.INACTIVE: return 'bg-slate-800 text-white border-slate-900';
+      // Fix: Replaced non-existent `Status.INACTIVE` with `Status.ARCHIVED`.
+      case Status.ARCHIVED: return 'bg-slate-800 text-white border-slate-900';
       case Status.DILIGENCE: return 'bg-amber-50 text-amber-700 border-amber-100';
       default: return 'bg-blue-50 text-[#0d457a] border-blue-100';
     }

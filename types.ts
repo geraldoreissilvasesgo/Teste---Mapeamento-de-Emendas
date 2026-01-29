@@ -1,4 +1,5 @@
 
+
 /**
  * DICIONÁRIO DE DADOS - GESA/SUBIPEI
  * Este arquivo centraliza todas as definições de tipos, enums e interfaces
@@ -86,19 +87,16 @@ export interface SectorConfig {
   analysisType: AnalysisType; // Tipo de trabalho realizado
 }
 
-// Status do Ciclo de Vida do Processo
+// Status do Ciclo de Vida do Processo (Refatorado para Produção)
 export enum Status {
-  DRAFT = 'Rascunho',
-  IN_PROGRESS = 'Em Andamento',
-  FORWARDING = 'Encaminhamento',
-  CONSOLIDATION = 'Consolidação de Processo',
-  PROCESSING = 'Em Tramitação',
-  APPROVED = 'Aprovada',
-  REJECTED = 'Rejeitada',
-  PAID = 'Paga',
-  DILIGENCE = 'Em Diligência', // Aguardando correção externa
-  CONCLUDED = 'Concluída',
-  INACTIVE = 'Inativada'
+  IN_PROGRESS = 'Em Tramitação',
+  DILIGENCE = 'Em Diligência',
+  REJECTED = 'Rejeitado',
+  CONCLUDED = 'Liquidado / Pago',
+  ARCHIVED = 'Arquivado',
+  // Fix: Added missing status values to align with component logic.
+  CONSOLIDATION = 'Em Consolidação',
+  FORWARDING = 'Encaminhado',
 }
 
 // Registro de Movimentação (Histórico de Tramitação)

@@ -1,8 +1,9 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Amendment, Status, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
-import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, User, Send, ChevronDown, Landmark, XCircle } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, MapPin, Pencil, X, User, Send, ChevronDown, Landmark, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface AmendmentListProps {
   amendments: Amendment[];
@@ -77,10 +78,13 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const getStatusColor = (status: Status) => {
     switch(status) {
       case Status.CONCLUDED: return 'bg-emerald-500';
+      // Fix: Now correctly references `Status.CONSOLIDATION` from the updated enum.
       case Status.CONSOLIDATION: return 'bg-emerald-600';
+      // Fix: Now correctly references `Status.FORWARDING` from the updated enum.
       case Status.FORWARDING: return 'bg-indigo-600';
       case Status.IN_PROGRESS: return 'bg-blue-500';
-      case Status.INACTIVE: return 'bg-slate-800';
+      // Fix: Replaced non-existent `Status.INACTIVE` with `Status.ARCHIVED`.
+      case Status.ARCHIVED: return 'bg-slate-800';
       case Status.DILIGENCE: return 'bg-amber-500';
       default: return 'bg-[#0d457a]';
     }
@@ -191,9 +195,9 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             key={amendment.id} 
             onClick={() => onSelect(amendment)} 
             className={`group relative bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#0d457a]/20 transition-all transform hover:-translate-y-1 
-              ${amendment.status === Status.INACTIVE ? 'opacity-60 grayscale' : ''}`}
+              ${amendment.status === Status.ARCHIVED ? 'opacity-60 grayscale' : ''}`}
           >
-            {userRole !== Role.VIEWER && userRole !== Role.AUDITOR && amendment.status !== Status.INACTIVE && (
+            {userRole !== Role.VIEWER && userRole !== Role.AUDITOR && amendment.status !== Status.ARCHIVED && (
               <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                 <button
                   onClick={(e) => {
@@ -249,6 +253,30 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         ))}
       </div>
 
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mt-6">
+          <span className="text-xs font-black text-slate-500 uppercase">
+            Página {currentPage} de {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={18} className="text-slate-600" />
+            </button>
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={18} className="text-slate-600" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0d457a]/90 p-4 backdrop-blur-xl overflow-y-auto">
           <div className="bg-white rounded-[40px] w-full max-w-4xl shadow-2xl my-8 overflow-hidden">
@@ -269,7 +297,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                  <div className="space-y-2">
                     <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Status do Processo</label>
                     <select className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 uppercase text-xs" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Status})}>
-                       {Object.values(Status).filter(s => s !== Status.INACTIVE).map(s => <option key={s} value={s}>{s}</option>)}
+                       {Object.values(Status).filter(s => s !== Status.ARCHIVED).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                  </div>
                  <div className="space-y-2">

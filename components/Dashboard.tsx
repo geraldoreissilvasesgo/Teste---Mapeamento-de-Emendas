@@ -1,5 +1,6 @@
 
-import React, { useMemo } from 'react';
+
+import React, { useMemo, useState } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -14,16 +15,41 @@ import {
   Cell
 } from 'recharts';
 import { Amendment, Status, Sector, AmendmentType, SystemMode } from '../types';
-import { TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, Zap, Landmark, Award, Info } from 'lucide-react';
+import { TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, Zap, Landmark, Award, Info, Search, FileSearch, X } from 'lucide-react';
 
 interface DashboardProps {
   amendments: Amendment[];
   systemMode: SystemMode;
+  onSelectAmendment: (id: string) => void;
 }
 
 const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#4f46e5'];
 
-export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode, onSelectAmendment }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Amendment[]>([]);
+  const [inspectedAmendment, setInspectedAmendment] = useState<Amendment | null>(null);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+
+    if (term.trim().length > 2) {
+      const results = amendments.filter(a => 
+        a.seiNumber.toLowerCase().includes(term.toLowerCase())
+      );
+      setSearchResults(results.slice(0, 5)); // Limita a 5 resultados
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  const handleSelectResult = (amendment: Amendment) => {
+    setInspectedAmendment(amendment);
+    setSearchTerm('');
+    setSearchResults([]);
+  };
+
   const stats = useMemo(() => {
     const totalValue = amendments.reduce((acc, curr) => acc + curr.value, 0);
     
@@ -36,15 +62,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
       .reduce((acc, curr) => acc + curr.value, 0);
 
     const totalCount = amendments.length;
-    const approvedCount = amendments.filter(a => a.status === Status.CONCLUDED || a.status === Status.PAID).length;
-    const processingCount = amendments.filter(a => a.status === Status.PROCESSING || a.status === Status.DILIGENCE).length;
+    // Fix: Replaced non-existent `Status.PAID` with `Status.CONCLUDED` as it covers paid status.
+    const approvedCount = amendments.filter(a => a.status === Status.CONCLUDED).length;
+    // Fix: Replaced non-existent `Status.PROCESSING` with `Status.IN_PROGRESS`.
+    const processingCount = amendments.filter(a => a.status === Status.IN_PROGRESS || a.status === Status.DILIGENCE).length;
     
     const sectorDistribution = (() => {
       const sectorCounts: { [key: string]: number } = {};
+      // Fix: Removed check for non-existent `Status.PAID` and replaced `Status.INACTIVE` with `Status.ARCHIVED`.
       const activeAmendments = amendments.filter(a => 
           a.status !== Status.CONCLUDED && 
-          a.status !== Status.PAID &&
-          a.status !== Status.INACTIVE
+          a.status !== Status.ARCHIVED
       );
 
       activeAmendments.forEach(amendment => {
@@ -64,7 +92,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
 
     const today = new Date();
     const overdueCount = amendments.filter(a => {
-      if (a.status === Status.CONCLUDED || a.status === Status.PAID) return false;
+      // Fix: Removed check for non-existent `Status.PAID`.
+      if (a.status === Status.CONCLUDED) return false;
       const lastMovement = a.movements[a.movements.length - 1];
       return lastMovement && new Date(lastMovement.deadline) < today;
     }).length;
@@ -87,15 +116,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-2">
-        <div>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-2 gap-4">
+        <div className="flex-1">
           <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Cockpit Gerencial</h2>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Métricas de Performance e Finanças GESA/SUBIPEI</p>
         </div>
-        <div className="flex gap-2">
-          <span className="text-[10px] text-[#0d457a] bg-white px-4 py-2 rounded-xl border border-slate-200 uppercase font-black tracking-widest flex items-center gap-2">
-            <Zap size={14} className="text-amber-500" /> Versão 2.7
-          </span>
+        <div className="w-full md:w-auto flex items-center gap-2">
+          <div className="relative flex-1 md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text"
+              placeholder="Buscar Histórico de Processo SEI..."
+              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all text-sm font-medium shadow-sm"
+              value={searchTerm}
+              onChange={handleSearchChange}
+            />
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                {searchResults.map(result => (
+                  <button 
+                    key={result.id}
+                    onClick={() => handleSelectResult(result)}
+                    className="w-full text-left px-5 py-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-b-0"
+                  >
+                    <p className="font-black text-[#0d457a] text-sm">{result.seiNumber}</p>
+                    <p className="text-xs text-slate-400 truncate">{result.object}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -213,6 +263,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode }) 
           </div>
         </div>
       </div>
+
+      {inspectedAmendment && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[40px] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-4">
+                <div className="p-2.5 bg-slate-100 rounded-2xl text-[#0d457a]"><FileSearch size={24} /></div>
+                <div>
+                  <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Histórico de Tramitação</h3>
+                  <p className="text-slate-500 text-sm font-bold">{inspectedAmendment.seiNumber}</p>
+                </div>
+              </div>
+              <button onClick={() => setInspectedAmendment(null)} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+                {inspectedAmendment.movements.map((m, idx) => (
+                  <div key={m.id} className="relative">
+                    <div className={`absolute -left-[30px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md z-10 ${idx === inspectedAmendment.movements.length - 1 ? 'bg-[#0d457a]' : 'bg-slate-200'}`} />
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(m.dateIn).toLocaleDateString()} às {new Date(m.dateIn).toLocaleTimeString()}</p>
+                        {m.deadline && (
+                          <span className={`text-[8px] px-2 py-0.5 rounded font-black uppercase ${new Date(m.deadline) < new Date() && !m.dateOut ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                            {m.dateOut ? 'Finalizado' : `Até ${new Date(m.deadline).toLocaleDateString()}`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-black text-[#0d457a] uppercase mb-1">{m.toSector}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase">Responsável: {m.handledBy}</p>
+                      {m.fromSector && <p className="text-[9px] text-slate-400 font-medium uppercase mt-1">Origem: {m.fromSector}</p>}
+                    </div>
+                  </div>
+                )).reverse()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

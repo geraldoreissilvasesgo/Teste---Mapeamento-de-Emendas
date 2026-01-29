@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { 
   BarChart, 
@@ -56,7 +57,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
     ];
 
     filteredData.forEach(a => {
-      if (a.status === Status.CONCLUDED || a.status === Status.APPROVED || a.status === Status.PAID) {
+      // Fix: Removed non-existent `Status.APPROVED` and `Status.PAID`. `Status.CONCLUDED` covers this logic.
+      if (a.status === Status.CONCLUDED) {
         data[1].value += a.value;
       } else if (a.status.includes('diligência')) {
         data[2].value += a.value;

@@ -15,21 +15,23 @@ import { SectorManagement } from './components/SectorManagement';
 import { DeadlinePanel } from './components/DeadlinePanel';
 import { LGPDModal } from './components/LGPDModal';
 import { User, Amendment, Role, Status, AuditLog, AuditAction, SectorConfig, AmendmentMovement, SystemMode, AuditSeverity } from './types';
-import { MOCK_AMENDMENTS, MOCK_USERS, MOCK_AUDIT_LOGS, DEFAULT_SECTOR_CONFIGS } from './constants';
+import { TestingPanel } from './components/TestingPanel';
+import { TechnicalPanel } from './components/TechnicalPanel';
+import { MOCK_USERS } from './constants';
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // MODO DE DESENVOLVIMENTO: Inicia com um usuário mockado para bypassar o login.
+  const [currentUser, setCurrentUser] = useState<User | null>(MOCK_USERS[0]);
   const [isInitializing, setIsInitializing] = useState(true);
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null);
   
-  // Sistema agora fixo em modo Produção
   const systemMode = SystemMode.PRODUCTION;
   
-  const [amendments, setAmendments] = useState<Amendment[]>(MOCK_AMENDMENTS);
-  const [sectors, setSectors] = useState<SectorConfig[]>(DEFAULT_SECTOR_CONFIGS);
+  const [amendments, setAmendments] = useState<Amendment[]>([]);
+  const [sectors, setSectors] = useState<SectorConfig[]>([]);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_AUDIT_LOGS);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const currentUserRef = useRef<User | null>(null);
@@ -76,11 +78,11 @@ const App: React.FC = () => {
         target: 'Importação em Lote',
         details: `Importação em massa de ${data.length} registros realizada com sucesso.`
     });
-    setCurrentView('amendments'); // Navega para a lista de processos
+    setCurrentView('amendments');
     setSuccessMessage(`${data.length} registros importados com sucesso! A base de dados foi atualizada.`);
     setTimeout(() => {
         setSuccessMessage(null);
-    }, 5000); // Limpa a mensagem após 5 segundos
+    }, 5000);
   };
 
   useEffect(() => {
@@ -92,10 +94,34 @@ const App: React.FC = () => {
         details: `Erro em Tempo de Execução: ${event.message} @ ${event.filename}:${event.lineno}`
       });
     };
+    const handlePromiseRejection = (event: PromiseRejectionEvent) => {
+      addAuditLog({
+        action: AuditAction.ERROR,
+        severity: AuditSeverity.CRITICAL,
+        target: 'Operação Assíncrona',
+        details: `Promise não tratada: ${event.reason}`
+      });
+    };
+
     window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handlePromiseRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handlePromiseRejection);
+    };
   }, [addAuditLog]);
 
+  // MODO DE DESENVOLVIMENTO: A autenticação do Firebase foi desativada
+  // para permitir o login com um usuário mockado.
+  // Para reativar, comente o useEffect abaixo e descomente o próximo.
+  useEffect(() => {
+    const timer = setTimeout(() => setIsInitializing(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  /*
+  // MODO DE PRODUÇÃO: Descomente este bloco para reativar a autenticação real do Firebase.
   useEffect(() => {
     const unsubscribe = onAuthChange((user) => {
       if (user) {
@@ -113,14 +139,24 @@ const App: React.FC = () => {
           avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email || 'User')}&background=${role === Role.AUDITOR ? '334155' : '0d457a'}&color=fff`,
           lgpdAccepted: hasAccepted
         };
-
+        
         setCurrentUser(userData);
-        addAuditLog({
-          action: AuditAction.LOGIN,
-          severity: AuditSeverity.INFO,
-          target: 'Autenticação',
-          details: `Acesso autenticado com perfil ${role}.`
+        setUsers(prevUsers => {
+            const userExists = prevUsers.some(u => u.id === userData.id);
+            if (userExists) {
+                return prevUsers.map(u => u.id === userData.id ? userData : u);
+            }
+            return [...prevUsers, userData];
         });
+
+        if (!auditLogs.some(log => log.action === AuditAction.LOGIN && log.actorId === user.uid)) {
+          addAuditLog({
+            action: AuditAction.LOGIN,
+            severity: AuditSeverity.INFO,
+            target: 'Autenticação',
+            details: `Acesso autenticado com perfil ${role}.`
+          });
+        }
       } else {
         setCurrentUser(null);
       }
@@ -128,6 +164,7 @@ const App: React.FC = () => {
     });
     return () => { if (unsubscribe) unsubscribe(); };
   }, [addAuditLog]);
+  */
 
   const handleMoveAmendment = useCallback((movements: AmendmentMovement[]) => {
     if (currentUserRef.current?.role === Role.AUDITOR) {
@@ -137,13 +174,12 @@ const App: React.FC = () => {
 
     setAmendments(prev => prev.map(a => {
       if (a.id === movements[0].amendmentId) {
-        // Para tramitação múltipla, o setor atual é a lista de todos os destinos da remessa
         const targetSectors = movements.map(m => m.toSector).join(' | ');
         const updated = { 
           ...a, 
           currentSector: targetSectors, 
           movements: [...a.movements, ...movements],
-          status: Status.PROCESSING // Atualiza para tramitação ao mover
+          status: Status.IN_PROGRESS
         };
         addAuditLog({
           action: AuditAction.MOVE,
@@ -191,7 +227,7 @@ const App: React.FC = () => {
 
   const handleInactivateAmendment = useCallback((id: string) => {
     if (currentUserRef.current?.role !== Role.ADMIN && currentUserRef.current?.role !== Role.OPERATOR) {
-      alert("Permissão insuficiente para inativar registros.");
+      alert("Permissão insuficiente para arquivar registros.");
       return;
     }
     
@@ -200,9 +236,9 @@ const App: React.FC = () => {
     
     const after = { 
       ...before, 
-      status: Status.INACTIVE,
-      object: `[ARQUIVADO] ${before.object}`, // Adiciona uma marcação visual permanente
-      currentSector: 'Arquivo Morto' // Move para um setor final não operacional
+      status: Status.ARCHIVED,
+      object: `[ARQUIVADO] ${before.object}`,
+      currentSector: 'Arquivo Morto'
     };
     setAmendments(prev => prev.map(a => a.id === id ? after : a));
     
@@ -210,12 +246,29 @@ const App: React.FC = () => {
         action: AuditAction.DELETE, 
         severity: AuditSeverity.HIGH,
         target: before.seiNumber, 
-        details: 'Registro de processo foi permanentemente arquivado (Status: INACTIVE). A ação é irreversível para fins de auditoria.',
+        details: 'Registro de processo foi permanentemente arquivado. A ação é irreversível para fins de auditoria.',
         before: before,
         after: after
     });
     setSuccessMessage('Processo arquivado com sucesso!');
     setTimeout(() => setSuccessMessage(null), 5000);
+  }, [amendments, addAuditLog]);
+  
+  const handleStatusChange = useCallback((id: string, status: Status) => {
+      const before = amendments.find(a => id === a.id);
+      if (!before) return;
+      
+      const after = { ...before, status };
+      setAmendments(prev => prev.map(a => a.id === id ? after : a));
+      
+      addAuditLog({ 
+        action: AuditAction.UPDATE, 
+        severity: AuditSeverity.MEDIUM,
+        target: id, 
+        details: `Status do processo alterado para ${status}`,
+        before,
+        after
+      });
   }, [amendments, addAuditLog]);
 
   if (isInitializing) {
@@ -228,11 +281,11 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <Login onLogin={() => {}} />;
+    return <Login />;
   }
 
   if (currentUser && !currentUser.lgpdAccepted) {
-    return <LGPDModal userName={currentUser.name} onAccept={() => {
+    return <LGPDModal userName={currentUser.name || ''} onAccept={() => {
       localStorage.setItem(`lgpd_${currentUser.id}`, 'true');
       setCurrentUser(prev => prev ? { ...prev, lgpdAccepted: true } : null);
       addAuditLog({ 
@@ -244,21 +297,9 @@ const App: React.FC = () => {
     }} />;
   }
 
-  return (
-    <Layout 
-      currentUser={currentUser} 
-      currentView={currentView}
-      notifications={[]}
-      systemMode={systemMode}
-      successMessage={successMessage}
-      onNavigate={setCurrentView}
-      onLogout={() => {
-        addAuditLog({ action: AuditAction.LOGIN, severity: AuditSeverity.INFO, details: 'Logout realizado pelo servidor.', target: 'Sessão' });
-        logout();
-        setCurrentUser(null);
-      }}
-    >
-      {selectedAmendment ? (
+  const renderCurrentView = () => {
+    if (selectedAmendment) {
+      return (
         <AmendmentDetail 
           amendment={selectedAmendment}
           currentUser={currentUser}
@@ -266,58 +307,88 @@ const App: React.FC = () => {
           systemMode={systemMode}
           onBack={() => setSelectedAmendmentId(null)}
           onMove={handleMoveAmendment}
-          onStatusChange={(id, status) => {
-            const before = amendments.find(a => id === a.id);
-            setAmendments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
-            addAuditLog({ 
-              action: AuditAction.UPDATE, 
-              severity: AuditSeverity.MEDIUM,
-              target: id, 
-              details: `Status alterado para ${status}`,
-              before,
-              after: { ...before, status }
-            });
-          }}
+          onStatusChange={handleStatusChange}
           onDelete={handleInactivateAmendment}
         />
-      ) : (
-        <>
-          {currentView === 'dashboard' && <Dashboard amendments={amendments} systemMode={systemMode} />}
-          {currentView === 'amendments' && (
-            <AmendmentList 
-              amendments={amendments} 
-              sectors={sectors} 
-              userRole={currentUser.role} 
-              systemMode={systemMode} 
-              onSelect={a => setSelectedAmendmentId(a.id)} 
-              onCreate={handleCreateAmendment} 
-              onUpdate={handleUpdateAmendment} 
-              onInactivate={handleInactivateAmendment} 
-            />
-          )}
-          {currentView === 'audit' && <AuditModule logs={auditLogs} />}
-          {currentView === 'security' && (
-            <SecurityModule 
-              users={users} 
-              currentUser={currentUser} 
-              onAddUser={(u) => {
-                setUsers(prev => [...prev, u]);
-                addAuditLog({ action: AuditAction.SECURITY, severity: AuditSeverity.HIGH, target: u.email, details: `Novo usuário criado com perfil ${u.role}` });
-              }} 
-              onDeleteUser={(id) => {
-                const u = users.find(usr => usr.id === id);
-                setUsers(prev => prev.filter(usr => usr.id !== id));
-                addAuditLog({ action: AuditAction.SECURITY, severity: AuditSeverity.HIGH, target: id, details: `Usuário ${u?.email} removido do sistema.` });
-              }} 
-            />
-          )}
-          {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
-          {currentView === 'reports' && <ReportModule amendments={amendments} />}
-          {currentView === 'sectors' && <SectorManagement sectors={sectors} onAdd={s => setSectors(prev => [...prev, s])} />}
-          {currentView === 'deadlines' && <DeadlinePanel amendments={amendments} onSelect={a => setSelectedAmendmentId(a.id)} />}
-          {currentView === 'import' && <ImportModule onImport={handleImportData} sectors={sectors} />}
-        </>
-      )}
+      );
+    }
+
+    switch(currentView) {
+      case 'dashboard':
+        return (
+          <Dashboard 
+            amendments={amendments} 
+            systemMode={systemMode} 
+            onSelectAmendment={(id) => setSelectedAmendmentId(id)} 
+          />
+        );
+      case 'amendments':
+        return (
+          <AmendmentList 
+            amendments={amendments} 
+            sectors={sectors} 
+            userRole={currentUser.role} 
+            systemMode={systemMode} 
+            onSelect={a => setSelectedAmendmentId(a.id)} 
+            onCreate={handleCreateAmendment} 
+            onUpdate={handleUpdateAmendment} 
+            onInactivate={handleInactivateAmendment} 
+          />
+        );
+      case 'audit':
+        return <AuditModule logs={auditLogs} />;
+      case 'security':
+        return (
+          <SecurityModule 
+            users={users} 
+            currentUser={currentUser} 
+            onAddUser={(user) => setUsers(prev => [...prev, user])} 
+            onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))} 
+          />
+        );
+      case 'import':
+        return <ImportModule onImport={handleImportData} sectors={sectors} />;
+      case 'repository':
+        return <RepositoryModule amendments={amendments} />;
+      case 'reports':
+        return <ReportModule amendments={amendments} />;
+      case 'sectors':
+        return <SectorManagement sectors={sectors} onAdd={(s) => setSectors(prev => [...prev, s])} />;
+      case 'deadlines':
+        return <DeadlinePanel amendments={amendments} onSelect={a => setSelectedAmendmentId(a.id)} />;
+      case 'database':
+        return <TechnicalPanel />;
+      case 'testing':
+        return <TestingPanel />;
+      default:
+        return (
+          <Dashboard 
+            amendments={amendments} 
+            systemMode={systemMode} 
+            onSelectAmendment={(id) => setSelectedAmendmentId(id)} 
+          />
+        );
+    }
+  };
+
+  return (
+    <Layout 
+      currentUser={currentUser} 
+      currentView={currentView}
+      notifications={[]}
+      systemMode={systemMode}
+      successMessage={successMessage}
+      onNavigate={(view) => {
+        setSelectedAmendmentId(null);
+        setCurrentView(view);
+      }}
+      onLogout={() => {
+        addAuditLog({ action: AuditAction.LOGIN, severity: AuditSeverity.INFO, details: 'Logout realizado pelo servidor.', target: 'Sessão' });
+        // Em modo de teste, simplesmente recarregamos a página para simular logout
+        window.location.reload();
+      }}
+    >
+      {renderCurrentView()}
     </Layout>
   );
 };

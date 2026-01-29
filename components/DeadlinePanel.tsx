@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Amendment, Status } from '../types';
 import { AlertCircle, Clock, CheckCircle2, Search } from 'lucide-react';
@@ -9,7 +10,8 @@ interface DeadlinePanelProps {
 }
 
 export const DeadlinePanel: React.FC<DeadlinePanelProps> = ({ amendments, onSelect }) => {
-  const activeProcesses = amendments.filter(a => a.status !== Status.CONCLUDED && a.status !== Status.PAID);
+  // Fix: Removed check for non-existent `Status.PAID`, as `Status.CONCLUDED` covers this state.
+  const activeProcesses = amendments.filter(a => a.status !== Status.CONCLUDED);
 
   const getSlaStatus = (deadline: string) => {
     const today = new Date();
