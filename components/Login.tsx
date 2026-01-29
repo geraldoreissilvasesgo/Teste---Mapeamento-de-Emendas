@@ -1,18 +1,35 @@
-
+/**
+ * COMPONENTE DE LOGIN
+ * 
+ * Este componente gerencia a tela de autenticação do sistema. Ele é a porta de entrada
+ * para usuários não autenticados.
+ * 
+ * Funcionalidades:
+ * - Formulário para inserção de e-mail e senha.
+ * - Simulação de um fluxo de Autenticação de Múltiplos Fatores (MFA) para perfis
+ *   de maior privilégio (admin, auditor).
+ * - Validação de força da senha em tempo real para feedback visual.
+ * - Exibição de mensagens de erro claras em caso de falha na autenticação.
+ * - Botões de "Login Rápido" para facilitar o acesso em ambiente de desenvolvimento.
+ */
 import React, { useState, useEffect } from 'react';
-import { signIn, signUp } from '../services/firebase';
+import { signIn } from '../services/firebase';
 import { ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, Smartphone, CheckCircle2, AlertCircle, Fingerprint } from 'lucide-react';
 
 export const Login: React.FC = () => {
+  // Estado para controlar o passo da autenticação (credenciais ou MFA).
   const [step, setStep] = useState<'credentials' | 'mfa'>('credentials');
+  // Estados para os campos do formulário.
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  // Estados para controle da UI.
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState(0);
 
+  // Efeito para calcular a força da senha digitada.
   useEffect(() => {
     let strength = 0;
     if (password.length >= 8) strength++;
@@ -22,157 +39,179 @@ export const Login: React.FC = () => {
     setPasswordStrength(strength);
   }, [password]);
 
+  // Manipulador para a submissão do formulário de credenciais.
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
-      await signIn(email, password);
-      // O listener onAuthChange em App.tsx irá lidar com a transição de estado.
-      // A lógica de MFA simulada é mantida para demonstrar o fluxo.
+      // Em um ambiente real, aqui haveria uma verificação no backend.
+      // Para simulação, a lógica se baseia no e-mail para decidir se o MFA é necessário.
       if (email.includes('admin') || email.includes('auditor')) {
         setStep('mfa');
+      } else {
+        await signIn(email, password);
+        // Se o signIn for bem-sucedido, o listener onAuthChange em App.tsx
+        // irá detectar a mudança e redirecionar o usuário.
       }
     } catch (err: any) {
-      setError('Credenciais inválidas. Utilize seu e-mail corporativo.');
+      const firebaseError = err.code?.split('/')[1]?.replace(/-/g, ' ') || 'Verifique suas credenciais';
+      setError(`Falha na autenticação: ${firebaseError}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleMfaVerify = (e: React.FormEvent) => {
+  // Manipulador para a submissão do código MFA.
+  const handleMfa = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      // Em uma aplicação real, aqui haveria uma verificação do token MFA.
-      // O sucesso aqui permite que o onAuthChange prossiga.
-      if (mfaCode === '123456') { // Mock de token seguro
-        // O onAuthChange cuidará do login.
-      } else {
-        setError('Token MFA inválido ou expirado.');
+    setError('');
+
+    // Simula a verificação do código MFA. Em produção, isso seria validado por um serviço.
+    if (mfaCode === '123456') {
+      try {
+        await signIn(email, password);
+      } catch (err: any) {
+        setError('Credenciais inválidas mesmo com código MFA correto. Acesso negado.');
+        setStep('credentials'); // Volta para o passo inicial
       }
-      setIsLoading(false);
-    }, 800);
+    } else {
+      setError('Código de autenticação inválido. Tente novamente.');
+    }
+    setIsLoading(false);
   };
 
-  const quickLogin = (role: string) => {
-    const emails: Record<string, string> = {
-      admin: 'admin@gesa.subipei.go.gov.br',
-      operador: 'operador@gesa.subipei.go.gov.br',
-      auditor: 'auditor@cge.go.gov.br'
-    };
-    setEmail(emails[role]);
-    setPassword('Goi@s2025!');
+  // Função para preencher e submeter o formulário com dados de teste.
+  const quickLogin = (userType: 'admin' | 'operator') => {
+    const userEmail = userType === 'admin' ? 'admin.teste@gesa.go.gov.br' : 'operador.gesa@goias.gov.br';
+    const userPass = 'Senha@123';
+    
+    setEmail(userEmail);
+    setPassword(userPass);
+
+    // Simula a submissão do formulário após um pequeno delay para que o estado seja atualizado.
+    setTimeout(() => {
+      document.getElementById('login-form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }, 100);
   };
+  
+  // Renderiza a barra de força da senha.
+  const renderPasswordStrength = () => (
+    <div className="flex gap-1.5 mt-2">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className={`h-1 flex-1 rounded-full ${passwordStrength > i ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen flex bg-[#0d457a] items-center justify-center p-6 relative overflow-hidden font-inter">
-      {/* Elementos decorativos de fundo */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-10">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden border border-white/10 z-10 animate-in fade-in zoom-in-95 duration-500">
-        <div className="bg-slate-50 p-10 text-center border-b border-slate-100">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#0d457a] rounded-[24px] text-white mb-6 shadow-xl ring-8 ring-blue-50/50">
-            {step === 'credentials' ? <ShieldCheck size={40} /> : <Smartphone size={40} className="animate-bounce" />}
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-inter">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/50 p-10">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#0d457a] rounded-3xl text-white mb-4 shadow-xl ring-8 ring-blue-50">
+              <ShieldCheck size={32} />
+            </div>
+            <h1 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Acesso Restrito GESA</h1>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Plataforma de Gestão Governamental</p>
           </div>
-          <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
-            {step === 'credentials' ? 'Acesso Institucional' : 'Múltiplo Fator'}
-          </h2>
-          <p className="text-slate-400 text-[10px] mt-2 font-black uppercase tracking-[0.2em]">GESA / SUBIPEI - GOIÁS</p>
+          
+          {/* Alterna entre o formulário de credenciais e o de MFA */}
+          {step === 'credentials' ? (
+            <form id="login-form" onSubmit={handleAuth} className="space-y-6">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">E-mail Institucional</label>
+                <div className="relative mt-2">
+                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="usuario@gesa.go.gov.br"
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Senha de Acesso</label>
+                <div className="relative mt-2">
+                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Sua senha"
+                    className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    required
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0d457a]">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {password.length > 0 && renderPasswordStrength()}
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-4 bg-[#0d457a] text-white rounded-xl font-black uppercase text-xs shadow-xl hover:bg-[#0a365f] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoading ? 'Autenticando...' : 'Avançar'}
+                {!isLoading && <LogIn size={16} />}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleMfa} className="space-y-6 animate-in fade-in">
+              <div className="text-center">
+                 <p className="text-sm text-slate-600">Um código de verificação foi enviado para seu dispositivo. Insira-o abaixo.</p>
+                 <p className="font-bold text-[#0d457a] mt-1">{email}</p>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Código de 6 dígitos</label>
+                <div className="relative mt-2">
+                  <Smartphone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <input
+                    type="text"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value)}
+                    placeholder="123456"
+                    className="w-full text-center tracking-[0.5em] font-bold text-lg pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    required
+                    maxLength={6}
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-4 bg-emerald-600 text-white rounded-xl font-black uppercase text-xs shadow-xl hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoading ? 'Verificando...' : 'Confirmar Acesso'}
+                {!isLoading && <CheckCircle2 size={16} />}
+              </button>
+               <button onClick={() => setStep('credentials')} type="button" className="w-full text-center text-xs text-slate-500 hover:text-[#0d457a] font-bold">Voltar</button>
+            </form>
+          )}
+
+          {/* Mensagem de Erro */}
+          {error && (
+            <div className="mt-6 bg-red-50 text-red-600 border border-red-100 p-4 rounded-xl flex items-center gap-3 text-xs font-bold animate-in fade-in">
+              <AlertCircle size={20} />
+              <p>{error}</p>
+            </div>
+          )}
         </div>
-
-        {step === 'credentials' ? (
-          <form onSubmit={handleAuth} className="p-10 space-y-6">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-4 text-slate-300" size={20} />
-                <input 
-                  required 
-                  type="email" 
-                  className="w-full pl-12 pr-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none font-bold text-sm transition-all" 
-                  value={email} 
-                  onChange={e => setEmail(e.target.value)} 
-                  placeholder="usuario@go.gov.br" 
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha de Acesso</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-4 text-slate-300" size={20} />
-                <input 
-                  required 
-                  type={showPassword ? 'text' : 'password'} 
-                  className="w-full pl-12 pr-14 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-[#0d457a] focus:bg-white outline-none font-bold text-sm transition-all" 
-                  value={password} 
-                  onChange={e => setPassword(e.target.value)} 
-                  placeholder="••••••••" 
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-300 hover:text-[#0d457a]">
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              <div className="flex gap-1.5 h-1 mt-3 px-1">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className={`flex-1 rounded-full transition-all duration-500 ${i < passwordStrength ? (passwordStrength < 3 ? 'bg-amber-400' : 'bg-emerald-500') : 'bg-slate-100'}`} />
-                ))}
-              </div>
-              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1 ml-1">Segurança: {['Fraca', 'Média', 'Forte', 'Inviolável'][passwordStrength-1] || '---'}</p>
-            </div>
-
-            {error && <div className="text-red-500 text-[11px] font-bold bg-red-50 p-4 rounded-2xl flex items-center gap-2 border border-red-100 animate-shake"><AlertCircle size={18}/> {error}</div>}
-
-            <button type="submit" disabled={isLoading} className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#0a365f] shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50">
-               {isLoading ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn size={18}/> Validar Identidade</>}
-            </button>
-
-            <div className="flex flex-col gap-4 pt-4 border-t border-slate-50">
-               <div className="flex justify-center gap-2">
-                  {['admin', 'operador', 'auditor'].map(r => (
-                    <button key={r} type="button" onClick={() => quickLogin(r)} className="px-3 py-1.5 bg-slate-50 rounded-lg text-[9px] font-black text-slate-400 uppercase hover:text-[#0d457a] hover:bg-blue-50 transition-all">{r}</button>
-                  ))}
-               </div>
-               <p className="text-[9px] text-slate-400 text-center uppercase font-bold tracking-widest">Acesso restrito a servidores autorizados.</p>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleMfaVerify} className="p-10 space-y-8 animate-in slide-in-from-right-10 duration-500">
-            <div className="text-center space-y-3">
-              <p className="text-sm text-slate-600 font-bold">Autenticação de Segundo Fator ativada para seu perfil.</p>
-              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-center gap-3 justify-center">
-                <Fingerprint className="text-blue-600" size={20} />
-                <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Código Demo: 123456</p>
-              </div>
-            </div>
-            <input 
-              maxLength={6} 
-              required 
-              autoFocus
-              className="w-full py-6 bg-slate-50 rounded-2xl outline-none text-4xl font-black text-center tracking-[0.6em] text-[#0d457a] border-2 border-transparent focus:border-[#0d457a] focus:bg-white transition-all" 
-              value={mfaCode} 
-              onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))} 
-              placeholder="000000" 
-            />
-            
-            {error && <div className="text-red-500 text-[11px] font-bold bg-red-50 p-4 rounded-2xl flex items-center gap-2 border border-red-100"><AlertCircle size={18}/> {error}</div>}
-
-            <button type="submit" disabled={isLoading || mfaCode.length < 6} className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-3 transition-all hover:bg-[#0a365f]">
-              {isLoading ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 size={18}/> Concluir MFA</>}
-            </button>
-            <button type="button" onClick={() => { setStep('credentials'); setError(''); }} className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest text-center hover:text-slate-600 transition-colors">Voltar para Credenciais</button>
-          </form>
-        )}
-      </div>
-      
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/30 text-center space-y-1">
-        <p className="text-[10px] font-black uppercase tracking-[0.3em]">Criptografia de Ponta a Ponta</p>
-        <p className="text-[8px] uppercase font-bold tracking-widest">Estado de Goiás - Controladoria Geral</p>
+        
+        {/* Rodapé com botões de login rápido para desenvolvimento */}
+        <div className="mt-6 text-center space-y-2">
+           <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest">Ambiente de Simulação</p>
+           <div className="flex justify-center gap-3">
+              <button onClick={() => quickLogin('admin')} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-black uppercase rounded-lg hover:bg-slate-300">Admin Rápido</button>
+              <button onClick={() => quickLogin('operator')} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-black uppercase rounded-lg hover:bg-slate-300">Operador Rápido</button>
+           </div>
+        </div>
       </div>
     </div>
   );

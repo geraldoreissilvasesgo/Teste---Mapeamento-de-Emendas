@@ -1,4 +1,10 @@
 
+/**
+ * COMPONENTE DE LAYOUT PRINCIPAL - REDESENHADO
+ * 
+ * Estrutura de navegação baseada em Domínios de Responsabilidade.
+ * Segue padrões modernos de UX para ERPs e sistemas governamentais.
+ */
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -10,14 +16,17 @@ import {
   ClipboardList,
   UploadCloud,
   Database,
-  FileBarChart,
+  BarChart3,
   Settings2,
   AlarmClockCheck,
   Bell,
   Globe,
-  Terminal,
-  CheckCircle2, // Ícone para mensagem de sucesso
-  DatabaseZap
+  CheckCircle2,
+  DatabaseZap,
+  Activity,
+  UserCog,
+  Workflow,
+  SearchCode
 } from 'lucide-react';
 import { User, Role, Notification, SystemMode } from '../types';
 import { APP_NAME, DEPARTMENT } from '../constants';
@@ -28,7 +37,7 @@ interface LayoutProps {
   currentView: string;
   notifications: Notification[];
   systemMode: SystemMode;
-  successMessage: string | null; // Prop para a mensagem de sucesso
+  successMessage: string | null;
   onNavigate: (view: string) => void;
   onLogout: () => void;
 }
@@ -39,145 +48,180 @@ export const Layout: React.FC<LayoutProps> = ({
   currentView, 
   notifications,
   systemMode,
-  successMessage, // Recebe a mensagem
+  successMessage,
   onNavigate, 
   onLogout 
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const [showNotifications, setShowNotifications] = React.useState(false);
 
-  // Removido menuItems dinâmicos de teste
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'amendments', label: 'Processos SEI', icon: FileText },
-    { id: 'deadlines', label: 'Prazos/SLA', icon: AlarmClockCheck },
-    { id: 'repository', label: 'Repositório', icon: Database },
-    { id: 'reports', label: 'Relatórios', icon: FileBarChart },
-    { id: 'import', label: 'Importação', icon: UploadCloud },
-    { id: 'sectors', label: 'Setores', icon: Settings2 },
-    { id: 'security', label: 'Segurança', icon: ShieldCheck, roles: [Role.ADMIN] },
-    { id: 'audit', label: 'Auditoria', icon: ClipboardList, roles: [Role.ADMIN] },
-    { id: 'database', label: 'Database', icon: DatabaseZap, roles: [Role.ADMIN] },
+  // Estrutura de Menus Agrupada por Contexto
+  const menuGroups = [
+    {
+      group: 'Estratégico',
+      items: [
+        { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard },
+      ]
+    },
+    {
+      group: 'Operacional',
+      items: [
+        { id: 'amendments', label: 'Gestão de Processos', icon: FileText },
+        { id: 'deadlines', label: 'Monitor de SLAs', icon: AlarmClockCheck },
+      ]
+    },
+    {
+      group: 'Inteligência',
+      items: [
+        { id: 'reports', label: 'BI & Analíticos', icon: BarChart3 },
+        { id: 'repository', label: 'Acervo Central', icon: Database },
+      ]
+    },
+    {
+      group: 'Sistema & Config',
+      items: [
+        { id: 'import', label: 'Carga de Dados', icon: UploadCloud },
+        { id: 'sectors', label: 'Workflows (Setores)', icon: Workflow },
+        { id: 'security', label: 'Controle de Acesso', icon: UserCog, roles: [Role.ADMIN] },
+      ]
+    },
+    {
+      group: 'Governança',
+      items: [
+        { id: 'audit', label: 'Trilha de Auditoria', icon: ClipboardList, roles: [Role.ADMIN] },
+        { id: 'database', label: 'Console Técnico', icon: SearchCode, roles: [Role.ADMIN] },
+      ]
+    }
   ];
 
   return (
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-inter">
-      {/* Sidebar */}
-      <aside className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 ${isSidebarOpen ? 'w-72' : 'w-20'}`}>
-        <div className="p-6 flex items-center gap-3 border-b border-white/10 bg-[#0a365f]">
-          <div className="bg-white p-2 rounded-xl text-[#0d457a] shadow-lg shrink-0">
-            <ShieldCheck size={24} />
+      {/* Sidebar Redesenhada */}
+      <aside className={`bg-[#0d457a] text-white transition-all duration-500 flex flex-col z-50 border-r border-white/5 ${isSidebarOpen ? 'w-80' : 'w-24'}`}>
+        <div className="p-8 flex items-center gap-4 border-b border-white/5 bg-[#0a365f]/50">
+          <div className="bg-white p-3 rounded-2xl text-[#0d457a] shadow-[0_10px_20px_rgba(0,0,0,0.2)] shrink-0 group-hover:rotate-12 transition-transform">
+            <ShieldCheck size={28} />
           </div>
           {isSidebarOpen && (
-            <div className="overflow-hidden">
-              <h1 className="font-black text-sm uppercase tracking-tighter leading-none">{APP_NAME}</h1>
-              <p className="text-[9px] text-white/50 font-bold uppercase mt-1">GESA / SUBIPEI</p>
+            <div className="animate-in fade-in slide-in-from-left-2 duration-500">
+              <h1 className="font-black text-base uppercase tracking-tighter leading-none">{APP_NAME}</h1>
+              <p className="text-[9px] text-emerald-400 font-black uppercase mt-1.5 tracking-widest flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
+                Sistema Ativo
+              </p>
             </div>
           )}
         </div>
 
-        <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">
-          {menuItems.map((item) => {
-            if (item.roles && !item.roles.includes(currentUser.role)) return null;
-            
-            const Icon = item.icon;
-            const isActive = currentView === item.id;
+        <nav className="flex-1 py-8 px-4 space-y-8 overflow-y-auto custom-scrollbar">
+          {menuGroups.map((group, gIdx) => {
+            // Verifica se o grupo possui algum item visível para o cargo atual
+            const visibleItems = group.items.filter(item => !item.roles || item.roles.includes(currentUser.role));
+            if (visibleItems.length === 0) return null;
+
             return (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all group ${
-                  isActive 
-                    ? 'bg-white text-[#0d457a] shadow-xl font-black' 
-                    : 'hover:bg-white/5 text-white/70 hover:text-white font-bold'
-                }`}
-              >
-                <Icon size={20} className={isActive ? 'text-[#0d457a]' : 'text-white/40 group-hover:text-white'} />
-                {isSidebarOpen && <span className="text-xs uppercase tracking-wider">{item.label}</span>}
-              </button>
+              <div key={gIdx} className="space-y-3">
+                {isSidebarOpen && (
+                  <h3 className="px-5 text-[10px] font-black text-white/30 uppercase tracking-[0.25em] mb-4">
+                    {group.group}
+                  </h3>
+                )}
+                <div className="space-y-1">
+                  {visibleItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = currentView === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => onNavigate(item.id)}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-[20px] transition-all duration-300 group relative ${
+                          isActive 
+                            ? 'bg-white text-[#0d457a] shadow-2xl font-black translate-x-1' 
+                            : 'hover:bg-white/5 text-white/60 hover:text-white font-bold'
+                        }`}
+                        title={!isSidebarOpen ? item.label : ''}
+                      >
+                        <Icon size={22} className={isActive ? 'text-[#0d457a]' : 'text-white/20 group-hover:text-white/80 group-hover:scale-110 transition-all'} />
+                        {isSidebarOpen && (
+                          <span className="text-[11px] uppercase tracking-widest truncate animate-in fade-in duration-700">
+                            {item.label}
+                          </span>
+                        )}
+                        {isActive && isSidebarOpen && (
+                          <div className="absolute right-4 w-1.5 h-1.5 bg-[#0d457a] rounded-full"></div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
 
-        <div className={`p-4 border-t border-white/10 bg-[#0a365f]/50 ${!isSidebarOpen && 'items-center'}`}>
+        <div className={`p-6 border-t border-white/5 bg-[#0a365f]/30 ${!isSidebarOpen && 'flex justify-center'}`}>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/20 text-red-300 transition-all font-black text-xs uppercase"
+            className={`flex items-center gap-4 px-5 py-4 rounded-2xl hover:bg-red-500/10 text-red-400 transition-all font-black text-[11px] uppercase tracking-widest ${isSidebarOpen ? 'w-full' : 'w-auto'}`}
           >
-            <LogOut size={20} />
-            {isSidebarOpen && <span>Sair do Sistema</span>}
+            <LogOut size={22} />
+            {isSidebarOpen && <span>Encerrar Sessão</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors text-slate-500">
-              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        <header className="h-24 bg-white border-b border-slate-200 flex items-center justify-between px-10 z-40">
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+              className="p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all text-slate-400 hover:text-[#0d457a] shadow-sm border border-slate-100"
+            >
+              {isSidebarOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
             
-            {/* Ambiente fixo em Produção */}
-            <div className="flex items-center gap-2 p-1 bg-emerald-50 rounded-2xl border border-emerald-100 px-4 py-2">
-               <Globe size={14} className="text-emerald-600" />
-               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Ambiente de Produção</span>
+            <div className="hidden md:flex items-center gap-3 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 px-5 py-3">
+               <Globe size={16} className="text-blue-500" />
+               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">GESA Cloud <span className="text-slate-300 mx-2">|</span> Sefaz-GO v2.7</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-8">
             <div className="relative">
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all relative group"
+                className="p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all relative group border border-slate-100"
               >
-                <Bell size={20} className="text-slate-500 group-hover:text-[#0d457a]" />
+                <Bell size={22} className="text-slate-400 group-hover:text-[#0d457a]" />
                 {notifications.length > 0 && (
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse" />
+                  <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
                 )}
               </button>
-              
-              {showNotifications && (
-                <div className="absolute top-full right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-slate-200 py-4 z-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="px-6 pb-3 border-b border-slate-100 flex justify-between items-center">
-                    <h4 className="font-black text-[#0d457a] text-xs uppercase tracking-widest">Notificações</h4>
-                    <span className="bg-red-50 text-red-500 text-[10px] font-black px-2 py-0.5 rounded-full">{notifications.length}</span>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length > 0 ? (
-                      notifications.map(n => (
-                        <div key={n.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group">
-                          <p className="text-[10px] font-black text-red-500 uppercase mb-1">{n.title}</p>
-                          <p className="text-xs text-slate-600 font-bold leading-tight group-hover:text-[#0d457a]">{n.message}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase">Nenhum alerta crítico</div>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
-            <div className="flex items-center gap-4 pl-6 border-l border-slate-200">
+            <div className="flex items-center gap-5 pl-8 border-l border-slate-100">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-black text-[#0d457a] leading-none uppercase tracking-tighter">{currentUser.name}</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+                <p className="text-[9px] text-slate-400 font-black uppercase mt-1.5 tracking-widest">{currentUser.role}</p>
               </div>
-              <img src={currentUser.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-2xl shadow-md border-2 border-white ring-1 ring-slate-100" />
+              <div className="relative group">
+                <div className="absolute inset-0 bg-blue-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                <img src={currentUser.avatarUrl} alt="User" className="relative w-12 h-12 rounded-2xl border-2 border-white shadow-md ring-1 ring-slate-100 object-cover" />
+              </div>
             </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
+        <main className="flex-1 overflow-y-auto p-12 custom-scrollbar relative bg-[#f8fafc]">
           {successMessage && (
-            <div className="absolute top-6 right-8 z-50 bg-emerald-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-              <CheckCircle2 size={28} />
+            <div className="fixed top-10 right-10 z-[100] bg-emerald-500 text-white px-8 py-5 rounded-3xl shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center gap-5 animate-in fade-in slide-in-from-top-6 duration-500">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <CheckCircle2 size={24} />
+              </div>
               <div>
-                <h4 className="font-black text-sm uppercase">Operação Concluída</h4>
-                <p className="text-xs font-medium mt-1">{successMessage}</p>
+                <h4 className="font-black text-xs uppercase tracking-widest">Sincronização OK</h4>
+                <p className="text-[11px] font-medium mt-1 opacity-90">{successMessage}</p>
               </div>
             </div>
           )}

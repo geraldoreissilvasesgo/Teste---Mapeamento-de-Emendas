@@ -1,23 +1,19 @@
 
-
-import React, { useMemo, useState } from 'react';
+/**
+ * MÓDULO DE RELATÓRIOS GERENCIAIS
+ * 
+ * Este componente fornece uma visão analítica e visual dos dados,
+ * focada na geração de relatórios consolidados para tomada de decisão.
+ * Agora com suporte a filtragem multi-ano e visão consolidada.
+ */
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell,
-  LineChart,
-  Line
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
+  ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { Amendment, Status, Sector, AmendmentType } from '../types';
-import { FileBarChart, Printer, Filter, Calendar, TrendingUp, DollarSign, Award, Map, Building2, Landmark } from 'lucide-react';
+import { Amendment, Status, AmendmentType } from '../types';
+// Fixed missing 'DollarSign' and 'Landmark' imports from 'lucide-react'
+import { Printer, Filter, TrendingUp, Calendar, Layers, PieChart as PieIcon, BarChart3, DollarSign, Landmark } from 'lucide-react';
 
 interface ReportModuleProps {
   amendments: Amendment[];
@@ -26,244 +22,246 @@ interface ReportModuleProps {
 const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#8B5CF6'];
 
 export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
-  const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear());
+  // Lista de anos disponíveis nos dados
+  const availableYears = useMemo(() => {
+    const years = Array.from(new Set(amendments.map(a => a.year))).sort((a, b) => b - a);
+    return years;
+  }, [amendments]);
+
+  // Filtro de ano: 'all' para consolidado ou o número do ano específico
+  const [yearFilter, setYearFilter] = useState<number | 'all'>(() => {
+    if (availableYears.length > 0) return availableYears[0];
+    return new Date().getFullYear();
+  });
+  
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  // --- Data Processing ---
-
+  // Filtragem principal dos dados
   const filteredData = useMemo(() => {
     return amendments.filter(a => {
-      const matchYear = a.year === yearFilter;
+      const matchYear = yearFilter === 'all' || a.year === Number(yearFilter);
       const matchType = typeFilter === 'all' || a.type === typeFilter;
       return matchYear && matchType;
     });
   }, [amendments, yearFilter, typeFilter]);
 
-  // Financial Split for Reports
+  // Cálculos para Gráfico de Composição (Pizza)
   const typeDistribution = useMemo(() => {
-    return [
-      { name: 'Impositivas', value: filteredData.filter(a => a.type === AmendmentType.IMPOSITIVA).reduce((acc, curr) => acc + curr.value, 0) },
-      { name: 'Goiás Crescimento', value: filteredData.filter(a => a.type === AmendmentType.GOIAS_CRESCIMENTO).reduce((acc, curr) => acc + curr.value, 0) },
-      { name: 'Especiais', value: filteredData.filter(a => a.type === AmendmentType.ESPECIAL).reduce((acc, curr) => acc + curr.value, 0) }
-    ].filter(d => d.value > 0);
+    const data = filteredData.reduce((acc, curr) => {
+        acc[curr.type] = (acc[curr.type] || 0) + curr.value;
+        return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(data).map(([name, value]) => ({ name, value }));
   }, [filteredData]);
 
-  // 1. Financial Status
-  const financialData = useMemo(() => {
-    const data = [
-      { name: 'Em Tramitação', value: 0 },
-      { name: 'Aprovado/Concluído', value: 0 },
-      { name: 'Em Diligência', value: 0 }
-    ];
-
-    filteredData.forEach(a => {
-      // Fix: Removed non-existent `Status.APPROVED` and `Status.PAID`. `Status.CONCLUDED` covers this logic.
-      if (a.status === Status.CONCLUDED) {
-        data[1].value += a.value;
-      } else if (a.status.includes('diligência')) {
-        data[2].value += a.value;
-      } else {
-        data[0].value += a.value;
-      }
-    });
-
-    return data;
-  }, [filteredData]);
-
-  // 2. Top Municipalities (by Value)
+  // Cálculos para Top 5 Municípios (Barras)
   const topMunicipalities = useMemo(() => {
-    const groups: Record<string, number> = {};
-    filteredData.forEach(a => {
-      groups[a.municipality] = (groups[a.municipality] || 0) + a.value;
-    });
-    return Object.entries(groups)
+     const data = filteredData.reduce((acc, curr) => {
+        acc[curr.municipality] = (acc[curr.municipality] || 0) + curr.value;
+        return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(data)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
   }, [filteredData]);
-
-  // 3. Top Deputies (by Value)
-  const topDeputies = useMemo(() => {
-    const groups: Record<string, number> = {};
-    filteredData.forEach(a => {
-      if (a.type === AmendmentType.IMPOSITIVA && a.deputyName) {
-        groups[a.deputyName] = (groups[a.deputyName] || 0) + a.value;
-      }
-    });
-    return Object.entries(groups)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-  }, [filteredData]);
-
-  // 4. Time Evolution
-  const evolutionData = useMemo(() => {
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const data = months.map(m => ({ name: m, count: 0, value: 0 }));
-    
-    filteredData.forEach(a => {
-      if (a.entryDate) {
-        const parts = a.entryDate.split('-');
-        if(parts.length === 3) {
-             const monthIndex = parseInt(parts[1]) - 1; 
-             if (monthIndex >= 0 && monthIndex < 12) {
-                data[monthIndex].count += 1;
-                data[monthIndex].value += a.value;
-             }
-        }
-      }
-    });
-    return data;
-  }, [filteredData]);
-
+  
   const totalValue = filteredData.reduce((acc, curr) => acc + curr.value, 0);
-  const impositivaTotal = filteredData.filter(a => a.type === AmendmentType.IMPOSITIVA).reduce((acc, curr) => acc + curr.value, 0);
-  const crescTotal = filteredData.filter(a => a.type === AmendmentType.GOIAS_CRESCIMENTO).reduce((acc, curr) => acc + curr.value, 0);
+  const totalCount = filteredData.length;
 
   const handlePrint = () => {
     window.print();
   };
 
-  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="space-y-6 print:space-y-4 print:p-0">
-      
-      {/* HEADER EXCLUSIVO PARA IMPRESSÃO */}
-      <div className="hidden print:flex flex-row items-center justify-between border-b-2 border-[#0d457a] pb-4 mb-6">
-         <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-[#0d457a] rounded-full flex items-center justify-center text-white font-bold text-xs text-center p-1">
-               Brasão GO
-            </div>
-            <div>
-               <h1 className="text-xl font-bold text-slate-900 uppercase leading-none">Estado de Goiás</h1>
-               <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Gerência de Suporte Administrativo - GESA/SUBIPEI</p>
-            </div>
-         </div>
-         <div className="text-right">
-            <p className="text-sm font-bold text-[#0d457a] uppercase">Relatório Gerencial de Emendas</p>
-            <p className="text-xs text-slate-500">Gerado em: {new Date().toLocaleDateString()} às {new Date().toLocaleTimeString()}</p>
-         </div>
+    <div className="space-y-6 print:space-y-4 print:p-0 animate-in fade-in duration-500">
+      {/* Cabeçalho de Impressão (Oculto na UI) */}
+      <div className="hidden print:block text-center mb-10 border-b-2 border-slate-200 pb-6">
+        <h1 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">Relatório Consolidado GESA/SUBIPEI</h1>
+        <div className="flex justify-center gap-6 mt-2 text-xs font-bold text-slate-500 uppercase">
+           <span>Exercício: {yearFilter === 'all' ? 'Consolidado (Todos os Anos)' : yearFilter}</span>
+           <span>Fonte: {typeFilter === 'all' ? 'Todas as Fontes' : typeFilter}</span>
+           <span>Data de Emissão: {new Date().toLocaleDateString()}</span>
+        </div>
       </div>
 
+      {/* Título e Ações da UI */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
         <div>
-          <h2 className="text-2xl font-bold text-[#0d457a] uppercase tracking-tight flex items-center gap-2">
-            <FileBarChart size={24} className="text-slate-400" />
-            Central de Relatórios
-          </h2>
-          <p className="text-slate-500 text-sm">Análise de execução orçamentária segregada por fonte.</p>
+          <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Relatórios Analíticos</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Consolidação de Dados e Performance Financeira</p>
         </div>
-        
         <button 
-          onClick={handlePrint}
-          className="flex items-center gap-2 bg-white text-[#0d457a] border border-[#0d457a] px-4 py-2 rounded-md hover:bg-slate-50 transition-colors shadow-sm font-bold text-xs uppercase tracking-wider"
+          onClick={handlePrint} 
+          className="flex items-center gap-2 bg-white text-[#0d457a] border border-slate-200 px-6 py-3 rounded-2xl hover:bg-slate-50 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest"
         >
-          <Printer size={16} />
-          Imprimir Relatório (PDF)
+            <Printer size={16} /> Exportar Relatório (PDF)
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex flex-wrap gap-4 print:hidden">
-        <div className="flex items-center gap-2">
-          <Calendar size={18} className="text-slate-400" />
-          <select 
-            className="p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0d457a] outline-none bg-white text-sm"
-            value={yearFilter}
-            onChange={e => setYearFilter(Number(e.target.value))}
-          >
-            {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter size={18} className="text-slate-400" />
-          <select 
-            className="p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-[#0d457a] outline-none bg-white text-sm"
-            value={typeFilter}
-            onChange={e => setTypeFilter(e.target.value)}
-          >
-            <option value="all">Todas as Tipologias</option>
-            {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Segregated KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 border-l-4 border-l-[#0d457a]">
-          <div className="flex justify-between items-start">
-             <div>
-               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Geral</p>
-               <h3 className="text-xl font-bold text-[#0d457a] mt-1">{formatCurrency(totalValue)}</h3>
-             </div>
-             <div className="text-slate-300"><DollarSign size={20} /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 border-l-4 border-l-blue-600">
-          <div className="flex justify-between items-start">
-             <div>
-               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Emendas Impositivas</p>
-               <h3 className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(impositivaTotal)}</h3>
-               <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{((impositivaTotal/totalValue)*100 || 0).toFixed(1)}% do orçamento</p>
-             </div>
-             <div className="text-blue-100"><Landmark size={20} /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 border-l-4 border-l-indigo-600">
-          <div className="flex justify-between items-start">
-             <div>
-               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Goiás Crescimento</p>
-               <h3 className="text-xl font-bold text-indigo-600 mt-1">{formatCurrency(crescTotal)}</h3>
-               <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{((crescTotal/totalValue)*100 || 0).toFixed(1)}% do orçamento</p>
-             </div>
-             <div className="text-indigo-100"><Award size={20} /></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4">
-         
-         <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 print:break-inside-avoid">
-            <h3 className="text-sm font-bold text-[#0d457a] mb-6 border-b border-slate-100 pb-2 uppercase tracking-wide">Composição por Fonte</h3>
-            <div className="h-72">
-               <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                     <Pie
-                        data={typeDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={5}
-                        dataKey="value"
-                     >
-                        {typeDistribution.map((entry, index) => (
-                           <Cell key={`cell-${index}`} fill={entry.name.includes('Impositiva') ? '#2563eb' : '#4f46e5'} />
-                        ))}
-                     </Pie>
-                     <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                     <Legend verticalAlign="bottom" height={36} />
-                  </PieChart>
-               </ResponsiveContainer>
+      {/* Barra de Filtros */}
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 flex flex-col md:flex-row gap-8 print:hidden">
+        <div className="flex flex-col gap-2 flex-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                <Calendar size={12} /> Selecionar Exercício
+            </label>
+            <div className="relative">
+                <select 
+                    value={yearFilter} 
+                    onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-[#0d457a] focus:ring-2 focus:ring-[#0d457a] outline-none appearance-none cursor-pointer"
+                >
+                    <option value="all">TODOS OS EXERCÍCIOS (CONSOLIDADO)</option>
+                    {availableYears.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                    ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <Filter size={16} />
+                </div>
             </div>
-         </div>
+        </div>
 
-         <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 print:break-inside-avoid">
-            <h3 className="text-sm font-bold text-[#0d457a] mb-6 border-b border-slate-100 pb-2 uppercase tracking-wide flex items-center gap-2">
-               <Map size={16} /> Top 5 Municípios (Volume R$)
+        <div className="flex flex-col gap-2 flex-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                <Layers size={12} /> Origem do Recurso
+            </label>
+            <div className="relative">
+                <select 
+                    value={typeFilter} 
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-[#0d457a] outline-none appearance-none cursor-pointer"
+                >
+                    <option value="all">TODAS AS FONTES DE RECURSO</option>
+                    {Object.values(AmendmentType).map(t => (
+                        <option key={t} value={t}>{t}</option>
+                    ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <Filter size={16} />
+                </div>
+            </div>
+        </div>
+      </div>
+
+      {/* Cartões de Resumo */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-[#0d457a] p-8 rounded-[32px] shadow-xl text-white relative overflow-hidden group">
+            <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+            <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                <DollarSign size={14} className="text-emerald-400" /> Valor Total Filtrado
+            </p>
+            <p className="text-2xl font-black tracking-tighter">{formatCurrency(totalValue)}</p>
+            <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
+                <span className="text-[9px] font-black text-white/40 uppercase">Investimento Real</span>
+                <span className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded-lg">GESA-PROD</span>
+            </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <BarChart3 size={14} className="text-blue-500" /> Volume de Processos
+            </p>
+            <p className="text-3xl font-black text-[#0d457a] tracking-tighter">{totalCount}</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mt-2 italic">Na base de dados filtrada</p>
+        </div>
+
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <TrendingUp size={14} className="text-emerald-500" /> Ticket Médio
+            </p>
+            <p className="text-3xl font-black text-[#0d457a] tracking-tighter">
+                {formatCurrency(totalCount > 0 ? totalValue / totalCount : 0)}
+            </p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mt-2 italic">Valor médio por SEI</p>
+        </div>
+
+        <div className="bg-slate-50 p-8 rounded-[32px] border-2 border-dashed border-slate-200 flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status do Relatório</p>
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span className="text-xs font-black text-emerald-600 uppercase tracking-tight">Consolidação Ativa</span>
+            </div>
+        </div>
+      </div>
+
+      {/* Gráficos Analíticos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+         {/* Distribuição por Fonte */}
+         <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-200 print:break-inside-avoid print:shadow-none">
+            <h3 className="text-xs font-black text-[#0d457a] uppercase mb-10 tracking-[0.3em] flex items-center gap-3">
+                <PieIcon size={18} className="text-blue-500" /> Distribuição Financeira por Fonte
             </h3>
-            <div className="h-72">
-               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart layout="vertical" data={topMunicipalities} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                     <XAxis type="number" hide />
-                     <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 11}} />
-                     <Tooltip formatter={(value: number) => formatCurrency(value)} cursor={{fill: '#f1f5f9'}} />
-                     <Bar dataKey="value" fill="#0d457a" radius={[0, 4, 4, 0]} barSize={24} />
-                  </BarChart>
-               </ResponsiveContainer>
+            <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie 
+                            data={typeDistribution} 
+                            dataKey="value" 
+                            nameKey="name" 
+                            cx="50%" 
+                            cy="50%" 
+                            innerRadius={60} 
+                            outerRadius={110} 
+                            paddingAngle={5}
+                            fill="#8884d8"
+                        >
+                             {typeDistribution.map((entry, index) => (
+                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="white" strokeWidth={2} />
+                             ))}
+                        </Pie>
+                        <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: '900', paddingTop: '20px' }} />
+                    </PieChart>
+                </ResponsiveContainer>
             </div>
          </div>
+
+         {/* Top 5 Municípios */}
+         <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-200 print:break-inside-avoid print:shadow-none">
+             <h3 className="text-xs font-black text-[#0d457a] uppercase mb-10 tracking-[0.3em] flex items-center gap-3">
+                 <Landmark size={18} className="text-emerald-500" /> Concentração de Recursos (Top 5)
+             </h3>
+             <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topMunicipalities} layout="vertical" margin={{ left: 30, right: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                        <XAxis type="number" hide />
+                        <YAxis 
+                            type="category" 
+                            dataKey="name" 
+                            width={110} 
+                            tick={{fontSize: 9, fontWeight: 'bold', fill: '#64748b'}} 
+                            axisLine={false} 
+                            tickLine={false} 
+                        />
+                        <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            cursor={{ fill: '#f8fafc' }}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                        />
+                        <Bar dataKey="value" fill="#0d457a" radius={[0, 10, 10, 0]} barSize={35}>
+                            {topMunicipalities.map((entry, index) => (
+                                <Cell key={`bar-${index}`} fill={COLORS[index % COLORS.length]} opacity={0.8} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+             </div>
+         </div>
+      </div>
+
+      {/* Rodapé do Relatório Informativo */}
+      <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 print:hidden">
+         <p className="text-[10px] text-slate-400 font-bold uppercase text-center leading-relaxed">
+            Este relatório consolida os dados operacionais da GESA/SUBIPEI. Os valores refletem os registros em sistema e estão sujeitos a alterações conforme tramitação.
+         </p>
       </div>
     </div>
   );

@@ -1,21 +1,39 @@
-
-
+/**
+ * PAINEL DE MONITORAMENTO DE PRAZOS (SLA)
+ * 
+ * Este componente fornece uma visão focada exclusivamente nos prazos de Service Level Agreement (SLA)
+ * de todos os processos que estão atualmente em tramitação. Ele ajuda os gestores a identificar
+ * rapidamente quais processos estão próximos do vencimento ou já atrasados.
+ * 
+ * Funcionalidades:
+ * - Filtra e exibe apenas os processos com status que não sejam 'Concluído'.
+ * - Para cada processo, calcula o status do SLA (Atrasado, Crítico, No Prazo).
+ * - Exibe uma tabela clara com informações essenciais: SEI, setor atual, data limite e status do SLA.
+ * - Permite clicar em um processo para navegar diretamente para sua tela de detalhes.
+ */
 import React from 'react';
 import { Amendment, Status } from '../types';
 import { AlertCircle, Clock, CheckCircle2, Search } from 'lucide-react';
 
+// Define a estrutura das props que o componente espera receber.
 interface DeadlinePanelProps {
-  amendments: Amendment[];
-  onSelect: (a: Amendment) => void;
+  amendments: Amendment[];        // A lista completa de todos os processos.
+  onSelect: (a: Amendment) => void; // Callback para navegar para os detalhes de um processo.
 }
 
 export const DeadlinePanel: React.FC<DeadlinePanelProps> = ({ amendments, onSelect }) => {
-  // Fix: Removed check for non-existent `Status.PAID`, as `Status.CONCLUDED` covers this state.
-  const activeProcesses = amendments.filter(a => a.status !== Status.CONCLUDED);
+  // Filtra apenas os processos que estão em andamento (não concluídos ou arquivados).
+  const activeProcesses = amendments.filter(a => a.status !== Status.CONCLUDED && a.status !== Status.ARCHIVED);
 
+  /**
+   * Calcula o status do SLA com base na data de hoje e na data limite do processo.
+   * @param deadline A data limite (deadline) do último movimento do processo.
+   * @returns Um objeto contendo a etiqueta de status, a classe de cor e o ícone correspondente.
+   */
   const getSlaStatus = (deadline: string) => {
     const today = new Date();
     const limit = new Date(deadline);
+    // Calcula a diferença de dias entre a data limite e hoje.
     const diffDays = Math.ceil((limit.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) return { label: 'ATRASADO', color: 'text-red-600 bg-red-50 border-red-100', icon: AlertCircle };
@@ -25,11 +43,13 @@ export const DeadlinePanel: React.FC<DeadlinePanelProps> = ({ amendments, onSele
 
   return (
     <div className="space-y-6">
+      {/* Cabeçalho do Módulo */}
       <div>
         <h2 className="text-2xl font-bold text-[#0d457a] uppercase tracking-tight">Monitoramento de Prazos</h2>
         <p className="text-slate-500 text-sm">Acompanhamento em tempo real dos SLAs por processo.</p>
       </div>
 
+      {/* Tabela de Prazos */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-200">
@@ -43,6 +63,7 @@ export const DeadlinePanel: React.FC<DeadlinePanelProps> = ({ amendments, onSele
           </thead>
           <tbody className="divide-y divide-slate-100">
             {activeProcesses.map(a => {
+              // Pega o último movimento para obter a data de deadline atual.
               const lastMovement = a.movements[a.movements.length - 1];
               const sla = getSlaStatus(lastMovement?.deadline || new Date().toISOString());
               const SlaIcon = sla.icon;

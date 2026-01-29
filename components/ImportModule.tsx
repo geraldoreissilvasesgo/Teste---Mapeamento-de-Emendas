@@ -1,7 +1,13 @@
-
+/**
+ * MÓDULO DE IMPORTAÇÃO DE PROCESSOS EM LOTE
+ * 
+ * Este componente permite que os usuários cadastrem múltiplos processos de uma só vez
+ * através do upload de um arquivo CSV. Ele valida os dados, mostra um resumo
+ * dos registros válidos e inválidos, e permite a confirmação da importação.
+ */
 import React, { useState, useRef } from 'react';
 import { UploadCloud, FileText, AlertCircle, Check, X, Send, Download, FileSpreadsheet, Info } from 'lucide-react';
-import { Amendment, Status, SectorConfig, Role, AmendmentType, TransferMode, GNDType } from '../types';
+import { Amendment, Status, SectorConfig, Role, AmendmentType, TransferMode, GNDType, AmendmentMovement } from '../types';
 
 interface ImportModuleProps {
   onImport: (data: Amendment[]) => void;
@@ -21,7 +27,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors })
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const initialOrigin = 'SES/CEP-20903'; // Setor de origem fixo
+  const initialOrigin = 'SES/CEP-20903';
   const [initialDestination, setInitialDestination] = useState<string>('');
 
   const handleDrag = (e: React.DragEvent) => {
@@ -34,276 +40,258 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors })
     }
   };
 
-  const handleConfirmImport = () => {
-    if (!initialDestination) {
-        setError("É obrigatório selecionar um setor de destino para a tramitação inicial.");
-        return;
-    }
-    
-    const destinationSector = sectors.find(s => s.name === initialDestination);
-    if (!destinationSector) {
-        setError("O setor de destino selecionado é inválido. Recarregue a página ou cadastre o setor.");
-        return;
-    }
-
-    const finalData = parsedData.map(item => {
-        const deadline = new Date();
-        deadline.setDate(deadline.getDate() + (destinationSector.defaultSlaDays || 5));
-
-        const newMovement = {
-            id: Math.random().toString(36).substr(2, 9),
-            amendmentId: item.id,
-            fromSector: initialOrigin,
-            toSector: initialDestination,
-            dateIn: new Date().toISOString(),
-            dateOut: null,
-            deadline: deadline.toISOString(),
-            daysSpent: 0,
-            handledBy: 'Sistema de Importação'
-        };
-
-        return {
-            ...item,
-            currentSector: initialDestination,
-            movements: [newMovement]
-        };
-    });
-
-    onImport(finalData);
-  };
-
-  const parseCurrency = (valStr: string): number => {
-    if (!valStr) return 0;
-    return parseFloat(valStr.replace('R$', '').replace(/\./g, '').replace(',', '.') || '0');
-  };
-
-  const parseBool = (valStr: string): boolean => {
-    return valStr?.trim().toLowerCase() === 'sim';
-  };
-
-  const handleFileProcessing = (file: File) => {
-    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
-      setError("Formato de arquivo inválido. Apenas arquivos .CSV são aceitos.");
-      return;
-    }
-    setFile(file);
-    setError(null);
-    setParsedData([]);
-    setValidationErrors([]);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n');
-      const headers = lines[0].split(';').map(h => h.trim());
-      const validRows: Amendment[] = [];
-      const errors: ValidationError[] = [];
-
-      lines.slice(1).forEach((line, index) => {
-        if (line.trim() === '') return;
-        
-        const data = line.split(';');
-        const rowData: { [key: string]: string } = {};
-        headers.forEach((header, i) => {
-          rowData[header] = data[i] ? data[i].trim() : '';
-        });
-
-        // Validation
-        const sei = rowData['PROCESSO_SEI'];
-        const value = parseCurrency(rowData['VALOR_RECURSO']);
-        const municipality = rowData['MUNICIPIO_BENEFICIARIO'];
-
-        if (!sei || !value || !municipality) {
-          errors.push({ line: index + 2, message: `Campos obrigatórios (SEI, Valor, Município) faltando.` });
-          return;
-        }
-
-        const newAmendment: Amendment = {
-          id: rowData['ID_SISTEMA'] || `IMP-${Date.now()}-${index}`,
-          code: `IMP-${rowData['EXERCICIO'] || new Date().getFullYear()}-${sei.slice(-5)}`,
-          seiNumber: sei,
-          year: parseInt(rowData['EXERCICIO']) || new Date().getFullYear(),
-          type: AmendmentType.IMPOSITIVA, // Default or map from file
-          deputyName: rowData['PARLAMENTAR_AUTOR'],
-          municipality,
-          object: rowData['OBJETO_DESCRICAO'] || 'Objeto não especificado na importação',
-          value,
-          status: Status.IN_PROGRESS,
-          currentSector: initialOrigin,
-          movements: [],
-          suinfra: parseBool(rowData['REQUER_SUINFRA']),
-          sutis: parseBool(rowData['REQUER_SUTIS']),
-          transferMode: rowData['MODALIDADE'] as TransferMode || TransferMode.FUNDO_A_FUNDO,
-          gnd: rowData['GND'] as GNDType || GNDType.CUSTEIO,
-          entryDate: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          notes: rowData['OBSERVACOES_GERAIS']
-        };
-        validRows.push(newAmendment);
-      });
-      
-      setParsedData(validRows);
-      setValidationErrors(errors);
-
-      if (errors.length > 0) {
-        setError(`Processamento concluído com ${errors.length} erro(s). Verifique os detalhes abaixo.`);
-      }
-    };
-    reader.readAsText(file);
-  };
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileProcessing(e.dataTransfer.files[0]);
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile.type === "text/csv" || droppedFile.name.endsWith('.csv')) {
+        setFile(droppedFile);
+        handleFileProcessing(droppedFile);
+      } else {
+        setError("Por favor, envie um arquivo CSV válido.");
+      }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
       handleFileProcessing(e.target.files[0]);
     }
   };
 
+  const parseCurrency = (valStr: string): number => {
+    if (!valStr) return 0;
+    const cleanedString = valStr.replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.').trim();
+    const value = parseFloat(cleanedString);
+    return isNaN(value) ? 0 : value;
+  };
+
+  const parseBool = (valStr: string): boolean => {
+    if (!valStr) return false;
+    const lowerVal = valStr.trim().toLowerCase();
+    return ['true', 'sim', 's', 'verdadeiro', '1'].includes(lowerVal);
+  };
+
+  const handleFileProcessing = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n');
+      
+      if (lines.length < 2) {
+        setError("O arquivo parece estar vazio ou sem cabeçalho.");
+        return;
+      }
+
+      const validRows: Amendment[] = [];
+      const errors: ValidationError[] = [];
+
+      lines.slice(1).forEach((line, index) => {
+        if (!line.trim()) return;
+        
+        const cols = line.split(';');
+        if (cols.length < 5) {
+          errors.push({ line: index + 2, message: "Linha com colunas insuficientes." });
+          return;
+        }
+
+        try {
+          // Mapeamento básico: SEI;Ano;Objeto;Valor;Municipio;Autor
+          const newAmendment: Amendment = {
+            id: `imp-${Date.now()}-${index}`,
+            code: `IMP-${cols[1] || new Date().getFullYear()}-${index}`,
+            seiNumber: cols[0]?.trim(),
+            year: parseInt(cols[1]?.trim()) || new Date().getFullYear(),
+            object: cols[2]?.trim(),
+            value: parseCurrency(cols[3]),
+            municipality: cols[4]?.trim(),
+            deputyName: cols[5]?.trim() || 'Não Informado',
+            type: AmendmentType.IMPOSITIVA, // Default
+            status: Status.IN_PROGRESS,
+            currentSector: 'Aguardando Distribuição',
+            movements: [], // Será preenchido ao confirmar
+            createdAt: new Date().toISOString(),
+            suinfra: false,
+            sutis: false
+          };
+
+          if (!newAmendment.seiNumber) throw new Error("Número SEI ausente");
+          validRows.push(newAmendment);
+        } catch (err) {
+          errors.push({ line: index + 2, message: "Erro ao processar dados da linha." });
+        }
+      });
+      
+      setParsedData(validRows);
+      setValidationErrors(errors);
+      setError(null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleConfirmImport = () => {
+    if (!initialDestination) {
+      setError("Selecione um setor de destino para iniciar a tramitação.");
+      return;
+    }
+
+    const finalData = parsedData.map(item => {
+      const destSectorConfig = sectors.find(s => s.name === initialDestination);
+      const slaDays = destSectorConfig?.defaultSlaDays || 5;
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + slaDays);
+
+      const newMovement: AmendmentMovement = {
+        id: `mov-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        amendmentId: item.id,
+        fromSector: initialOrigin,
+        toSector: initialDestination,
+        dateIn: new Date().toISOString(),
+        dateOut: null,
+        deadline: deadline.toISOString(),
+        daysSpent: 0,
+        handledBy: 'Sistema (Importação)',
+        analysisType: destSectorConfig?.analysisType,
+      };
+
+      return {
+        ...item,
+        currentSector: initialDestination,
+        movements: [newMovement],
+      };
+    });
+
+    onImport(finalData);
+    setFile(null);
+    setParsedData([]);
+    setValidationErrors([]);
+    setInitialDestination('');
+  };
 
   const handleDownloadTemplate = () => {
-    const headers = "ID_SISTEMA;PROCESSO_SEI;VALOR_RECURSO;MUNICIPIO_BENEFICIARIO;OBJETO_DESCRICAO;REQUER_SUINFRA;REQUER_SUTIS;STATUS_ATUAL;MODALIDADE;EXERCICIO;PARLAMENTAR_AUTOR;COLUNA_VAZIA_4;OBSERVACOES_GERAIS\n";
-    const exampleRow = "IMP-001;2025000012345;150000,00;Goiânia;Aquisição de Equipamentos Hospitalares;Não;Sim;EM ANDAMENTO;FUNDO A FUNDO;2025;DELEGADO EDUARDO PRADO;;Notas adicionais aqui\n";
-    
-    const blob = new Blob([headers + exampleRow], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'template_importacao_gesa.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
+    const csvContent = "data:text/csv;charset=utf-8,SEI;Ano;Objeto;Valor;Municipio;Autor\n12345678;2024;Reforma de Escola;150000,00;Goiânia;Deputado Exemplo";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "modelo_importacao_gesa.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Importação de Processos em Lote</h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Cadastro massivo via arquivo CSV (UTF-8, delimitado por ponto e vírgula).</p>
+          <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Importação em Lote</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Carga de Dados via Arquivo CSV (Excel)</p>
         </div>
-        <button
-            onClick={handleDownloadTemplate}
-            className="flex items-center gap-2 bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 shadow-sm transition-all text-[10px] uppercase font-black tracking-widest"
-          >
-            <FileSpreadsheet size={16} />
-            Baixar Modelo
+        <button onClick={handleDownloadTemplate} className="flex items-center gap-2 bg-white text-[#0d457a] border border-slate-200 px-5 py-2.5 rounded-2xl hover:bg-slate-50 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest">
+            <FileSpreadsheet size={16} /> Baixar Modelo
         </button>
       </div>
-
+      
       {!file ? (
         <div 
+          className={`border-4 border-dashed rounded-[40px] p-20 text-center transition-all ${dragActive ? 'border-[#0d457a] bg-blue-50' : 'border-slate-200 bg-slate-50'}`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`relative p-12 text-center border-4 border-dashed rounded-[40px] transition-all cursor-pointer group
-            ${dragActive ? 'border-[#0d457a] bg-blue-50/50' : 'border-slate-200 hover:border-slate-300'}`}
         >
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} accept=".csv" />
-          <div className="flex flex-col items-center justify-center">
-            <div className={`p-6 bg-slate-100 rounded-3xl mb-6 transition-all group-hover:bg-[#0d457a] group-hover:text-white ${dragActive ? 'bg-[#0d457a] text-white' : 'text-slate-400'}`}>
-              <UploadCloud size={48} />
-            </div>
-            <h3 className="font-black text-slate-700">Arraste e Solte o Arquivo CSV</h3>
-            <p className="text-xs text-slate-400 uppercase font-bold mt-2">ou clique para selecionar do seu computador</p>
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <UploadCloud size={40} className="text-[#0d457a]" />
           </div>
+          <h3 className="text-xl font-black text-[#0d457a] uppercase mb-2">Arraste seu arquivo CSV aqui</h3>
+          <p className="text-slate-400 font-bold text-sm mb-8">ou clique para selecionar do computador</p>
+          <button onClick={() => fileInputRef.current?.click()} className="bg-[#0d457a] text-white px-8 py-3 rounded-xl font-black uppercase text-xs hover:bg-[#0a365f] transition-all shadow-lg">
+            Selecionar Arquivo
+          </button>
+          <input 
+            ref={fileInputRef} 
+            type="file" 
+            accept=".csv" 
+            className="hidden" 
+            onChange={handleFileChange} 
+          />
         </div>
       ) : (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <FileText size={24} className="text-emerald-500" />
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                <FileText size={24} />
+              </div>
               <div>
-                <p className="font-bold text-slate-800">{file.name}</p>
-                <p className="text-xs text-slate-400 font-medium">{(file.size / 1024).toFixed(2)} KB</p>
+                <p className="font-black text-[#0d457a]">{file.name}</p>
+                <p className="text-xs text-slate-400 font-bold uppercase">{(file.size / 1024).toFixed(2)} KB</p>
               </div>
             </div>
-            <button 
-              onClick={() => { setFile(null); setParsedData([]); setValidationErrors([]); setError(null); }}
-              className="px-4 py-2 bg-red-50 text-red-500 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-red-100 transition-colors"
-            >
-              <X size={14} /> Trocar Arquivo
-            </button>
-          </div>
-          
-          <div className="bg-blue-50 p-8 rounded-3xl border-2 border-dashed border-blue-200 grid grid-cols-2 gap-8">
-            <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Setor de Origem (Padrão)</label>
-                <input 
-                    readOnly
-                    className="w-full px-5 py-4 bg-slate-200/50 text-slate-500 rounded-2xl outline-none font-bold"
-                    value={initialOrigin}
-                />
-            </div>
-            <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-blue-500 tracking-widest ml-1">Setor de Destino (Tramitação Inicial)</label>
-                <select 
-                    className="w-full px-5 py-4 bg-white rounded-2xl outline-none font-bold text-[#0d457a] uppercase text-xs"
-                    value={initialDestination}
+            
+            <div className="flex items-center gap-4">
+               <div className="relative">
+                 <select 
+                    value={initialDestination} 
                     onChange={(e) => setInitialDestination(e.target.value)}
-                >
-                    <option value="">Selecione o destino...</option>
+                    className="pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none text-sm font-bold text-slate-600 appearance-none"
+                 >
+                    <option value="">Selecione o Destino Inicial</option>
                     {sectors.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
+                 </select>
+                 <Info size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+               </div>
+               <button onClick={() => { setFile(null); setParsedData([]); setError(null); }} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors">
+                 <X size={20} />
+               </button>
             </div>
           </div>
-          
+
           {error && (
-            <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl flex items-start gap-3">
-              <AlertCircle size={20} className="shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-bold text-sm mb-2">{error}</p>
-                {validationErrors.map((err, i) => (
-                  <p key={i} className="text-xs font-mono">Linha {err.line}: {err.message}</p>
-                ))}
-              </div>
+            <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold">
+              <AlertCircle size={20} /> {error}
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-emerald-200">
-              <h4 className="flex items-center gap-2 text-emerald-600 font-bold text-sm mb-4">
-                <Check size={18} /> {parsedData.length} Registros Válidos para Importação
-              </h4>
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                {parsedData.map(item => (
-                  <div key={item.id} className="p-3 bg-emerald-50 rounded-lg text-xs">
-                    <span className="font-bold text-emerald-800">{item.seiNumber}</span> - <span className="text-emerald-700">{item.municipality}</span>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200">
+              <div className="flex items-center gap-2 mb-4 text-emerald-600">
+                <Check size={20} /> <span className="font-black uppercase text-sm">Registros Válidos ({parsedData.length})</span>
+              </div>
+              <div className="h-48 overflow-y-auto custom-scrollbar space-y-2">
+                {parsedData.map((item, idx) => (
+                  <div key={idx} className="text-xs text-slate-500 border-b border-slate-50 pb-2">
+                    <span className="font-bold text-[#0d457a]">{item.seiNumber}</span> - {item.object.substring(0, 40)}...
                   </div>
                 ))}
               </div>
             </div>
-
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-red-200">
-              <h4 className="flex items-center gap-2 text-red-600 font-bold text-sm mb-4">
-                <X size={18} /> {validationErrors.length} Registros com Erros (Ignorados)
-              </h4>
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                {validationErrors.map((err, i) => (
-                  <div key={i} className="p-3 bg-red-50 rounded-lg text-xs">
-                    <span className="font-bold text-red-800">Linha {err.line}:</span> <span className="text-red-700">{err.message}</span>
-                  </div>
+            
+            <div className="bg-white p-6 rounded-3xl border border-slate-200">
+              <div className="flex items-center gap-2 mb-4 text-red-500">
+                <AlertCircle size={20} /> <span className="font-black uppercase text-sm">Erros Encontrados ({validationErrors.length})</span>
+              </div>
+              <div className="h-48 overflow-y-auto custom-scrollbar space-y-2">
+                {validationErrors.map((err, idx) => (
+                   <div key={idx} className="text-xs text-red-400 border-b border-red-50 pb-2">
+                    Line {err.line}: {err.message}
+                   </div>
                 ))}
+                {validationErrors.length === 0 && <p className="text-xs text-slate-400 italic">Nenhum erro de validação.</p>}
               </div>
             </div>
           </div>
 
           <div className="flex justify-end pt-4">
-            <button
-              disabled={parsedData.length === 0 || !initialDestination}
-              onClick={handleConfirmImport}
-              className="bg-[#0d457a] text-white px-8 py-4 rounded-2xl font-black flex items-center gap-3 uppercase text-xs shadow-xl hover:bg-[#0a365f] disabled:opacity-40 transition-all"
-            >
-              <Send size={16} /> Confirmar e Importar {parsedData.length} Registros
-            </button>
+             <button 
+               onClick={handleConfirmImport} 
+               disabled={parsedData.length === 0 || !initialDestination}
+               className="flex items-center gap-2 bg-[#0d457a] text-white px-8 py-4 rounded-2xl hover:bg-[#0a365f] transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-black uppercase text-xs tracking-widest"
+             >
+               <Send size={16} /> Confirmar Importação
+             </button>
           </div>
         </div>
       )}
