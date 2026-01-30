@@ -6,6 +6,7 @@ import {
   BarChart3, History, Layers, Lock, BookOpen, Braces, Activity
 } from 'lucide-react';
 import { User, Role } from '../types';
+import { APP_VERSION } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -55,7 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({
           {isSidebarOpen && (
             <div className="animate-in fade-in duration-300">
               <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">GESA <span className="text-emerald-400">Cloud</span></h1>
-              <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">Governo de Goiás</p>
+              <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">Versão {APP_VERSION}</p>
             </div>
           )}
         </div>

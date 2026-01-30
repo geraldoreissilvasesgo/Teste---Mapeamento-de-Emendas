@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, supabase } from '../services/supabase';
+import { APP_VERSION } from '../constants';
 import { ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, Smartphone, CheckCircle2, AlertCircle, Loader2, UserPlus, Info } from 'lucide-react';
 
 export const Login: React.FC = () => {
@@ -69,7 +70,7 @@ export const Login: React.FC = () => {
               <ShieldCheck size={40} />
             </div>
             <h1 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Portal GESA Cloud</h1>
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Autenticação Unificada - Governo de Goiás</p>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Autenticação Unificada - v{APP_VERSION}</p>
           </div>
           
           {step === 'credentials' ? (

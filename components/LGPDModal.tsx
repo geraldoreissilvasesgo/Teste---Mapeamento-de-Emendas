@@ -1,3 +1,4 @@
+
 /**
  * MODAL DE CONSENTIMENTO LGPD
  * 
@@ -9,6 +10,7 @@
  * A aceitação é registrada no `localStorage` do navegador para não ser exibida novamente.
  */
 import React from 'react';
+import { APP_VERSION } from '../constants';
 import { ShieldCheck, Lock, Eye, FileText, CheckCircle2 } from 'lucide-react';
 
 // Define a estrutura das props que o componente espera receber.
@@ -28,7 +30,7 @@ export const LGPDModal: React.FC<LGPDModalProps> = ({ userName, onAccept }) => {
             <ShieldCheck size={40} />
           </div>
           <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Termo de Privacidade e Proteção de Dados</h2>
-          <p className="text-slate-500 text-sm font-bold mt-2 uppercase tracking-widest">GESA / SUBIPEI - ESTADO DE GOIÁS</p>
+          <p className="text-slate-500 text-sm font-bold mt-2 uppercase tracking-widest">GESA / SUBIPEI - v{APP_VERSION}</p>
         </div>
 
         {/* Corpo com o texto informativo */}
@@ -40,17 +42,27 @@ export const LGPDModal: React.FC<LGPDModalProps> = ({ userName, onAccept }) => {
             <div>
               <h4 className="font-black text-[#0d457a] uppercase text-xs mb-1">Finalidade da Coleta</h4>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Olá, <span className="font-bold">{userName}</span>. Para garantir a segurança institucional e a integridade das tramitações SEI, coletamos seu <strong>Nome, E-mail Corporativo e Endereço IP</strong> durante o uso deste sistema.
+                Olá, <span className="font-bold">{userName}</span>. Para garantir a segurança institucional e a integridade das tramitações SEI, coletamos seu <strong>Nome, E-mail Corporativo e Endereço IP</strong> durante o uso deste sistema em conformidade com as diretrizes da versão {APP_VERSION}.
               </p>
             </div>
           </div>
-          {/* ... Outras seções informativas ... */}
+          <div className="flex gap-4">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl h-fit">
+              <Lock size={20} />
+            </div>
+            <div>
+              <h4 className="font-black text-[#0d457a] uppercase text-xs mb-1">Segurança e Proteção</h4>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Seus dados são protegidos por políticas rigorosas de acesso e criptografia, garantindo que o uso do sistema v{APP_VERSION} seja seguro e auditável.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Rodapé com o botão de aceite */}
         <div className="p-10 bg-slate-50 border-t border-slate-100 flex flex-col items-center gap-6">
           <p className="text-[10px] text-slate-400 font-bold uppercase text-center tracking-widest leading-relaxed">
-            Ao clicar em aceitar, você declara estar ciente do tratamento dos seus dados para as finalidades de gestão pública descritas acima.
+            Ao clicar em aceitar, você declara estar ciente do tratamento dos seus dados para as finalidades de gestão pública descritas acima no sistema v{APP_VERSION}.
           </p>
           <button 
             onClick={onAccept}
