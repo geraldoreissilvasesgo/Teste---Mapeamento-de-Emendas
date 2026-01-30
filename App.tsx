@@ -79,7 +79,7 @@ const App: React.FC = () => {
     if (!currentUser || !activeTenantId) return;
     
     if (currentUser.role !== Role.SUPER_ADMIN && activeTenantId !== currentUser.tenantId) {
-      setSyncError({ message: 'Acesso negado: Você não tem permissão para acessar esta secretaria.', isSecurity: true });
+      setSyncError({ message: 'Acesso negado: Perfil sem permissão para esta unidade.', isSecurity: true });
       setActiveTenantId(currentUser.tenantId);
       return;
     }
@@ -101,7 +101,7 @@ const App: React.FC = () => {
     } catch (error: any) {
       const isRLS = error.code === '42501' || error.message?.includes('RLS') || error.message?.includes('policy');
       setSyncError({
-        message: isRLS ? 'Segurança RLS ativa: Acesso restrito detectado pelo servidor.' : error.message,
+        message: isRLS ? 'Segurança RLS ativa: Tráfego filtrado pelo servidor.' : error.message,
         isSecurity: isRLS
       });
       if (!isRLS && amendments.length === 0) setAmendments(MOCK_AMENDMENTS);
@@ -117,46 +117,54 @@ const App: React.FC = () => {
   const handleCreateAmendment = async (newAmendment: Amendment) => {
     setIsLoading(true);
     try {
-      // O DB agora gera o UUID se o ID for temporário
       const created = await db.amendments.upsert(newAmendment);
       if (created) {
         setAmendments(prev => [created, ...prev]);
         await db.audit.log({
           action: AuditAction.CREATE,
-          details: `Novo processo cadastrado com sucesso: ${created.seiNumber}`,
+          details: `Novo processo SEI cadastrado: ${created.seiNumber}`,
           severity: 'INFO'
         });
       }
     } catch (err: any) {
-      console.error("Erro fatal ao cadastrar:", err);
-      alert(`Falha no Cadastro: ${err.message || 'Verifique sua conexão ou permissões de perfil.'}`);
+      console.error("Erro no cadastro:", err);
+      alert(`Falha no Cadastro: ${err.message || 'Verifique sua conexão.'}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleUpdateAmendment = async (updated: Amendment) => {
+    const original = amendments.find(a => a.id === updated.id);
+    if (original?.status === Status.CONCLUDED) {
+      alert("Operação Negada: Processos liquidados não permitem alterações cadastrais.");
+      return;
+    }
     try {
       const saved = await db.amendments.upsert(updated);
       if (saved) {
         setAmendments(prev => prev.map(a => a.id === saved.id ? saved : a));
       }
     } catch (err: any) {
-      console.error("Erro RLS Update:", err);
-      alert("Não foi possível atualizar o registro: " + err.message);
+      console.error("Erro Update:", err);
+      alert("Erro ao atualizar registro: " + err.message);
     }
   };
 
-  const handleTramitation = async (movements: AmendmentMovement[]) => {
+  const handleTramitation = async (movements: AmendmentMovement[], newStatus: Status) => {
     const targetId = movements[0].amendmentId;
     const targetAmendment = amendments.find(a => a.id === targetId);
     
     if (targetAmendment) {
+      if (targetAmendment.status === Status.CONCLUDED) {
+        alert("Operação Negada: Impossível tramitar processos já liquidados.");
+        return;
+      }
       const updatedAmendment = {
         ...targetAmendment,
         movements: [...targetAmendment.movements, ...movements],
         currentSector: movements.map(m => m.toSector).join(' | '),
-        status: Status.IN_PROGRESS
+        status: newStatus
       };
 
       try {
@@ -165,7 +173,7 @@ const App: React.FC = () => {
           setAmendments(prev => prev.map(a => a.id === saved.id ? saved : a));
           await db.audit.log({
             action: AuditAction.MOVE,
-            details: `Tramitou ${targetAmendment.seiNumber}`,
+            details: `Tramitou ${targetAmendment.seiNumber} para ${newStatus}`,
             severity: 'INFO'
           });
 
@@ -177,7 +185,7 @@ const App: React.FC = () => {
           }
         }
       } catch (err: any) {
-        console.error("Tramitação Rejeitada pelo RLS:", err);
+        console.error("Erro de Tramitação:", err);
         alert("Erro na tramitação: " + err.message);
       }
     }
@@ -186,6 +194,10 @@ const App: React.FC = () => {
   const handleInactivate = async (id: string, justification: string) => {
     const target = amendments.find(a => a.id === id);
     if (target) {
+      if (target.status === Status.CONCLUDED) {
+        alert("Operação Negada: Processos liquidados não podem ser arquivados.");
+        return;
+      }
       const updated = { ...target, status: Status.ARCHIVED, notes: justification };
       try {
         const saved = await db.amendments.upsert(updated);
@@ -193,12 +205,12 @@ const App: React.FC = () => {
           setAmendments(prev => prev.map(a => a.id === id ? saved : a));
           await db.audit.log({
             action: AuditAction.DELETE,
-            details: `Arquivou ${target.seiNumber}`,
+            details: `Processo ${target.seiNumber} arquivado por justificativa.`,
             severity: 'WARN'
           });
         }
       } catch (err: any) {
-        console.error("Arquivamento negado:", err);
+        console.error("Erro de Arquivamento:", err);
         alert("Erro ao arquivar: " + err.message);
       }
     }
@@ -209,7 +221,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center space-y-6">
         <Loader2 className="text-[#0d457a] animate-spin" size={64} />
         <div className="text-center">
-          <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">GESA Cloud - Validando Identidade</p>
+          <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">GESA Cloud - Validando Acesso</p>
         </div>
       </div>
     );
@@ -250,14 +262,14 @@ const App: React.FC = () => {
             )}
             <div className="ml-auto flex items-center gap-4">
                {currentUser.role === Role.SUPER_ADMIN && (
-                 <span className="text-[9px] font-black text-purple-600 bg-purple-50 border border-purple-100 px-3 py-1 rounded-full uppercase tracking-widest">Modo Super Admin</span>
+                 <span className="text-[9px] font-black text-purple-600 bg-purple-50 border border-purple-100 px-3 py-1 rounded-full uppercase tracking-widest">SaaS Super Admin</span>
                )}
                <button 
                 onClick={fetchData} 
-                className="flex items-center gap-2 text-[10px] font-black text-slate-400 hover:text-[#0d457a] uppercase transition-all bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100"
+                className="flex items-center gap-2 text-[10px] font-black text-[#0d457a] uppercase transition-all bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200"
               >
                 <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-                Auditar Permissões
+                Sincronizar Dados
               </button>
             </div>
           </div>

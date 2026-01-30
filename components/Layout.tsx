@@ -30,7 +30,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const activeDept = DEPARTMENTS.find(d => d.id === activeTenantId);
   
-  // Vulnerability Fix: Only SuperAdmin can see the tenant switcher dropdown
   const canSwitchTenant = currentUser.role === Role.SUPER_ADMIN;
 
   const menuItems = [
@@ -48,7 +47,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
-      {/* Sidebar - Cor Institucional Goiás Blue */}
       <aside className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 shadow-2xl ${isSidebarOpen ? 'w-72' : 'w-20'}`}>
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           <div className="bg-white text-[#0d457a] p-2 rounded-xl shadow-lg">
@@ -100,7 +98,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 className={`flex items-center gap-3 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 transition-all ${canSwitchTenant ? 'hover:border-[#0d457a]' : 'opacity-75 cursor-default'}`}
               >
                 <Globe size={14} className="text-[#0d457a]" />
-                <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{activeDept?.name || 'Carregando...'}</span>
+                <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-tight">{activeDept?.name || 'Carregando...'}</span>
                 {canSwitchTenant && <ChevronDown size={14} className="text-slate-300" />}
               </button>
               
@@ -111,7 +109,7 @@ export const Layout: React.FC<LayoutProps> = ({
                       <button 
                         key={d.id} 
                         onClick={() => onTenantChange(d.id)}
-                        className={`w-full text-left px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${activeTenantId === d.id ? 'bg-blue-50 text-[#0d457a]' : 'hover:bg-slate-50 text-slate-500'}`}
+                        className={`w-full text-left px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${activeTenantId === d.id ? 'bg-blue-50 text-[#0d457a]' : 'hover:bg-slate-50 text-[#0d457a]'}`}
                       >
                         {d.name}
                       </button>
@@ -130,7 +128,7 @@ export const Layout: React.FC<LayoutProps> = ({
              <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
                 <img src={currentUser.avatarUrl} className="w-8 h-8 rounded-lg shadow-sm" alt="Avatar" />
                 <div className="hidden sm:block">
-                  <p className="text-[10px] font-black text-slate-900 leading-none">{currentUser.name}</p>
+                  <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
                   <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
                 </div>
              </div>

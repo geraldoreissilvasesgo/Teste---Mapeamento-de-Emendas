@@ -4,7 +4,7 @@
  * 
  * Este componente exibe uma visão completa e aprofundada de um único processo SEI.
  * Ele é o núcleo para a tramitação e análise individual.
- * Alteração: Justificativa obrigatória para arquivamento.
+ * Atualizado para permitir a mudança de status durante o trâmite e bloquear edições em processos liquidados.
  */
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Amendment, Status, User, Role, SectorConfig, AmendmentMovement, AnalysisType, SystemMode, GNDType } from '../types';
@@ -12,7 +12,7 @@ import {
   ArrowLeft, Send, MapPin, Calendar, Clock, AlertTriangle, 
   CheckCircle2, FileText, Building2, ShieldOff, 
   ShieldCheck, Printer, FileSearch, Zap, XCircle, Search, ArrowRight, X, ChevronDown,
-  Landmark, Layers, Plus, Trash2, User as UserIcon, DollarSign, MessageSquare, ArrowRightLeft, FastForward, Upload, FileUp, AlertCircle
+  Landmark, Layers, Plus, Trash2, User as UserIcon, DollarSign, MessageSquare, ArrowRightLeft, FastForward, Upload, FileUp, AlertCircle, Tag, Lock
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -21,7 +21,7 @@ interface AmendmentDetailProps {
   sectors: SectorConfig[];
   systemMode: SystemMode;
   onBack: () => void;
-  onMove: (movements: AmendmentMovement[]) => void;
+  onMove: (movements: AmendmentMovement[], newStatus: Status) => void;
   onStatusChange: (amendmentId: string, status: Status) => void;
   onDelete: (id: string, justification: string) => void;
 }
@@ -38,6 +38,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 }) => {
   const [sectorSearch, setSectorSearch] = useState('');
   const [selectedDestinations, setSelectedDestinations] = useState<SectorConfig[]>([]);
+  const [newStatus, setNewStatus] = useState<Status>(amendment.status);
   const [remarks, setRemarks] = useState('');
   const [showDestList, setShowDestList] = useState(false);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
@@ -45,6 +46,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   const tramitacaoRef = useRef<HTMLDivElement>(null);
 
   const isInactive = amendment.status === Status.ARCHIVED;
+  const isLiquidated = amendment.status === Status.CONCLUDED;
 
   const currentSectorsNames = (amendment.currentSector || '').split(' | ');
   
@@ -70,6 +72,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   };
 
   const handleMove = () => {
+    if (isLiquidated) return;
     if (selectedDestinations.length === 0) {
       alert("Selecione pelo menos um setor de destino para tramitar.");
       return;
@@ -95,12 +98,13 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
       };
     });
 
-    onMove(newMovements);
+    onMove(newMovements, newStatus);
     setSelectedDestinations([]);
     setRemarks('');
   };
 
   const confirmArchive = () => {
+    if (isLiquidated) return;
     if (!archiveJustification.trim()) {
       alert("A justificativa é obrigatória para o arquivamento.");
       return;
@@ -117,7 +121,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     window.print();
   }, []);
 
-  const canEdit = currentUser.role === Role.ADMIN || currentUser.role === Role.OPERATOR;
+  const canEdit = (currentUser.role === Role.ADMIN || currentUser.role === Role.OPERATOR) && !isLiquidated;
   
   const getStatusStyle = (status: Status) => {
      switch (status) {
@@ -144,16 +148,18 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
             <ArrowLeft size={18} /> Voltar para a Fila
         </button>
         <div className="flex items-center gap-3">
-            <button 
-              onClick={scrollToTramitacao}
-              className="flex items-center gap-3 bg-emerald-500 text-white px-6 py-2.5 rounded-2xl hover:bg-emerald-600 transition-all text-[11px] font-black uppercase tracking-widest shadow-lg animate-pulse hover:animate-none"
-            >
-                <ArrowRightLeft size={18} /> Tramitar Agora
-            </button>
-            <button onClick={handlePrint} className="flex items-center gap-2 bg-white text-slate-400 border border-slate-200 px-4 py-2.5 rounded-2xl hover:bg-slate-50 transition-all text-[10px] font-black uppercase tracking-widest shadow-sm">
+            {!isLiquidated && (
+              <button 
+                onClick={scrollToTramitacao}
+                className="flex items-center gap-3 bg-emerald-500 text-white px-6 py-2.5 rounded-2xl hover:bg-emerald-600 transition-all text-[11px] font-black uppercase tracking-widest shadow-lg animate-pulse hover:animate-none"
+              >
+                  <ArrowRightLeft size={18} /> Tramitar Agora
+              </button>
+            )}
+            <button onClick={handlePrint} className="flex items-center gap-2 bg-white text-[#0d457a] border border-slate-200 px-4 py-2.5 rounded-2xl hover:bg-slate-50 transition-all text-[10px] font-black uppercase tracking-widest shadow-sm">
                 <Printer size={16} /> Imprimir
             </button>
-            {!isInactive && canEdit && (
+            {!isInactive && !isLiquidated && (currentUser.role === Role.ADMIN || currentUser.role === Role.OPERATOR) && (
                 <button onClick={() => setIsArchiveModalOpen(true)} className="flex items-center gap-2 bg-red-50 text-red-500 px-4 py-2.5 rounded-2xl hover:bg-red-100 transition-all text-[10px] font-black uppercase tracking-widest border border-red-100">
                     <XCircle size={16} /> Arquivar
                 </button>
@@ -161,6 +167,18 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
         </div>
       </div>
       
+      {isLiquidated && (
+        <div className="bg-emerald-600 p-6 rounded-[32px] border border-emerald-500 shadow-xl flex items-center gap-5 text-white animate-in slide-in-from-top-4 duration-500">
+           <div className="p-4 bg-white/10 rounded-2xl">
+              <Lock size={32} />
+           </div>
+           <div>
+              <h4 className="text-sm font-black uppercase tracking-widest">Processo Finalizado e Imutável</h4>
+              <p className="text-[10px] font-bold text-emerald-100 uppercase mt-1">Este registro foi Liquidado/Pago e não permite mais alterações de dados ou tramitações técnicas.</p>
+           </div>
+        </div>
+      )}
+
       <div id="protocol-content" className="bg-white rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden">
         <div className={`p-10 border-b-4 ${statusStyle.bg.replace('50', '100')} border-dashed`}>
            <div className="flex justify-between items-start">
@@ -208,7 +226,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
         </div>
         
         <div className="p-10">
-          {!isInactive && canEdit && (
+          {!isInactive && !isLiquidated && (currentUser.role === Role.ADMIN || currentUser.role === Role.OPERATOR) && (
             <div ref={tramitacaoRef} className="bg-[#0d457a] p-12 rounded-[48px] border-4 border-white shadow-[0_35px_60px_-15px_rgba(13,69,122,0.3)] mb-16 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
@@ -220,24 +238,35 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
               
               <div className="space-y-8 relative z-10">
                 <div className="flex flex-col lg:flex-row gap-8 items-start">
-                   <div className="w-full lg:w-1/3">
-                      <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Setor de Origem (Custódia)</label>
+                   <div className="w-full lg:w-1/4">
+                      <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Setor de Origem</label>
                       <div className="px-6 py-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-[28px] text-base font-black text-white flex items-center gap-4 shadow-inner group-hover:bg-white/15 transition-all">
                           <Building2 size={24} className="text-emerald-400"/>
                           {amendment.currentSector}
                       </div>
                    </div>
                    
-                   <div className="hidden lg:flex items-center justify-center pt-14 text-white/30">
-                      <FastForward size={48} className="animate-pulse" />
+                   <div className="w-full lg:w-1/4">
+                      <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Novo Status</label>
+                      <div className="relative">
+                        <Tag size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/40" />
+                        <select 
+                          value={newStatus}
+                          onChange={(e) => setNewStatus(e.target.value as Status)}
+                          className="w-full pl-14 pr-6 py-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-[28px] text-base font-black text-white outline-none focus:ring-4 ring-emerald-500/30 transition-all appearance-none cursor-pointer uppercase"
+                        >
+                          {Object.values(Status).map(s => <option key={s} value={s} className="text-[#0d457a] font-bold">{s}</option>)}
+                        </select>
+                        <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-white pointer-events-none" />
+                      </div>
                    </div>
 
                    <div className="flex-1 w-full relative">
-                      <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Selecionar Destinos Técnicos</label>
+                      <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Destinos Técnicos</label>
                       <div className="bg-white rounded-[28px] flex flex-wrap gap-2.5 p-4 min-h-[72px] shadow-2xl focus-within:ring-4 ring-emerald-500/30 transition-all">
                           {selectedDestinations.length === 0 && !sectorSearch && (
                              <div className="absolute inset-0 flex items-center px-6 pointer-events-none text-slate-300 font-bold uppercase text-xs tracking-widest">
-                                Digite para buscar setores de destino...
+                                Digite para buscar setores...
                              </div>
                           )}
                           {selectedDestinations.map(dest => (
@@ -248,7 +277,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                           ))}
                           <input 
                              type="text" 
-                             className="flex-1 min-w-[200px] outline-none text-base font-black p-2 placeholder:text-slate-200 text-[#0d457a] uppercase"
+                             className="flex-1 min-w-[150px] outline-none text-base font-black p-2 placeholder:text-slate-200 text-[#0d457a] uppercase"
                              value={sectorSearch}
                              onChange={(e) => { setSectorSearch(e.target.value); setShowDestList(true); }}
                              onFocus={() => setShowDestList(true)}
@@ -276,10 +305,10 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
                 <div className="flex flex-col lg:flex-row gap-8">
                     <div className="flex-1">
-                        <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Despacho / Justificativa do Trâmite</label>
+                        <label className="text-[11px] font-black text-white/50 uppercase mb-4 block tracking-[0.2em]">Despacho Administrativo</label>
                         <textarea 
                            className="w-full p-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-[32px] text-base font-medium text-white outline-none focus:ring-4 ring-emerald-500/30 transition-all min-h-[120px] shadow-inner placeholder:text-white/20"
-                           placeholder="Insira as orientações técnicas ou o motivo da movimentação para os setores de destino..."
+                           placeholder="Insira as orientações técnicas para as próximas etapas..."
                            value={remarks}
                            onChange={(e) => setRemarks(e.target.value)}
                         />
@@ -290,7 +319,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                           disabled={selectedDestinations.length === 0}
                           className="w-full bg-emerald-500 text-white px-10 py-6 rounded-[32px] font-black uppercase text-sm shadow-[0_20px_40px_-10px_rgba(16,185,129,0.5)] hover:bg-emerald-600 transition-all hover:-translate-y-2 active:translate-y-0 flex items-center justify-center gap-4 group/submit disabled:opacity-30 disabled:grayscale disabled:hover:translate-y-0"
                         >
-                            Confirmar Tramitação <Send size={24} className="group-hover/submit:translate-x-2 transition-transform"/>
+                            Confirmar Trâmite <Send size={24} className="group-hover/submit:translate-x-2 transition-transform"/>
                         </button>
                     </div>
                 </div>
@@ -302,7 +331,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
              <div className="space-y-10">
                 <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.4em] flex items-center gap-4 mb-14">
                     <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-[#0d457a] shadow-sm"><Clock size={20} /></div>
-                    Histórico de Gestão e Fluxo
+                    Histórico de Tramitações
                 </h3>
                 <div className="relative pl-12 space-y-12 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[3px] before:bg-slate-100">
                     {movementsList.length > 0 ? movementsList.reverse().map((m, idx) => (
@@ -318,13 +347,13 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                     </div>
                                     {m.deadline && (
                                         <span className={`text-[10px] px-4 py-1.5 rounded-xl font-black uppercase shadow-sm ${new Date(m.deadline) < new Date() && !m.dateOut ? 'bg-red-500 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                                            {m.dateOut ? 'Processado' : `Vencimento: ${new Date(m.deadline).toLocaleDateString()}`}
+                                            {m.dateOut ? 'Processado' : `SLA: ${new Date(m.deadline).toLocaleDateString()}`}
                                         </span>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-4 text-[11px] text-slate-500 font-bold uppercase mb-4">
                                     <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner"><UserIcon size={14}/></div>
-                                    <span>Gestor Resp: <span className="text-[#0d457a] font-black">{m.handledBy}</span></span>
+                                    <span>Resp: <span className="text-[#0d457a] font-black">{m.handledBy}</span></span>
                                 </div>
                                 {m.remarks && (
                                   <div className="mt-2 p-3 bg-slate-50 rounded-xl text-[10px] font-medium text-slate-500 italic">
@@ -340,7 +369,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                         </div>
                     )) : (
                       <div className="text-slate-300 font-black uppercase text-[10px] tracking-widest p-4">
-                        Nenhuma movimentação registrada.
+                        Sem registros.
                       </div>
                     )}
                 </div>
@@ -350,26 +379,23 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                 <div className="bg-white p-10 rounded-[56px] border border-slate-200 shadow-sm relative overflow-hidden">
                    <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full translate-x-1/2 -translate-y-1/2 -z-10"></div>
                    <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.3em] mb-10 flex items-center gap-4">
-                      <FileText size={22} className="text-blue-500"/> Acervo Digital Vinculado
+                      <FileText size={22} className="text-blue-500"/> Documentação Digital
                    </h3>
                    
                    <div className="p-12 border-4 border-dashed border-slate-100 rounded-[48px] text-center bg-slate-50/30 group hover:bg-blue-50/50 hover:border-blue-200 transition-all duration-500">
                       <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-blue-500 shadow-xl mx-auto mb-6 group-hover:scale-110 transition-transform">
                          <Upload size={32}/>
                       </div>
-                      <p className="text-sm font-black text-[#0d457a] uppercase tracking-tighter">Anexar Documento PDF</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-widest">Clique ou arraste o arquivo PDF aqui</p>
-                      
+                      <p className="text-sm font-black text-[#0d457a] uppercase tracking-tighter">Anexar PDF SEI</p>
                       <label className="mt-8 inline-block cursor-pointer">
                          <input type="file" accept=".pdf" className="hidden" />
                          <span className="bg-[#0d457a] text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-[#0a365f] transition-all flex items-center gap-3">
-                            <FileUp size={18} /> Selecionar PDF
+                            <FileUp size={18} /> Selecionar
                          </span>
                       </label>
                    </div>
-                   
                    <p className="mt-8 text-[9px] text-slate-300 font-black uppercase text-center leading-relaxed tracking-widest">
-                      O sistema aceita exclusivamente arquivos no formato PDF de acordo com as normas da GESA.
+                      Padrão GESA: Apenas arquivos PDF originais.
                    </p>
                 </div>
              </div>
@@ -377,8 +403,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
         </div>
       </div>
 
-      {/* Modal de Arquivamento com Justificativa Obrigatória - AJUSTADO PARA MELHOR ENCAIXE */}
-      {isArchiveModalOpen && (
+      {isArchiveModalOpen && !isLiquidated && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-red-900/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
           <div className="bg-white rounded-[32px] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col">
              <div className="p-6 border-b border-slate-100 bg-red-50 flex items-center gap-4 shrink-0">
@@ -386,23 +411,23 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                    <AlertCircle size={24} />
                 </div>
                 <div>
-                   <h3 className="text-xl font-black text-red-600 uppercase tracking-tighter leading-none">Confirmar Arquivamento</h3>
+                   <h3 className="text-xl font-black text-red-600 uppercase tracking-tighter leading-none">Arquivamento</h3>
                    <p className="text-red-400 text-[9px] font-black uppercase tracking-widest mt-1">SEI: {amendment.seiNumber}</p>
                 </div>
              </div>
              
              <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                 <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100">
-                   <p className="text-xs font-medium text-slate-600 leading-relaxed">
-                      Esta ação exige uma <strong>justificativa técnica</strong> para fins de auditoria interna.
+                   <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
+                      Justificativa Técnica de Arquivamento
                    </p>
                 </div>
                 
                 <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Justificativa (Obrigatório)</label>
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Justificativa</label>
                    <textarea 
-                      className={`w-full p-4 bg-slate-50 border-2 rounded-[24px] outline-none transition-all min-h-[120px] font-bold text-[#0d457a] uppercase text-xs ${archiveJustification.trim().length > 10 ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-100 focus:border-red-500'}`}
-                      placeholder="Descreva detalhadamente o motivo..."
+                      className="w-full p-4 bg-slate-50 border-2 border-slate-100 focus:border-red-500 rounded-[24px] outline-none transition-all min-h-[120px] font-bold text-[#0d457a] uppercase text-xs"
+                      placeholder="Descreva o motivo..."
                       value={archiveJustification}
                       onChange={(e) => setArchiveJustification(e.target.value)}
                    />
@@ -412,7 +437,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
              <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-4 shrink-0">
                 <button 
                   onClick={() => setIsArchiveModalOpen(false)}
-                  className="flex-1 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest text-slate-400 border border-slate-200 bg-white hover:bg-slate-50 transition-all"
+                  className="flex-1 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest text-[#0d457a] border border-slate-200 bg-white hover:bg-slate-50 transition-all"
                 >
                    Cancelar
                 </button>

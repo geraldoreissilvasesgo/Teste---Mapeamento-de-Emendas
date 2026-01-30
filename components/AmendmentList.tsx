@@ -5,7 +5,8 @@ import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { 
   Plus, Search, Filter, MapPin, Pencil, User, Send, ChevronDown, 
   Landmark, XCircle, ChevronLeft, ChevronRight, FileText, 
-  X, ArrowRightLeft, Building2, Edit3, Tag, DollarSign, Calendar, Info, Layers, Zap, HardDrive, Settings2
+  X, ArrowRightLeft, Building2, Edit3, Tag, DollarSign, Calendar, Info, Layers, Zap, HardDrive, Settings2,
+  ArrowRight, Lock
 } from 'lucide-react';
 
 interface AmendmentListProps {
@@ -99,6 +100,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   };
   
   const handleEdit = (amendment: Amendment) => {
+    if (amendment.status === Status.CONCLUDED) return;
     setEditingId(amendment.id);
     setFormData(amendment);
     setIsModalOpen(true);
@@ -109,7 +111,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     if (editingId) {
       onUpdate({ ...formData, id: editingId } as Amendment);
     } else {
-      // Uso de prefixo 'temp-' para evitar colisão com IDs reais e orientar o backend
       onCreate({ 
         ...formData, 
         id: `temp-${Math.random().toString(36).substr(2, 9)}`, 
@@ -193,7 +194,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
               <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
               <select
                   value={municipalityFilter}
-                  className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[10px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
+                  className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[10px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
                   onChange={(e) => setMunicipalityFilter(e.target.value)}
               >
                   <option value="all">Município: Todos</option>
@@ -205,256 +206,222 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {paginatedAmendments.map(amendment => (
-          <div 
-            key={amendment.id} 
-            className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-xl hover:border-[#0d457a]/20 transition-all duration-300 relative"
-          >
-              <div className="p-8 flex flex-col flex-1">
-                  <div className="flex justify-between items-start mb-4">
-                      <span className="text-[10px] font-black text-[#0d457a] bg-blue-50 px-3 py-1 rounded-full border border-blue-100 flex items-center gap-2 uppercase">
-                        <FileText size={12}/> {amendment.seiNumber}
+        {paginatedAmendments.map(amendment => {
+          const isLiquidated = amendment.status === Status.CONCLUDED;
+          return (
+            <div 
+              key={amendment.id} 
+              className={`bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-xl hover:border-[#0d457a]/20 transition-all duration-300 relative ${isLiquidated ? 'bg-slate-50/30' : ''}`}
+            >
+                <div className="p-8 flex flex-col flex-1">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-[9px] font-black text-white bg-[#0d457a] px-3 py-1.5 rounded-full border border-blue-900 flex items-center gap-2 uppercase shadow-md">
+                          <FileText size={12}/> PROCESSO SEI: {amendment.seiNumber}
+                        </span>
+                        <span className="text-[10px] font-black text-slate-300 uppercase">{amendment.year}</span>
+                    </div>
+
+                    <h3 className="font-black text-base text-[#0d457a] mb-4 leading-tight flex-1 uppercase tracking-tight group-hover:text-blue-700 transition-colors">
+                      {amendment.object}
+                    </h3>
+
+                    <div className="mb-6">
+                      <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${getStatusBadgeClass(amendment.status)}`}>
+                          {isLiquidated ? <Lock size={10} /> : <Tag size={10} />}
+                          {amendment.status}
                       </span>
-                      <span className="text-[10px] font-black text-slate-300 uppercase">{amendment.year}</span>
-                  </div>
+                    </div>
+                    
+                    <div className="space-y-3 mb-6">
+                        <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-2xl border border-slate-100">
+                           <MapPin size={16} className="text-emerald-500 shrink-0" />
+                           <span className="text-[11px] font-black text-[#0d457a] uppercase truncate">{amendment.municipality}</span>
+                        </div>
 
-                  <h3 className="font-black text-base text-[#0d457a] mb-4 leading-tight flex-1 uppercase tracking-tight group-hover:text-blue-700 transition-colors">
-                    {amendment.object}
-                  </h3>
+                        <div className="flex items-center gap-3 p-2.5 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                            <Building2 size={16} className="text-[#0d457a] shrink-0" />
+                            <span className="text-[11px] font-black text-[#0d457a] uppercase truncate">{amendment.currentSector}</span>
+                        </div>
+                    </div>
 
-                  <div className="mb-6">
-                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${getStatusBadgeClass(amendment.status)}`}>
-                        <Tag size={10} />
-                        {amendment.status}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                      <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-2xl border border-slate-100">
-                         <MapPin size={16} className="text-emerald-500 shrink-0" />
-                         <span className="text-[11px] font-black text-[#0d457a] uppercase truncate">{amendment.municipality}</span>
-                      </div>
-
-                      <div className="flex items-center gap-3 p-2.5 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                          <Building2 size={16} className="text-[#0d457a] shrink-0" />
-                          <span className="text-[11px] font-black text-[#0d457a] uppercase truncate">{amendment.currentSector}</span>
-                      </div>
-                  </div>
-
-                  <div className="pt-6 border-t border-slate-100 flex justify-between items-center mt-auto">
-                      <div>
-                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor Alocado</p>
-                         <p className="font-black text-[#0d457a] text-lg tracking-tighter">
-                           R$ {amendment.value.toLocaleString('pt-BR')}
-                         </p>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        {userRole !== Role.VIEWER && (
-                          <>
+                    <div className="pt-6 border-t border-slate-100 flex justify-between items-center mt-auto">
+                        <div>
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor Alocado</p>
+                           <p className="font-black text-[#0d457a] text-lg tracking-tighter">
+                             R$ {amendment.value.toLocaleString('pt-BR')}
+                           </p>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          {userRole !== Role.VIEWER && !isLiquidated && (
                             <button 
                               onClick={() => handleEdit(amendment)} 
-                              className="p-2.5 bg-white text-slate-400 border border-slate-200 rounded-xl hover:text-[#0d457a] transition-all"
+                              className="p-2.5 bg-slate-50 text-slate-400 hover:text-[#0d457a] hover:bg-white border border-transparent hover:border-slate-100 rounded-xl transition-all"
+                              title="Editar"
                             >
-                              <Edit3 size={18}/>
+                              <Edit3 size={18} />
                             </button>
-                            <button 
-                              onClick={() => onSelect(amendment)} 
-                              className="px-5 py-2.5 bg-[#0d457a] text-white rounded-xl hover:bg-[#0a365f] transition-all text-[10px] font-black uppercase tracking-widest shadow-md"
-                            >
-                              Abrir
-                            </button>
-                          </>
-                        )}
-                      </div>
-                  </div>
-              </div>
-          </div>
-        ))}
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[32px] w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-               <div>
-                  <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">{editingId ? 'Editar Processo SEI' : 'Novo Registro Governamental'}</h3>
-                  <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.2em] mt-1 flex items-center gap-2">
-                    <Settings2 size={12} className="text-blue-500" /> Parametrização Completa
-                  </p>
-               </div>
-               <button onClick={() => setIsModalOpen(false)} className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all">
-                  <X size={20}/>
-               </button>
+                          )}
+                          <button 
+                            onClick={() => onSelect(amendment)} 
+                            className="p-2.5 bg-[#0d457a] text-white rounded-xl hover:bg-[#0a365f] shadow-lg transition-all"
+                            title="Ver Detalhes"
+                          >
+                            <ArrowRight size={18} />
+                          </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 space-y-8 overflow-y-auto custom-scrollbar flex-1 bg-white">
-              {/* Seção 1: Identificação do Processo */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
-                  <div className="p-1 bg-blue-50 text-[#0d457a] rounded-lg"><FileText size={14}/></div>
-                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Identificação</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Número SEI</label>
-                    <div className="relative">
-                      <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <input type="text" required value={formData.seiNumber} onChange={e => setFormData({...formData, seiNumber: e.target.value})} className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all text-xs" placeholder="2025000..." />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Código Interno</label>
-                    <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-xs" placeholder="EM-2025-..." />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ano Exercício</label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <input type="number" required value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] text-xs" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Seção 2: Classificação e Beneficiário */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
-                  <div className="p-1 bg-emerald-50 text-emerald-600 rounded-lg"><MapPin size={14}/></div>
-                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Origem</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Município</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <select required value={formData.municipality} onChange={e => setFormData({...formData, municipality: e.target.value})} className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 uppercase appearance-none text-xs">
-                        <option value="">Selecione...</option>
-                        {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Parlamentar</label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <select value={formData.deputyName} onChange={e => setFormData({...formData, deputyName: e.target.value})} className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 uppercase appearance-none text-xs">
-                        <option value="Executivo Estadual">Executivo Estadual</option>
-                        {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
-                    </div>
-                  </div>
-                  <div className="col-span-full space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Objeto do Repasse</label>
-                    <textarea required value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-600 min-h-[80px] outline-none focus:ring-4 ring-blue-500/5 transition-all text-xs" placeholder="Descreva a finalidade da emenda..." />
-                  </div>
-                </div>
-              </div>
-
-              {/* Seção 3: Financeiro e Orçamentário */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
-                  <div className="p-1 bg-amber-50 text-amber-600 rounded-lg"><Landmark size={14}/></div>
-                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Financeiro</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tipo</label>
-                    <select required value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as AmendmentType})} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 text-[9px] uppercase">
-                      {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor (R$)</label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={14} />
-                      <input type="number" required value={formData.value} onChange={e => setFormData({...formData, value: parseFloat(e.target.value)})} className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] text-xs" />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Modalidade</label>
-                    <select value={formData.transferMode} onChange={e => setFormData({...formData, transferMode: e.target.value as TransferMode})} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 text-[9px] uppercase">
-                      {Object.values(TransferMode).map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">GND</label>
-                    <select value={formData.gnd} onChange={e => setFormData({...formData, gnd: e.target.value as GNDType})} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 text-[9px] uppercase">
-                      {Object.values(GNDType).map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Seção 4: Configurações Técnicas */}
-              <div className="bg-slate-50 p-6 rounded-[28px] border border-slate-100">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-1 bg-blue-100 text-[#0d457a] rounded-lg"><Layers size={14}/></div>
-                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Requisitos Técnicos</h4>
-                </div>
-                <div className="flex flex-wrap gap-6">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="relative">
-                      <input type="checkbox" checked={formData.suinfra} onChange={e => setFormData({...formData, suinfra: e.target.checked})} className="sr-only" />
-                      <div className={`w-10 h-6 rounded-full transition-all duration-300 ${formData.suinfra ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.suinfra ? 'left-5' : 'left-1'}`}></div>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
-                        SUINFRA
-                      </span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="relative">
-                      <input type="checkbox" checked={formData.sutis} onChange={e => setFormData({...formData, sutis: e.target.checked})} className="sr-only" />
-                      <div className={`w-10 h-6 rounded-full transition-all duration-300 ${formData.sutis ? 'bg-purple-500' : 'bg-slate-200'}`}></div>
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.sutis ? 'left-5' : 'left-1'}`}></div>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
-                        SUTIS
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-2xl font-black uppercase text-[9px] text-slate-400 bg-white border border-slate-200 hover:bg-slate-50 transition-all tracking-widest">
-                    Cancelar
-                  </button>
-                  <button type="submit" className="flex-[2] py-4 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[9px] tracking-[0.2em] shadow-xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3">
-                    {editingId ? 'Salvar' : 'Cadastrar'} <Send size={16} />
-                  </button>
-              </div>
-            </form>
-          </div>
+          );
+        })}
+      </div>
+      
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 mt-8">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+              disabled={currentPage === 1}
+              className="p-3 bg-white border border-slate-200 rounded-xl text-[#0d457a] disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-xs font-black text-[#0d457a] uppercase tracking-widest bg-white px-6 py-2 rounded-xl border border-slate-200 shadow-sm">Página {currentPage} de {totalPages}</span>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+              disabled={currentPage === totalPages}
+              className="p-3 bg-white border border-slate-200 rounded-xl text-[#0d457a] disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <ChevronRight size={20} />
+            </button>
         </div>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-6 pt-10 pb-20">
-            <button 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
-              disabled={currentPage === 1} 
-              className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] hover:bg-slate-50 disabled:opacity-30 transition-all shadow-sm"
-            >
-              <ChevronLeft size={24}/>
-            </button>
-            <div className="px-8 py-3 bg-[#0d457a] text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em]">
-               Página {currentPage} de {totalPages}
+      {/* MODAL DE CADASTRO/EDIÇÃO */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4 overflow-y-auto">
+            <div className="bg-white rounded-[40px] w-full max-w-4xl shadow-2xl my-auto animate-in zoom-in-95 duration-300">
+                <div className="p-10 border-b border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">{editingId ? 'Editar Registro' : 'Novo Processo SEI'}</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Goiás em Crescimento - GESA Cloud</p>
+                    </div>
+                    <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-2xl transition-all border border-slate-100">
+                        <X size={24} />
+                    </button>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número do Processo SEI</label>
+                            <div className="relative">
+                                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                                <input 
+                                    type="text" 
+                                    value={formData.seiNumber}
+                                    placeholder="Ex: 20250006700..."
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none transition-all font-bold text-slate-600 uppercase"
+                                    onChange={(e) => setFormData({...formData, seiNumber: e.target.value})}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Emenda</label>
+                                <select 
+                                    value={formData.type}
+                                    className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none font-bold text-slate-600 uppercase text-xs"
+                                    onChange={(e) => setFormData({...formData, type: e.target.value as AmendmentType})}
+                                >
+                                    {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ano Exercício</label>
+                                <input 
+                                    type="number" 
+                                    value={formData.year}
+                                    className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none font-bold text-slate-600"
+                                    onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor do Processo (R$)</label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={18} />
+                                <input 
+                                    type="number" 
+                                    step="0.01"
+                                    value={formData.value}
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none font-bold text-slate-600"
+                                    onChange={(e) => setFormData({...formData, value: parseFloat(e.target.value)})}
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Autor / Parlamentar</label>
+                            <select 
+                                value={formData.deputyName}
+                                className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none font-bold text-slate-600 uppercase text-xs"
+                                onChange={(e) => setFormData({...formData, deputyName: e.target.value})}
+                            >
+                                <option value="Executivo Estadual">Executivo Estadual</option>
+                                {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Município Beneficiário</label>
+                            <select 
+                                value={formData.municipality}
+                                className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none font-bold text-slate-600 uppercase text-xs"
+                                onChange={(e) => setFormData({...formData, municipality: e.target.value})}
+                                required
+                            >
+                                <option value="">Selecione o Município</option>
+                                {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Objeto do Repasse</label>
+                            <textarea 
+                                value={formData.object}
+                                placeholder="Descreva a finalidade do recurso..."
+                                className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none font-bold text-slate-600 uppercase text-xs min-h-[100px]"
+                                onChange={(e) => setFormData({...formData, object: e.target.value})}
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className="md:col-span-2 pt-6 border-t border-slate-100 flex gap-4">
+                        <button 
+                            type="button" 
+                            onClick={() => setIsModalOpen(false)}
+                            className="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            type="submit" 
+                            className="flex-1 py-4 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-900/20 hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3"
+                        >
+                            {editingId ? 'Atualizar Dados' : 'Efetivar Cadastro'} <Send size={16} />
+                        </button>
+                    </div>
+                </form>
             </div>
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-              disabled={currentPage === totalPages} 
-              className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] hover:bg-slate-50 disabled:opacity-30 transition-all shadow-sm"
-            >
-              <ChevronRight size={24}/>
-            </button>
         </div>
       )}
     </div>
