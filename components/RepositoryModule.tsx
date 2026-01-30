@@ -8,7 +8,8 @@
  */
 import React, { useState, useMemo } from 'react';
 import { Amendment, Status, AmendmentType } from '../types';
-import { Search, Download, Database, ChevronLeft, ChevronRight, Filter, Layers, PieChart, ArrowUpRight, Clock, Building2, Tag, FileText, Printer } from 'lucide-react';
+import { GOIAS_DEPUTIES } from '../constants';
+import { Search, Download, Database, ChevronLeft, ChevronRight, Filter, Layers, PieChart, ArrowUpRight, Clock, Building2, Tag, FileText, Printer, User, X } from 'lucide-react';
 
 interface RepositoryModuleProps {
   amendments: Amendment[];
@@ -21,20 +22,23 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [deputyFilter, setDeputyFilter] = useState<string>('all');
   const [groupBy, setGroupBy] = useState<GroupByOption>('none');
 
   const filteredData = useMemo(() => {
     const term = searchTerm.toLowerCase();
     return amendments.filter(item => {
       const matchesType = typeFilter === 'all' || item.type === typeFilter;
+      const matchesDeputy = deputyFilter === 'all' || item.deputyName === deputyFilter;
       const matchesSearch = !term ||
         item.seiNumber?.toLowerCase().includes(term) ||
         item.object?.toLowerCase().includes(term) ||
         item.municipality?.toLowerCase().includes(term) ||
         item.deputyName?.toLowerCase().includes(term);
-      return matchesType && matchesSearch;
+      
+      return matchesType && matchesDeputy && matchesSearch;
     });
-  }, [amendments, searchTerm, typeFilter]);
+  }, [amendments, searchTerm, typeFilter, deputyFilter]);
 
   const groupedData = useMemo(() => {
     if (groupBy === 'none') return [];
@@ -56,6 +60,13 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
 
   const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
   const paginatedData = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('all');
+    setDeputyFilter('all');
+    setCurrentPage(1);
+  };
 
   const handleExportCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
@@ -118,6 +129,7 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
             <div className="text-right">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Emissão: {new Date().toLocaleDateString()}</p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Registros: {filteredData.length}</p>
+                <p className="text-[10px] font-bold text-[#0d457a] uppercase">Total: {formatCurrency(totalFilteredValue)}</p>
             </div>
         </div>
       </div>
@@ -128,6 +140,14 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
           <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Base de Dados Completa para Consulta e Exportação</p>
         </div>
         <div className="flex gap-3">
+          {(searchTerm || typeFilter !== 'all' || deputyFilter !== 'all') && (
+            <button 
+              onClick={clearFilters}
+              className="flex items-center gap-2 bg-slate-100 text-slate-500 px-4 py-2.5 rounded-2xl hover:bg-slate-200 transition-all text-[10px] font-black uppercase tracking-widest"
+            >
+              <X size={14} /> Limpar
+            </button>
+          )}
           <button onClick={handleExportCSV} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-2xl hover:bg-emerald-700 transition-all shadow-lg uppercase text-[10px] font-black tracking-widest">
               <Download size={16} /> Exportar CSV
           </button>
@@ -137,13 +157,14 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
         </div>
       </div>
       
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-4 no-print">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4 no-print">
         <div className="relative col-span-1 md:col-span-2">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
-              placeholder="Buscar em toda a base..."
+              placeholder="Buscar por SEI, Objeto ou Município..."
               className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all font-bold text-xs uppercase"
+              value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
         </div>
@@ -154,8 +175,20 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl appearance-none focus:ring-2 focus:ring-[#0d457a] outline-none transition-all font-bold text-[10px] uppercase text-[#0d457a]"
             >
-                <option value="all">Todos os Tipos</option>
+                <option value="all">Tipos: Todos</option>
                 {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+        </div>
+        <div className="relative">
+             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <select
+                value={deputyFilter} 
+                onChange={(e) => setDeputyFilter(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl appearance-none focus:ring-2 focus:ring-[#0d457a] outline-none transition-all font-bold text-[10px] uppercase text-[#0d457a]"
+            >
+                <option value="all">Parlamentar: Todos</option>
+                <option value="Executivo Estadual">Executivo Estadual</option>
+                {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
         </div>
         <div className="relative">
@@ -165,7 +198,7 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                 onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
                 className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl appearance-none focus:ring-2 focus:ring-[#0d457a] outline-none transition-all font-bold text-[10px] uppercase text-[#0d457a]"
             >
-                <option value="none">Não Agrupar (Detalhado)</option>
+                <option value="none">Visão Detalhada</option>
                 <option value="type">Agrupar por Tipo</option>
                 <option value="deputyName">Agrupar por Autor</option>
                 <option value="municipality">Agrupar por Município</option>
@@ -224,7 +257,7 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                     ))}
                     {filteredData.length === 0 && (
                        <tr>
-                          <td colSpan={6} className="p-12 text-center text-slate-400 italic">Nenhum registro localizado para os filtros atuais.</td>
+                          <td colSpan={6} className="p-12 text-center text-slate-400 italic font-bold uppercase text-xs">Nenhum registro localizado para os filtros atuais.</td>
                        </tr>
                     )}
                 </tbody>
@@ -284,6 +317,14 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
           </table>
         </div>
       )}
+      
+      {/* Resumo Financeiro da Base Filtrada (Apenas Impressão) */}
+      <div className="print-only mt-8 pt-6 border-t-2 border-[#0d457a]">
+         <div className="flex justify-between items-center">
+            <span className="text-sm font-black uppercase">Valor Total Consolidado (Filtros Ativos)</span>
+            <span className="text-xl font-black text-[#0d457a]">{formatCurrency(totalFilteredValue)}</span>
+         </div>
+      </div>
     </div>
   );
 };
