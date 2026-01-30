@@ -46,16 +46,17 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
   const isInactive = amendment.status === Status.ARCHIVED;
 
-  const currentSectorsNames = amendment.currentSector.split(' | ');
+  const currentSectorsNames = (amendment.currentSector || '').split(' | ');
   
   const filteredDestSectors = useMemo(() => {
     const searchLower = sectorSearch.toLowerCase();
     const selectedIds = selectedDestinations.map(d => d.id);
-    return sectors.filter(s => 
-      !currentSectorsNames.includes(s.name) &&
-      !selectedIds.includes(s.id) &&
-      s.name.toLowerCase().includes(searchLower)
-    );
+    return sectors.filter(s => {
+      const sectorName = s.name || '';
+      return !currentSectorsNames.includes(sectorName) &&
+             !selectedIds.includes(s.id) &&
+             sectorName.toLowerCase().includes(searchLower);
+    });
   }, [sectors, sectorSearch, currentSectorsNames, selectedDestinations]);
 
   const addDestination = (sector: SectorConfig) => {
@@ -89,7 +90,8 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
         deadline: deadline.toISOString(),
         daysSpent: 0,
         handledBy: currentUser.name,
-        analysisType: dest.analysisType
+        analysisType: dest.analysisType,
+        remarks: remarks || undefined
       };
     });
 
@@ -130,6 +132,10 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
   const statusStyle = getStatusStyle(amendment.status);
   const StatusIcon = statusStyle.icon;
+
+  const movementsList = useMemo(() => {
+    return Array.isArray(amendment.movements) ? [...amendment.movements] : [];
+  }, [amendment.movements]);
 
   return (
     <div className={`space-y-6 ${isInactive ? 'opacity-75 grayscale-[0.5]' : ''}`}>
@@ -299,13 +305,15 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                     Histórico de Gestão e Fluxo
                 </h3>
                 <div className="relative pl-12 space-y-12 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[3px] before:bg-slate-100">
-                    {amendment.movements.map((m, idx) => (
+                    {movementsList.length > 0 ? movementsList.reverse().map((m, idx) => (
                         <div key={m.id} className="relative group">
-                            <div className={`absolute -left-[44px] top-1.5 w-8 h-8 rounded-full border-[8px] border-white shadow-xl z-10 transition-all duration-700 ${idx === amendment.movements.length - 1 ? 'bg-emerald-500 scale-150 animate-pulse' : 'bg-slate-200 group-hover:bg-blue-400'}`} />
+                            <div className={`absolute -left-[44px] top-1.5 w-8 h-8 rounded-full border-[8px] border-white shadow-xl z-10 transition-all duration-700 ${idx === 0 ? 'bg-emerald-500 scale-150 animate-pulse' : 'bg-slate-200 group-hover:bg-blue-400'}`} />
                             <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all duration-500 group-hover:border-[#0d457a]/20">
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
-                                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{new Date(m.dateIn).toLocaleDateString('pt-BR', {day: '2-digit', month: 'long', year: 'numeric'})} • {new Date(m.dateIn).toLocaleTimeString()}</p>
+                                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                          {new Date(m.dateIn).toLocaleDateString('pt-BR', {day: '2-digit', month: 'long', year: 'numeric'})} • {new Date(m.dateIn).toLocaleTimeString()}
+                                        </p>
                                         <h4 className="text-base font-black text-[#0d457a] uppercase tracking-tight">{m.toSector}</h4>
                                     </div>
                                     {m.deadline && (
@@ -318,14 +326,23 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                     <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner"><UserIcon size={14}/></div>
                                     <span>Gestor Resp: <span className="text-[#0d457a] font-black">{m.handledBy}</span></span>
                                 </div>
+                                {m.remarks && (
+                                  <div className="mt-2 p-3 bg-slate-50 rounded-xl text-[10px] font-medium text-slate-500 italic">
+                                    "{m.remarks}"
+                                  </div>
+                                )}
                                 {m.analysisType && (
-                                    <div className="flex items-center gap-2">
+                                    <div className="mt-4 flex items-center gap-2">
                                         <span className="inline-block text-[10px] bg-blue-50 text-[#0d457a] px-4 py-1.5 rounded-xl uppercase font-black tracking-widest border border-blue-100">{m.analysisType}</span>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    )).reverse()}
+                    )) : (
+                      <div className="text-slate-300 font-black uppercase text-[10px] tracking-widest p-4">
+                        Nenhuma movimentação registrada.
+                      </div>
+                    )}
                 </div>
              </div>
 
@@ -360,57 +377,51 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
         </div>
       </div>
 
-      {/* Modal de Arquivamento com Justificativa Obrigatória */}
+      {/* Modal de Arquivamento com Justificativa Obrigatória - AJUSTADO PARA MELHOR ENCAIXE */}
       {isArchiveModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-red-900/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[48px] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95">
-             <div className="p-10 border-b border-slate-100 bg-red-50 flex items-center gap-5">
-                <div className="p-4 bg-red-500 text-white rounded-[24px] shadow-lg">
-                   <AlertCircle size={32} />
+          <div className="bg-white rounded-[32px] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+             <div className="p-6 border-b border-slate-100 bg-red-50 flex items-center gap-4 shrink-0">
+                <div className="p-3 bg-red-500 text-white rounded-[16px] shadow-lg">
+                   <AlertCircle size={24} />
                 </div>
                 <div>
-                   <h3 className="text-2xl font-black text-red-600 uppercase tracking-tighter leading-none">Confirmação de Arquivamento</h3>
-                   <p className="text-red-400 text-[10px] font-black uppercase tracking-widest mt-2">Protocolo de Desativação SEI: {amendment.seiNumber}</p>
+                   <h3 className="text-xl font-black text-red-600 uppercase tracking-tighter leading-none">Confirmar Arquivamento</h3>
+                   <p className="text-red-400 text-[9px] font-black uppercase tracking-widest mt-1">SEI: {amendment.seiNumber}</p>
                 </div>
              </div>
              
-             <div className="p-10 space-y-8">
-                <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100">
-                   <p className="text-sm font-medium text-slate-600 leading-relaxed">
-                      O arquivamento removerá o processo da fila ativa de tramitação. 
-                      Esta ação exige uma <strong>justificativa técnica detalhada</strong> para fins de auditoria interna.
+             <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+                <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100">
+                   <p className="text-xs font-medium text-slate-600 leading-relaxed">
+                      Esta ação exige uma <strong>justificativa técnica</strong> para fins de auditoria interna.
                    </p>
                 </div>
                 
-                <div className="space-y-4">
-                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Justificativa do Arquivamento (Obrigatório)</label>
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Justificativa (Obrigatório)</label>
                    <textarea 
-                      className={`w-full p-6 bg-slate-50 border-2 rounded-[32px] outline-none transition-all min-h-[160px] font-bold text-[#0d457a] uppercase text-sm ${archiveJustification.trim().length > 10 ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-100 focus:border-red-500'}`}
-                      placeholder="Descreva detalhadamente o motivo do arquivamento (ex: duplicidade, cancelamento da emenda, erro de cadastro)..."
+                      className={`w-full p-4 bg-slate-50 border-2 rounded-[24px] outline-none transition-all min-h-[120px] font-bold text-[#0d457a] uppercase text-xs ${archiveJustification.trim().length > 10 ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-100 focus:border-red-500'}`}
+                      placeholder="Descreva detalhadamente o motivo..."
                       value={archiveJustification}
                       onChange={(e) => setArchiveJustification(e.target.value)}
                    />
-                   <div className="flex justify-between items-center px-4">
-                      <span className={`text-[9px] font-black uppercase ${archiveJustification.trim().length > 10 ? 'text-emerald-500' : 'text-slate-300'}`}>
-                         {archiveJustification.trim().length > 10 ? '✓ Justificativa capturada' : 'Mínimo de caracteres pendente'}
-                      </span>
-                   </div>
                 </div>
              </div>
 
-             <div className="p-10 bg-slate-50 border-t border-slate-100 flex gap-4">
+             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-4 shrink-0">
                 <button 
                   onClick={() => setIsArchiveModalOpen(false)}
-                  className="flex-1 py-5 rounded-[24px] font-black uppercase text-[10px] tracking-widest text-slate-400 border border-slate-200 bg-white hover:bg-slate-50 transition-all"
+                  className="flex-1 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest text-slate-400 border border-slate-200 bg-white hover:bg-slate-50 transition-all"
                 >
                    Cancelar
                 </button>
                 <button 
                   onClick={confirmArchive}
                   disabled={!archiveJustification.trim() || archiveJustification.trim().length < 5}
-                  className="flex-1 py-5 bg-red-500 text-white rounded-[24px] font-black uppercase text-[10px] tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all disabled:opacity-30 disabled:grayscale"
+                  className="flex-1 py-4 bg-red-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all disabled:opacity-30 disabled:grayscale"
                 >
-                   Efetivar Arquivamento
+                   Arquivar
                 </button>
              </div>
           </div>

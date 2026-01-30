@@ -36,14 +36,16 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, act
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Filtragem Dinâmica dos Logs Reais
+  // Filtragem Dinâmica dos Logs Reais com proteção contra Nulos
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       const term = searchTerm.toLowerCase();
+      // Proteção contra nulos em campos de texto vindos do banco
       const matchesSearch = 
-        log.actorName.toLowerCase().includes(term) ||
-        log.details.toLowerCase().includes(term) ||
-        log.action.toLowerCase().includes(term);
+        !term ||
+        (log.actorName?.toLowerCase().includes(term) || false) ||
+        (log.details?.toLowerCase().includes(term) || false) ||
+        (log.action?.toLowerCase().includes(term) || false);
       
       const matchesSeverity = severityFilter === 'all' || log.severity === severityFilter;
       
@@ -59,7 +61,7 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, act
     try {
       const csvContent = "data:text/csv;charset=utf-8," + 
         "Data;Operador;Acao;Detalhes;Severidade\n" + 
-        filteredLogs.map(l => `${new Date(l.timestamp).toLocaleString()};${l.actorName};${l.action};"${l.details.replace(/"/g, '""')}";${l.severity}`).join("\n");
+        filteredLogs.map(l => `${new Date(l.timestamp).toLocaleString()};${l.actorName || 'Sistema'};${l.action};"${(l.details || '').replace(/"/g, '""')}";${l.severity}`).join("\n");
       
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
@@ -175,7 +177,7 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, act
                                                 <Visual.icon size={18} />
                                             </div>
                                             <div>
-                                                <span className="text-[11px] font-black text-[#0d457a] uppercase block mb-1">{log.action}</span>
+                                                <span className="text-[11px] font-black text-[#0d457a] uppercase block mb-1">{log.action || 'SISTEMA'}</span>
                                                 <span className="text-[9px] font-mono text-slate-300">{new Date(log.timestamp).toLocaleString()}</span>
                                             </div>
                                         </div>
@@ -183,7 +185,7 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, act
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-2">
                                           <User size={14} className="text-slate-300" />
-                                          <span className="text-xs font-black text-slate-600 uppercase">{log.actorName}</span>
+                                          <span className="text-xs font-black text-slate-600 uppercase">{log.actorName || 'Sistema'}</span>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">

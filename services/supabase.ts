@@ -6,6 +6,19 @@ const supabaseKey = 'sb_publishable_fcGp4p7EA7gJnyiJJURoZA_HcML_653';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Função auxiliar para gerar UUID caso o banco não o faça automaticamente
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback simples para ambientes sem randomUUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export const db = {
   auth: {
     async signIn(email: string, pass: string) {
@@ -83,30 +96,43 @@ export const db = {
         if (error.code === '42501') throw new Error('Acesso negado: Violação de política RLS detectada.');
         throw error;
       }
-      return data || [];
+      
+      return (data || []).map(a => ({
+        ...a,
+        movements: Array.isArray(a.movements) ? a.movements : []
+      }));
     },
     async upsert(amendment: any) {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Sessão expirada ou inválida. Por favor, faça login novamente.');
+      if (!user) throw new Error('Sessão expirada. Por favor, faça login novamente.');
 
-      // Garante que o tenantId sempre venha do perfil do usuário para respeitar o RLS
+      // Prepara o objeto garantindo o tenantId do usuário logado e saneamento de movimentos
       const sanitizedAmendment = {
         ...amendment,
-        tenantId: user.user_metadata.tenantId || amendment.tenantId
+        tenantId: user.user_metadata.tenantId || amendment.tenantId || 'T-01',
+        movements: Array.isArray(amendment.movements) ? amendment.movements : []
       };
 
-      // Remove IDs temporários de mock para permitir que o banco gere UUIDs se necessário
-      if (typeof sanitizedAmendment.id === 'string' && sanitizedAmendment.id.startsWith('imp-')) {
-        delete sanitizedAmendment.id;
+      // CORREÇÃO DE INTEGRIDADE: Se for um ID temporário, geramos um UUID real.
+      // O banco de dados rejeita inserções se a coluna 'id' for PK e estiver nula sem gerador default.
+      const idStr = String(sanitizedAmendment.id || '');
+      const isNewRecord = idStr.startsWith('temp-') || idStr.startsWith('imp-') || !sanitizedAmendment.id;
+
+      if (isNewRecord) {
+        sanitizedAmendment.id = generateUUID();
       }
 
       const { data, error } = await supabase
         .from('amendments')
-        .upsert(sanitizedAmendment, { onConflict: 'seiNumber' }) // Evita duplicidade por número SEI
+        .upsert(sanitizedAmendment)
         .select();
         
       if (error) {
-        console.error('Erro de persistência Supabase:', error);
+        console.error('Erro de persistência:', error);
+        // Tradução de erro comum do Postgres para o usuário
+        if (error.code === '23502') {
+          throw new Error('Falha no Banco: O campo "id" é obrigatório e não pôde ser gerado. Contate o suporte técnico.');
+        }
         throw new Error(`Erro ao salvar no banco: ${error.message}`);
       }
       
@@ -135,10 +161,11 @@ export const db = {
           ...entry,
           tenantId: user.user_metadata.tenantId || 'T-01',
           actorId: user.id,
+          actorName: user.user_metadata.name || user.email,
           timestamp: new Date().toISOString()
         });
         
-      if (error) console.error('Falha crítica de auditoria:', error.message);
+      if (error) console.error('Falha na auditoria:', error.message);
     }
   }
 };

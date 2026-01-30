@@ -117,12 +117,13 @@ const App: React.FC = () => {
   const handleCreateAmendment = async (newAmendment: Amendment) => {
     setIsLoading(true);
     try {
+      // O DB agora gera o UUID se o ID for temporário
       const created = await db.amendments.upsert(newAmendment);
       if (created) {
         setAmendments(prev => [created, ...prev]);
         await db.audit.log({
           action: AuditAction.CREATE,
-          details: `Novo processo cadastrado com sucesso: ${newAmendment.seiNumber}`,
+          details: `Novo processo cadastrado com sucesso: ${created.seiNumber}`,
           severity: 'INFO'
         });
       }

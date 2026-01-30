@@ -109,9 +109,10 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     if (editingId) {
       onUpdate({ ...formData, id: editingId } as Amendment);
     } else {
+      // Uso de prefixo 'temp-' para evitar colisão com IDs reais e orientar o backend
       onCreate({ 
         ...formData, 
-        id: Math.random().toString(36).substr(2, 9), 
+        id: `temp-${Math.random().toString(36).substr(2, 9)}`, 
         createdAt: new Date().toISOString(), 
         currentSector: 'GESA - Protocolo Central',
         movements: [] 
@@ -274,113 +275,113 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[48px] w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[95vh]">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="bg-white rounded-[32px] w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                <div>
-                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">{editingId ? 'Editar Processo SEI' : 'Novo Registro Governamental'}</h3>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1 flex items-center gap-2">
-                    <Settings2 size={14} className="text-blue-500" /> Parametrização Completa de Emenda
+                  <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">{editingId ? 'Editar Processo SEI' : 'Novo Registro Governamental'}</h3>
+                  <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.2em] mt-1 flex items-center gap-2">
+                    <Settings2 size={12} className="text-blue-500" /> Parametrização Completa
                   </p>
                </div>
-               <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
-                  <X size={24}/>
+               <button onClick={() => setIsModalOpen(false)} className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all">
+                  <X size={20}/>
                </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-10 overflow-y-auto custom-scrollbar flex-1 bg-white">
+            <form onSubmit={handleSubmit} className="p-6 space-y-8 overflow-y-auto custom-scrollbar flex-1 bg-white">
               {/* Seção 1: Identificação do Processo */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
-                  <div className="p-1.5 bg-blue-50 text-[#0d457a] rounded-lg"><FileText size={16}/></div>
-                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Identificação e Cronologia</h4>
+                  <div className="p-1 bg-blue-50 text-[#0d457a] rounded-lg"><FileText size={14}/></div>
+                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Identificação</h4>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Número SEI</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Número SEI</label>
                     <div className="relative">
-                      <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                      <input type="text" required value={formData.seiNumber} onChange={e => setFormData({...formData, seiNumber: e.target.value})} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all" placeholder="2025000..." />
+                      <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <input type="text" required value={formData.seiNumber} onChange={e => setFormData({...formData, seiNumber: e.target.value})} className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all text-xs" placeholder="2025000..." />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Código Interno</label>
-                    <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a] uppercase" placeholder="EM-2025-..." />
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Código Interno</label>
+                    <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-xs" placeholder="EM-2025-..." />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ano Exercício</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ano Exercício</label>
                     <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                      <input type="number" required value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a]" />
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <input type="number" required value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] text-xs" />
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Seção 2: Classificação e Beneficiário */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
-                  <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><MapPin size={16}/></div>
-                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Classificação e Origem</h4>
+                  <div className="p-1 bg-emerald-50 text-emerald-600 rounded-lg"><MapPin size={14}/></div>
+                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Origem</h4>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Município Beneficiário</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Município</label>
                     <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                      <select required value={formData.municipality} onChange={e => setFormData({...formData, municipality: e.target.value})} className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase appearance-none">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <select required value={formData.municipality} onChange={e => setFormData({...formData, municipality: e.target.value})} className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 uppercase appearance-none text-xs">
                         <option value="">Selecione...</option>
                         {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Parlamentar / Autor</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Parlamentar</label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                      <select value={formData.deputyName} onChange={e => setFormData({...formData, deputyName: e.target.value})} className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase appearance-none">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <select value={formData.deputyName} onChange={e => setFormData({...formData, deputyName: e.target.value})} className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 uppercase appearance-none text-xs">
                         <option value="Executivo Estadual">Executivo Estadual</option>
                         {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
                     </div>
                   </div>
-                  <div className="col-span-full space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Objeto do Repasse</label>
-                    <textarea required value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-slate-600 min-h-[100px] outline-none focus:ring-4 ring-blue-500/5 transition-all" placeholder="Descreva a finalidade da emenda (Ex: Aquisição de equipamentos hospitalares...)" />
+                  <div className="col-span-full space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Objeto do Repasse</label>
+                    <textarea required value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-600 min-h-[80px] outline-none focus:ring-4 ring-blue-500/5 transition-all text-xs" placeholder="Descreva a finalidade da emenda..." />
                   </div>
                 </div>
               </div>
 
               {/* Seção 3: Financeiro e Orçamentário */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
-                  <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><Landmark size={16}/></div>
-                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Financeiro e Orçamento</h4>
+                  <div className="p-1 bg-amber-50 text-amber-600 rounded-lg"><Landmark size={14}/></div>
+                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Financeiro</h4>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Emenda</label>
-                    <select required value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as AmendmentType})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 text-[10px] uppercase">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tipo</label>
+                    <select required value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as AmendmentType})} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 text-[9px] uppercase">
                       {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Alocado (R$)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor (R$)</label>
                     <div className="relative">
-                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16} />
-                      <input type="number" required value={formData.value} onChange={e => setFormData({...formData, value: parseFloat(e.target.value)})} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a]" />
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={14} />
+                      <input type="number" required value={formData.value} onChange={e => setFormData({...formData, value: parseFloat(e.target.value)})} className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] text-xs" />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Modalidade</label>
-                    <select value={formData.transferMode} onChange={e => setFormData({...formData, transferMode: e.target.value as TransferMode})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 text-[10px] uppercase">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Modalidade</label>
+                    <select value={formData.transferMode} onChange={e => setFormData({...formData, transferMode: e.target.value as TransferMode})} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 text-[9px] uppercase">
                       {Object.values(TransferMode).map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GND</label>
-                    <select value={formData.gnd} onChange={e => setFormData({...formData, gnd: e.target.value as GNDType})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 text-[10px] uppercase">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">GND</label>
+                    <select value={formData.gnd} onChange={e => setFormData({...formData, gnd: e.target.value as GNDType})} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-600 text-[9px] uppercase">
                       {Object.values(GNDType).map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                   </div>
@@ -388,48 +389,46 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
               </div>
 
               {/* Seção 4: Configurações Técnicas */}
-              <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-1.5 bg-blue-100 text-[#0d457a] rounded-lg"><Layers size={16}/></div>
-                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Requisitos Técnicos GESA</h4>
+              <div className="bg-slate-50 p-6 rounded-[28px] border border-slate-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-1 bg-blue-100 text-[#0d457a] rounded-lg"><Layers size={14}/></div>
+                  <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Requisitos Técnicos</h4>
                 </div>
-                <div className="flex flex-wrap gap-8">
-                  <label className="flex items-center gap-4 cursor-pointer group">
+                <div className="flex flex-wrap gap-6">
+                  <label className="flex items-center gap-3 cursor-pointer group">
                     <div className="relative">
                       <input type="checkbox" checked={formData.suinfra} onChange={e => setFormData({...formData, suinfra: e.target.checked})} className="sr-only" />
-                      <div className={`w-14 h-8 rounded-full transition-all duration-300 ${formData.suinfra ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
-                      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.suinfra ? 'left-7' : 'left-1'}`}></div>
+                      <div className={`w-10 h-6 rounded-full transition-all duration-300 ${formData.suinfra ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.suinfra ? 'left-5' : 'left-1'}`}></div>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
-                        <Zap size={14} className={formData.suinfra ? 'text-amber-500' : 'text-slate-300'} /> SUINFRA
+                      <span className="text-[9px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
+                        SUINFRA
                       </span>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase">Requer Engenharia</span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-4 cursor-pointer group">
+                  <label className="flex items-center gap-3 cursor-pointer group">
                     <div className="relative">
                       <input type="checkbox" checked={formData.sutis} onChange={e => setFormData({...formData, sutis: e.target.checked})} className="sr-only" />
-                      <div className={`w-14 h-8 rounded-full transition-all duration-300 ${formData.sutis ? 'bg-purple-500' : 'bg-slate-200'}`}></div>
-                      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.sutis ? 'left-7' : 'left-1'}`}></div>
+                      <div className={`w-10 h-6 rounded-full transition-all duration-300 ${formData.sutis ? 'bg-purple-500' : 'bg-slate-200'}`}></div>
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.sutis ? 'left-5' : 'left-1'}`}></div>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
-                        <HardDrive size={14} className={formData.sutis ? 'text-purple-400' : 'text-slate-300'} /> SUTIS
+                      <span className="text-[9px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
+                        SUTIS
                       </span>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase">Requer Tecnologia</span>
                     </div>
                   </label>
                 </div>
               </div>
 
               <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 rounded-[24px] font-black uppercase text-[10px] text-slate-400 bg-white border border-slate-200 hover:bg-slate-50 transition-all tracking-widest">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-2xl font-black uppercase text-[9px] text-slate-400 bg-white border border-slate-200 hover:bg-slate-50 transition-all tracking-widest">
                     Cancelar
                   </button>
-                  <button type="submit" className="flex-[2] py-5 bg-[#0d457a] text-white rounded-[24px] font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3">
-                    {editingId ? 'Salvar Alterações' : 'Confirmar Cadastro SEI'} <Send size={18} />
+                  <button type="submit" className="flex-[2] py-4 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[9px] tracking-[0.2em] shadow-xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3">
+                    {editingId ? 'Salvar' : 'Cadastrar'} <Send size={16} />
                   </button>
               </div>
             </form>

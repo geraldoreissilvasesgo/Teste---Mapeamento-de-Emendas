@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, Role } from '../types';
 import { 
@@ -44,6 +45,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
   });
 
   const maskEmail = (email: string) => {
+    if (!email) return '***';
     if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.SUPER_ADMIN) {
       const parts = email.split('@');
       if (parts.length < 2) return '***';
@@ -52,10 +54,12 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     return email;
   };
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const term = searchTerm.toLowerCase();
+    return !term ||
+      (u.name?.toLowerCase().includes(term) || false) || 
+      (u.email?.toLowerCase().includes(term) || false);
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +186,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                       <div className="flex items-center gap-4">
                         <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}&background=0d457a&color=fff`} alt="" className="w-10 h-10 rounded-2xl shadow-sm border-2 border-white group-hover:scale-110 transition-transform" />
                         <div>
-                          <span className="text-xs font-black text-[#0d457a] uppercase block">{user.name}</span>
+                          <span className="text-xs font-black text-[#0d457a] uppercase block">{user.name || 'Sem Nome'}</span>
                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{user.department || 'DTI / GESA'}</span>
                         </div>
                       </div>

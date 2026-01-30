@@ -58,7 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Painel de Execução</h2>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Cockpit Gerencial</h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
             <div className="w-4 h-0.5 bg-[#0d457a]"></div> Consolidação Financeira por Fonte de Recurso
           </p>
@@ -86,7 +86,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
            </div>
         </div>
 
-        {/* Card Goiás Crescimento */}
+        {/* Card Goiás em Crescimento */}
         <div className="bg-emerald-600 p-8 rounded-[40px] shadow-xl text-white relative overflow-hidden group">
            <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
            <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
