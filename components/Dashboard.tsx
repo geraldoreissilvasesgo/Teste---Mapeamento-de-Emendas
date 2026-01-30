@@ -100,7 +100,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode, on
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
         <div>
-          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Painel de Gestão GESA</h2>
+          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Cookpit Gerencial GESA</h2>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-2">Visão consolidada de processos e recursos</p>
         </div>
         

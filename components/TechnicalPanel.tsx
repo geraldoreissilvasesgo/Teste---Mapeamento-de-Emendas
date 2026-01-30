@@ -1,18 +1,19 @@
 
 /**
- * PAINEL TÉCNICO DE DADOS E INFRAESTRUTURA
+ * PAINEL TÉCNICO DE DADOS E INFRAESTRUTURA - V2
  * 
- * Este componente é uma tela de "documentação viva" voltada para desenvolvedores e
- * administradores de sistema. Centraliza informações de arquitetura e monitoramento.
+ * Centraliza informações de arquitetura, monitoramento e métricas de ALM.
  */
 import React, { useState, useEffect } from 'react';
-import { DatabaseZap, Terminal, AlertTriangle, FileJson, Check, Copy, Hash, Database, Users, ShieldAlert, Settings, Cpu, Activity, Zap, HardDrive } from 'lucide-react';
+import { 
+  DatabaseZap, Terminal, AlertTriangle, FileJson, Check, Copy, Hash, 
+  Database, Users, ShieldAlert, Settings, Cpu, Activity, Zap, 
+  HardDrive, BarChart, Rocket, Globe, Server, Cloud
+} from 'lucide-react';
 import { Role, Status, AmendmentType, TransferMode, GNDType, AnalysisType, AuditAction, AuditSeverity } from '../types';
 
-// Componente reutilizável para exibir blocos de código com destaque.
 const CodeBlock: React.FC<{ title: string, code: string, language?: string, alert?: string }> = ({ title, code, language = 'json', alert }) => {
   const [copied, setCopied] = useState(false);
-
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
     setCopied(true);
@@ -32,52 +33,18 @@ const CodeBlock: React.FC<{ title: string, code: string, language?: string, aler
         </button>
       </div>
       {alert && (
-        <div className="p-4 bg-amber-500/10 text-amber-300 text-xs flex items-start gap-3 border-b border-white/10">
-          <AlertTriangle size={24} className="mt-0.5 shrink-0"/>
+        <div className="p-4 bg-amber-500/10 text-amber-300 text-xs border-b border-white/10">
           <p className="leading-relaxed">{alert}</p>
         </div>
       )}
       <pre className="p-6 text-sm overflow-x-auto custom-scrollbar">
-        <code className={`language-${language} text-sky-300`}>
-          {code}
-        </code>
+        <code className={`language-${language} text-sky-300`}>{code}</code>
       </pre>
     </div>
   );
 };
 
-// Componente reutilizável para exibir um schema de dados.
-const SchemaCard: React.FC<{ title: string; icon: React.ElementType; schema: object }> = ({ title, icon: Icon, schema }) => (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
-            <Icon className="text-[#0d457a]" size={20}/>
-            <h4 className="text-sm font-black text-[#0d457a] uppercase tracking-wider">{title}</h4>
-        </div>
-        <pre className="text-xs text-slate-500 bg-slate-50 p-4 rounded-xl overflow-x-auto custom-scrollbar">
-            {JSON.stringify(schema, null, 2)}
-        </pre>
-    </div>
-);
-
-// Componente reutilizável para exibir os valores de um enum.
-const EnumCard: React.FC<{ title: string; enumObject: object }> = ({ title, enumObject }) => (
-    <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-2 mb-3">
-            <Hash size={14} className="text-slate-400"/>
-            <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{title}</h5>
-        </div>
-        <div className="space-y-1">
-            {Object.values(enumObject).map(val => (
-                <p key={val} className="text-xs font-mono text-[#0d457a] bg-blue-50/50 px-2 py-1 rounded-md">{val}</p>
-            ))}
-        </div>
-    </div>
-);
-
 export const TechnicalPanel: React.FC = () => {
-  const firebaseConfigString = `{\n  apiKey: "AIzaSy-PLACEHOLDER",\n  authDomain: "rastreio-emendas-go.firebaseapp.com",\n  projectId: "rastreio-emendas-go",\n  storageBucket: "rastreio-emendas-go.appspot.com",\n  messagingSenderId: "000000000000",\n  appId: "1:000000000000:web:000000000000"\n}`;
-
-  // Simulação de Carga (Escalabilidade)
   const [systemLoad, setSystemLoad] = useState({ cpu: 12, mem: 24, sync: 99, throughput: 142 });
 
   useEffect(() => {
@@ -92,141 +59,109 @@ export const TechnicalPanel: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const schemas = {
-    amendment: {
-      id: "string",
-      seiNumber: "string",
-      year: "number",
-      type: "AmendmentType",
-      value: "number",
-      status: "Status",
-      currentSector: "string",
-      movements: "AmendmentMovement[]"
-    },
-    user: {
-      id: "string",
-      name: "string",
-      email: "string",
-      role: "Role",
-      lgpdAccepted: "boolean"
-    },
-    auditLog: {
-      id: "string",
-      actorId: "string",
-      action: "AuditAction",
-      severity: "AuditSeverity",
-      targetResource: "string",
-      timestamp: "string (ISO)"
-    },
-    sectorConfig: {
-      id: "string",
-      name: "string",
-      defaultSlaDays: "number",
-      analysisType: "AnalysisType"
-    }
-  };
-
   return (
-    <div className="space-y-8 pb-12">
-      {/* Cabeçalho do Painel */}
+    <div className="space-y-8 pb-12 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter flex items-center gap-3">
-            <DatabaseZap size={32}/>
-            Console Técnico GESA
+            <DatabaseZap size={32}/> Console Técnico GESA
           </h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Engenharia de Dados, Infraestrutura e Escalabilidade</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Infraestrutura, Escalabilidade e ALM Metrics</p>
         </div>
-        
         <div className="flex items-center gap-3">
-             <div className="flex items-center gap-3 px-5 py-3 bg-[#0d457a] text-white rounded-2xl shadow-xl">
-                <Zap size={18} className="text-emerald-400" />
-                <span className="text-[11px] font-black uppercase tracking-widest">Sincronização Ativa: {systemLoad.sync.toFixed(1)}%</span>
+             <div className="px-5 py-3 bg-[#0d457a] text-white rounded-2xl shadow-xl flex items-center gap-3">
+                <Globe size={18} className="text-emerald-400" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Region: South-1 (Goiás)</span>
              </div>
         </div>
       </div>
 
-      {/* Seção de Métricas de Escalabilidade */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200">
-           <div className="flex justify-between items-start mb-6">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><Cpu size={24}/></div>
-              <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${systemLoad.cpu > 80 ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}`}>
-                {systemLoad.cpu > 80 ? 'Carga Alta' : 'Nominal'}
-              </span>
-           </div>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Processamento (CPU)</p>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Carga CPU</p>
            <h3 className="text-3xl font-black text-[#0d457a]">{systemLoad.cpu.toFixed(1)}%</h3>
            <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 transition-all duration-1000" style={{width: `${systemLoad.cpu}%`}}></div>
+              <div className="h-full bg-[#0d457a] transition-all duration-1000" style={{width: `${systemLoad.cpu}%`}}></div>
            </div>
         </div>
-
+        
         <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200">
-           <div className="flex justify-between items-start mb-6">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><HardDrive size={24}/></div>
-              <span className="text-[9px] font-black px-3 py-1 bg-blue-50 text-blue-600 rounded-full uppercase">Alocada</span>
-           </div>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Memória em Uso</p>
-           <h3 className="text-3xl font-black text-[#0d457a]">{systemLoad.mem.toFixed(1)}%</h3>
-           <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 transition-all duration-1000" style={{width: `${systemLoad.mem}%`}}></div>
-           </div>
-        </div>
-
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200">
-           <div className="flex justify-between items-start mb-6">
-              <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Activity size={24}/></div>
-              <span className="text-[9px] font-black px-3 py-1 bg-purple-50 text-purple-600 rounded-full uppercase">Tempo Real</span>
-           </div>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vazão (Req/s)</p>
-           <h3 className="text-3xl font-black text-[#0d457a]">{systemLoad.throughput.toFixed(0)}</h3>
-           <p className="text-[9px] font-bold text-slate-400 mt-3 uppercase">Pico de 450 req/s suportado</p>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vazão Global</p>
+           <h3 className="text-3xl font-black text-[#0d457a]">{systemLoad.throughput.toFixed(0)} <span className="text-xs text-slate-300">REQ/S</span></h3>
+           <p className="text-[9px] font-bold text-emerald-500 mt-2 uppercase">Status: Saudável</p>
         </div>
 
         <div className="bg-slate-900 p-8 rounded-[32px] shadow-xl text-white">
-           <div className="flex justify-between items-start mb-6">
-              <div className="p-3 bg-white/10 text-emerald-400 rounded-2xl"><Check size={24}/></div>
-           </div>
-           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Status de Disponibilidade</p>
-           <h3 className="text-3xl font-black">99.98%</h3>
-           <p className="text-[9px] font-bold text-emerald-400/60 mt-3 uppercase">SLA de Infraestrutura OK</p>
+           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">SLA Produção</p>
+           <h3 className="text-3xl font-black text-emerald-400">99.98%</h3>
+           <p className="text-[9px] font-bold text-white/30 mt-2 uppercase">Uptime 30 dias</p>
+        </div>
+
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200">
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Build Success Rate</p>
+           <h3 className="text-3xl font-black text-[#0d457a]">100%</h3>
+           <p className="text-[9px] font-bold text-blue-500 mt-2 uppercase">Últimos 50 builds</p>
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200">
-        <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-8">Variáveis de Ambiente e Conexão</h3>
-        <CodeBlock 
-          title="Configuração Cloud (Firebase)"
-          code={firebaseConfigString}
-          language="javascript"
-          alert="ATENÇÃO: Estas são chaves de placeholder injetadas no ambiente de testes. Em produção, verifique os segredos do cofre de chaves da Sefaz-GO."
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+         <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
+            <h3 className="text-sm font-black text-[#0d457a] uppercase tracking-widest mb-8 flex items-center gap-3">
+               <Server size={20} className="text-blue-500"/> Matriz de Ambientes
+            </h3>
+            <div className="space-y-4">
+               {[
+                 { label: 'PRODUÇÃO', status: 'Live', type: 'Primary Cloud', color: 'bg-emerald-500' },
+                 { label: 'HOMOLOGAÇÃO', status: 'Active', type: 'Staging Env', color: 'bg-blue-500' },
+                 { label: 'DRP (Disaster Recovery)', status: 'Warm Standby', type: 'Backup Cloud', color: 'bg-amber-500' },
+                 { label: 'LAB (Desenvolvimento)', status: 'Offline', type: 'Local Sandbox', color: 'bg-slate-300' }
+               ].map((env, i) => (
+                 <div key={i} className="flex justify-between items-center p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                    <div className="flex items-center gap-4">
+                       <div className={`w-3 h-3 rounded-full ${env.color}`}></div>
+                       <div>
+                          <p className="text-[11px] font-black text-[#0d457a] uppercase">{env.label}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">{env.type}</p>
+                       </div>
+                    </div>
+                    <span className="text-[10px] font-black text-slate-500 uppercase">{env.status}</span>
+                 </div>
+               ))}
+            </div>
+         </div>
+
+         <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
+            <h3 className="text-sm font-black text-[#0d457a] uppercase tracking-widest mb-8 flex items-center gap-3">
+               <Activity size={20} className="text-purple-500"/> Métricas ALM (DevOps)
+            </h3>
+            <div className="grid grid-cols-2 gap-6">
+               <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Lead Time</p>
+                  <p className="text-xl font-black text-[#0d457a]">2.4 hrs</p>
+                  <p className="text-[8px] text-emerald-500 font-bold uppercase mt-1">✓ Top Performer</p>
+               </div>
+               <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MTTR</p>
+                  <p className="text-xl font-black text-[#0d457a]">18 min</p>
+                  <p className="text-[8px] text-emerald-500 font-bold uppercase mt-1">✓ Resiliência Alta</p>
+               </div>
+               <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Deploy Freq.</p>
+                  <p className="text-xl font-black text-[#0d457a]">4.2 / day</p>
+               </div>
+               <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Change Fail</p>
+                  <p className="text-xl font-black text-red-500">&lt; 1%</p>
+               </div>
+            </div>
+         </div>
       </div>
 
-      <div className="space-y-6">
-        <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em]">Estruturas de Dados (Schemas)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <SchemaCard title="Amendment (Processos)" icon={Database} schema={schemas.amendment} />
-            <SchemaCard title="User (Usuários)" icon={Users} schema={schemas.user} />
-            <SchemaCard title="AuditLog (Auditoria)" icon={ShieldAlert} schema={schemas.auditLog} />
-            <SchemaCard title="SectorConfig (Setores)" icon={Settings} schema={schemas.sectorConfig} />
-        </div>
-      </div>
-      
-      <div className="space-y-6">
-        <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em]">Domínios e Constantes (Enums)</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            <EnumCard title="Status do Processo" enumObject={Status} />
-            <EnumCard title="Perfis de Acesso" enumObject={Role} />
-            <EnumCard title="Tipos de Emenda" enumObject={AmendmentType} />
-            <EnumCard title="Modo de Transferência" enumObject={TransferMode} />
-            <EnumCard title="Natureza da Despesa" enumObject={GNDType} />
-            <EnumCard title="Tipo de Análise" enumObject={AnalysisType} />
-            <EnumCard title="Ação de Auditoria" enumObject={AuditAction} />
-            <EnumCard title="Severidade (Auditoria)" enumObject={AuditSeverity} />
-        </div>
-      </div>
+      <CodeBlock 
+        title="CI/CD Configuration (Github Actions / GitLab)"
+        code={`deploy-prod:\n  stage: deploy\n  script:\n    - npm run build\n    - aws s3 sync ./dist s3://gesa-prod-bucket\n    - aws cloudfront create-invalidation\n  only:\n    - tags`}
+        language="yaml"
+      />
     </div>
   );
 };

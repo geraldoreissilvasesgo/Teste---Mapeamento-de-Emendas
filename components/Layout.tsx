@@ -1,4 +1,5 @@
 
+
 /**
  * COMPONENTE DE LAYOUT PRINCIPAL - REDESENHADO
  * 
@@ -61,7 +62,7 @@ export const Layout: React.FC<LayoutProps> = ({
     {
       group: 'Estratégico',
       items: [
-        { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard },
+        { id: 'dashboard', label: 'Cookpit Gerencial', icon: LayoutDashboard },
       ]
     },
     {

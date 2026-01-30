@@ -26,7 +26,8 @@ const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280', '#8B5CF6'
 export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
   // Lista de anos disponíveis nos dados
   const availableYears = useMemo(() => {
-    const years = Array.from(new Set(amendments.map(a => a.year))).sort((a, b) => b - a);
+    // FIX: Explicitly cast to any or use Number() to avoid "The left-hand side of an arithmetic operation must be..." if inference fails
+    const years = Array.from(new Set(amendments.map(a => a.year))).sort((a, b) => Number(b) - Number(a));
     return years;
   }, [amendments]);
 
@@ -56,7 +57,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
         if (endDate) {
           const end = new Date(endDate).getTime();
           // Ajusta end para o final do dia
-          const endOfDay = end + (24 * 60 * 60 * 1000) - 1;
+          // FIX: Explicitly cast end to Number to avoid arithmetic type errors
+          const endOfDay = Number(end) + (24 * 60 * 60 * 1000) - 1;
           if (entry > endOfDay) matchDate = false;
         }
       } else if (startDate || endDate) {
@@ -71,7 +73,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
   // Cálculos para Gráfico de Composição (Pizza)
   const typeDistribution = useMemo(() => {
     const data = filteredData.reduce((acc, curr) => {
-        acc[curr.type] = (acc[curr.type] || 0) + curr.value;
+        // FIX: Ensure numeric addition
+        acc[curr.type] = (Number(acc[curr.type]) || 0) + Number(curr.value);
         return acc;
     }, {} as Record<string, number>);
     return Object.entries(data).map(([name, value]) => ({ name, value }));
@@ -80,12 +83,14 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
   // Cálculos para Top 5 Municípios (Barras)
   const topMunicipalities = useMemo(() => {
      const data = filteredData.reduce((acc, curr) => {
-        acc[curr.municipality] = (acc[curr.municipality] || 0) + curr.value;
+        // FIX: Ensure numeric addition to avoid arithmetic errors
+        acc[curr.municipality] = (Number(acc[curr.municipality]) || 0) + Number(curr.value);
         return acc;
     }, {} as Record<string, number>);
     return Object.entries(data)
       .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
+      // FIX: Ensure numeric comparison in sort
+      .sort((a, b) => Number(b.value) - Number(a.value))
       .slice(0, 5);
   }, [filteredData]);
 
@@ -93,12 +98,14 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
   const topParliamentarians = useMemo(() => {
     const data = filteredData.reduce((acc, curr) => {
        const name = curr.deputyName || 'Executivo/Outros';
-       acc[name] = (acc[name] || 0) + curr.value;
+       // FIX: Ensure numeric addition
+       acc[name] = (Number(acc[name]) || 0) + Number(curr.value);
        return acc;
    }, {} as Record<string, number>);
    return Object.entries(data)
      .map(([name, value]) => ({ name, value }))
-     .sort((a, b) => b.value - a.value)
+     // FIX: Ensure numeric comparison in sort
+     .sort((a, b) => Number(b.value) - Number(a.value))
      .slice(0, 5);
  }, [filteredData]);
   
