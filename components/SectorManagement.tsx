@@ -1,4 +1,5 @@
 
+
 /**
  * MÓDULO DE GESTÃO DE SETORES TÉCNICOS (FLUXO MESTRE)
  * 
@@ -263,7 +264,7 @@ export const SectorManagement: React.FC<SectorManagementProps> = ({ sectors, onA
                         onChange={(e) => setNewSector({...newSector, analysisType: e.target.value as AnalysisType})} 
                         className="w-full pl-14 pr-10 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none transition-all appearance-none font-bold text-slate-600"
                       >
-                          {Object.values(AnalysisType).map(t => <option key={t} value={t}>{t}</option>)}
+                          {(Object.values(AnalysisType) as string[]).map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <ArrowRight size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 rotate-90" />
                   </div>

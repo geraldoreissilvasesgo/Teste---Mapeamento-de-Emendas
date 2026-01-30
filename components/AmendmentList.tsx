@@ -1,19 +1,11 @@
 
-/**
- * COMPONENTE DE LISTA DE PROCESSOS (EMENDAS) - ULTRA COMPACTO
- * 
- * Este componente gerencia a visualização e filtragem da base ativa de processos.
- * Otimizado para alta densidade de informação e melhor aproveitamento vertical nos cards.
- */
 import React, { useState, useMemo } from 'react';
 import { Amendment, Status, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { 
   Plus, Search, Filter, MapPin, Pencil, User, Send, ChevronDown, 
-  ChevronUp, Landmark, XCircle, ChevronLeft, ChevronRight, FileText, 
-  Calendar, DollarSign, ListTree, Banknote, X, ArrowRightLeft, 
-  CheckCircle2, Building2, HardHat, MonitorCheck, Edit3, Briefcase, 
-  Stethoscope, ClipboardList, Info
+  Landmark, XCircle, ChevronLeft, ChevronRight, FileText, 
+  X, ArrowRightLeft, Building2, Edit3, Tag, DollarSign, Calendar, Info, Layers, Zap, HardDrive, Settings2
 } from 'lucide-react';
 
 interface AmendmentListProps {
@@ -27,7 +19,7 @@ interface AmendmentListProps {
   onInactivate: (id: string, justification: string) => void;
 }
 
-const ITEMS_PER_PAGE = 15;
+const ITEMS_PER_PAGE = 12;
 
 export const AmendmentList: React.FC<AmendmentListProps> = ({ 
   amendments, 
@@ -43,13 +35,10 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [deputyFilter, setDeputyFilter] = useState<string>('all');
   const [municipalityFilter, setMunicipalityFilter] = useState<string>('all');
-  const [minValFilter, setMinValFilter] = useState<string>('');
-  const [maxValFilter, setMaxValFilter] = useState<string>('');
   
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   
   const initialFormState: Partial<Amendment> = {
     code: '',
@@ -65,19 +54,13 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     sutis: false,
     transferMode: TransferMode.FUNDO_A_FUNDO,
     gnd: GNDType.CUSTEIO,
-    entryDate: new Date().toISOString().split('T')[0],
-    healthUnit: '',
-    institutionName: '',
-    notes: ''
+    entryDate: new Date().toISOString().split('T')[0]
   };
 
   const [formData, setFormData] = useState<Partial<Amendment>>(initialFormState);
 
   const filteredAmendments = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    const minVal = minValFilter ? parseFloat(minValFilter) : -Infinity;
-    const maxVal = maxValFilter ? parseFloat(maxValFilter) : Infinity;
-
     return amendments.filter(a => {
       const matchesSearch = 
         !term ||
@@ -89,11 +72,10 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
       const matchesStatus = statusFilter === 'all' || a.status === statusFilter;
       const matchesDeputy = deputyFilter === 'all' || a.deputyName === deputyFilter;
       const matchesMunicipality = municipalityFilter === 'all' || a.municipality === municipalityFilter;
-      const matchesValue = a.value >= minVal && a.value <= maxVal;
 
-      return matchesSearch && matchesStatus && matchesDeputy && matchesMunicipality && matchesValue;
+      return matchesSearch && matchesStatus && matchesDeputy && matchesMunicipality;
     }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [amendments, searchTerm, statusFilter, deputyFilter, municipalityFilter, minValFilter, maxValFilter]);
+  }, [amendments, searchTerm, statusFilter, deputyFilter, municipalityFilter]);
 
   const totalPages = Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE);
   const paginatedAmendments = filteredAmendments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -103,35 +85,23 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     setStatusFilter('all');
     setDeputyFilter('all');
     setMunicipalityFilter('all');
-    setMinValFilter('');
-    setMaxValFilter('');
   };
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || deputyFilter !== 'all' || municipalityFilter !== 'all' || minValFilter || maxValFilter;
-
-  const getStatusColor = (status: Status) => {
+  const getStatusBadgeClass = (status: Status) => {
     switch (status) {
-        case Status.CONCLUDED: return 'bg-emerald-500';
-        case Status.IN_PROGRESS: return 'bg-blue-600';
-        case Status.DILIGENCE: return 'bg-amber-500';
-        case Status.REJECTED: return 'bg-red-500';
-        case Status.ARCHIVED: return 'bg-slate-500';
-        default: return 'bg-gray-400';
+      case Status.CONCLUDED: return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case Status.IN_PROGRESS: return 'bg-blue-50 text-blue-600 border-blue-100';
+      case Status.DILIGENCE: return 'bg-amber-50 text-amber-600 border-amber-100';
+      case Status.REJECTED: return 'bg-red-50 text-red-600 border-red-100';
+      case Status.ARCHIVED: return 'bg-slate-50 text-slate-500 border-slate-200';
+      default: return 'bg-gray-50 text-gray-500 border-gray-200';
     }
   };
   
   const handleEdit = (amendment: Amendment) => {
     setEditingId(amendment.id);
-    setFormData({
-      ...amendment,
-      entryDate: amendment.entryDate ? new Date(amendment.entryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    });
+    setFormData(amendment);
     setIsModalOpen(true);
-  };
-
-  const toggleExpand = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setExpandedId(expandedId === id ? null : id);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -151,261 +121,340 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   };
 
   return (
-    <div className="space-y-3 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Gestão de Processos</h2>
-          <p className="text-slate-400 text-[8px] font-black uppercase tracking-[0.2em] mt-0.5 flex items-center gap-1.5">
-            <div className="w-2 h-0.5 bg-[#0d457a]"></div> Base Ativa GESA
+          <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Gestão de Processos</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-[#0d457a]"></div> Base Ativa GESA Cloud
           </p>
         </div>
         <button
             onClick={() => { setFormData(initialFormState); setEditingId(null); setIsModalOpen(true); }}
-            className="flex items-center gap-1.5 bg-[#0d457a] text-white px-3 py-1.5 rounded-lg hover:bg-[#0a365f] transition-all shadow-sm uppercase text-[8px] font-black tracking-widest group"
+            className="flex items-center gap-2 bg-[#0d457a] text-white px-6 py-3 rounded-2xl hover:bg-[#0a365f] transition-all shadow-lg uppercase text-[10px] font-black tracking-widest group"
         >
-            <Plus size={12} className="group-hover:rotate-90 transition-transform" />
+            <Plus size={18} className="group-hover:rotate-90 transition-transform" />
             Novo Registro
         </button>
       </div>
 
-      <div className="bg-white p-2.5 rounded-xl shadow-sm border border-slate-200 space-y-2">
-        <div className="flex flex-col md:flex-row gap-2 items-center">
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 space-y-4">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
               <input 
                 type="text"
                 value={searchTerm}
-                placeholder="Pesquisar SEI, Parlamentar ou Município..."
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg focus:ring-2 focus:ring-[#0d457a]/5 outline-none transition-all font-bold text-slate-600 uppercase placeholder:text-slate-200 text-[8px]"
+                placeholder="Pesquisar por SEI, Parlamentar ou Município..."
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-bold text-slate-600 uppercase placeholder:text-slate-200 text-xs"
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
           </div>
-          {hasActiveFilters && (
+          {(searchTerm || statusFilter !== 'all' || deputyFilter !== 'all' || municipalityFilter !== 'all') && (
             <button 
               onClick={clearFilters}
-              className="px-2 py-1.5 bg-red-50 text-red-500 rounded-lg text-[7px] font-black uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-1"
+              className="px-4 py-3.5 bg-red-50 text-red-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
             >
-              <X size={8} /> Limpar
+              <X size={14} /> Limpar Filtros
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
-              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={10} />
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
               <select
                   value={statusFilter}
-                  className="w-full pl-7 pr-4 py-1.5 bg-slate-50 border border-slate-100 rounded-lg appearance-none focus:ring-2 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[7px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
+                  className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[10px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
                   onChange={(e) => setStatusFilter(e.target.value)}
               >
                   <option value="all">Status: Todos</option>
                   {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <ChevronDown size={8} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
           </div>
 
           <div className="relative">
-              <User className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={10} />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
               <select
                   value={deputyFilter}
-                  className="w-full pl-7 pr-4 py-1.5 bg-slate-50 border border-slate-100 rounded-lg appearance-none focus:ring-2 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[7px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
+                  className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[10px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
                   onChange={(e) => setDeputyFilter(e.target.value)}
               >
                   <option value="all">Autor: Todos</option>
                   {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
                   <option value="Executivo Estadual">Executivo Estadual</option>
               </select>
-              <ChevronDown size={8} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
           </div>
 
           <div className="relative">
-              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={10} />
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
               <select
                   value={municipalityFilter}
-                  className="w-full pl-7 pr-4 py-1.5 bg-slate-50 border border-slate-100 rounded-lg appearance-none focus:ring-2 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[7px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
+                  className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-xl appearance-none focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-black text-[10px] text-[#0d457a] uppercase tracking-widest cursor-pointer"
                   onChange={(e) => setMunicipalityFilter(e.target.value)}
               >
                   <option value="all">Município: Todos</option>
                   {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <ChevronDown size={8} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
-          </div>
-
-          <div className="flex gap-1">
-            <input 
-              type="number"
-              value={minValFilter}
-              placeholder="Min"
-              className="w-full px-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg focus:ring-2 focus:ring-[#0d457a]/5 outline-none font-bold text-[7px] text-[#0d457a] uppercase"
-              onChange={(e) => setMinValFilter(e.target.value)}
-            />
-            <input 
-              type="number"
-              value={maxValFilter}
-              placeholder="Max"
-              className="w-full px-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg focus:ring-2 focus:ring-[#0d457a]/5 outline-none font-bold text-[7px] text-[#0d457a] uppercase"
-              onChange={(e) => setMaxValFilter(e.target.value)}
-            />
+              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#0d457a] pointer-events-none" />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
-        {paginatedAmendments.map(amendment => {
-          const isExpanded = expandedId === amendment.id;
-          return (
-            <div 
-              key={amendment.id} 
-              onClick={(e) => toggleExpand(e, amendment.id)}
-              className={`bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-pointer group hover:shadow-md hover:border-[#0d457a]/20 transition-all duration-300 relative ${isExpanded ? 'ring-1 ring-[#0d457a]/20' : ''}`}
-            >
-                <div className={`h-0.5 w-full ${getStatusColor(amendment.status)}`}></div>
-                
-                <div className="p-2.5 flex flex-col flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[7px] font-black text-[#0d457a] bg-blue-50/50 px-1 py-0.5 rounded border border-blue-100/30 flex items-center gap-1">
-                            {amendment.seiNumber}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                           <span className="text-[7px] font-black text-slate-300">{amendment.year}</span>
-                        </div>
-                    </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {paginatedAmendments.map(amendment => (
+          <div 
+            key={amendment.id} 
+            className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-xl hover:border-[#0d457a]/20 transition-all duration-300 relative"
+          >
+              <div className="p-8 flex flex-col flex-1">
+                  <div className="flex justify-between items-start mb-4">
+                      <span className="text-[10px] font-black text-[#0d457a] bg-blue-50 px-3 py-1 rounded-full border border-blue-100 flex items-center gap-2 uppercase">
+                        <FileText size={12}/> {amendment.seiNumber}
+                      </span>
+                      <span className="text-[10px] font-black text-slate-300 uppercase">{amendment.year}</span>
+                  </div>
 
-                    <h3 className={`font-black text-[#0d457a] mb-1 leading-tight flex-1 uppercase tracking-tight group-hover:text-blue-700 transition-colors ${isExpanded ? 'text-[9px]' : 'text-[8px] line-clamp-2 min-h-[2.4em]'}`}>
-                      {amendment.object}
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 gap-1 mb-1.5">
-                        <div className="flex items-center gap-1 p-1 bg-slate-50/50 rounded border border-slate-100/50 min-w-0">
-                           <MapPin size={7} className="text-emerald-500 shrink-0" />
-                           <span className="text-[7px] font-black text-[#0d457a] uppercase truncate">{amendment.municipality}</span>
-                        </div>
+                  <h3 className="font-black text-base text-[#0d457a] mb-4 leading-tight flex-1 uppercase tracking-tight group-hover:text-blue-700 transition-colors">
+                    {amendment.object}
+                  </h3>
 
-                        <div className="flex items-center gap-1 p-1 bg-blue-50/30 rounded border border-blue-100/30 min-w-0">
-                            <Send size={7} className="text-[#0d457a] shrink-0" />
-                            <span className="text-[7px] font-black text-[#0d457a] uppercase truncate">{amendment.currentSector.split(' ')[0]}...</span>
-                        </div>
+                  <div className="mb-6">
+                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${getStatusBadgeClass(amendment.status)}`}>
+                        <Tag size={10} />
+                        {amendment.status}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3 mb-6">
+                      <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-2xl border border-slate-100">
+                         <MapPin size={16} className="text-emerald-500 shrink-0" />
+                         <span className="text-[11px] font-black text-[#0d457a] uppercase truncate">{amendment.municipality}</span>
+                      </div>
 
-                        {isExpanded && (
-                          <div className="col-span-1 pt-1.5 mt-1 border-t border-slate-100 grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-1">
-                             <div className="bg-slate-50 p-1 rounded">
-                                <span className="text-[5px] font-black text-slate-400 uppercase tracking-widest block">GND</span>
-                                <span className="text-[7px] font-black text-[#0d457a] uppercase">{amendment.gnd?.split(' ')[0] || '---'}</span>
-                             </div>
-                             <div className="bg-slate-50 p-1 rounded">
-                                <span className="text-[5px] font-black text-slate-400 uppercase tracking-widest block">Autor</span>
-                                <span className="text-[7px] font-black text-[#0d457a] uppercase truncate">{amendment.deputyName?.split(' ')[1] || '---'}</span>
-                             </div>
-                          </div>
+                      <div className="flex items-center gap-3 p-2.5 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                          <Building2 size={16} className="text-[#0d457a] shrink-0" />
+                          <span className="text-[11px] font-black text-[#0d457a] uppercase truncate">{amendment.currentSector}</span>
+                      </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 flex justify-between items-center mt-auto">
+                      <div>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor Alocado</p>
+                         <p className="font-black text-[#0d457a] text-lg tracking-tighter">
+                           R$ {amendment.value.toLocaleString('pt-BR')}
+                         </p>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {userRole !== Role.VIEWER && (
+                          <>
+                            <button 
+                              onClick={() => handleEdit(amendment)} 
+                              className="p-2.5 bg-white text-slate-400 border border-slate-200 rounded-xl hover:text-[#0d457a] transition-all"
+                            >
+                              <Edit3 size={18}/>
+                            </button>
+                            <button 
+                              onClick={() => onSelect(amendment)} 
+                              className="px-5 py-2.5 bg-[#0d457a] text-white rounded-xl hover:bg-[#0a365f] transition-all text-[10px] font-black uppercase tracking-widest shadow-md"
+                            >
+                              Abrir
+                            </button>
+                          </>
                         )}
-                    </div>
-
-                    <div className="pt-1.5 border-t border-slate-100 flex justify-between items-center">
-                        <div>
-                           <span className="font-black text-[#0d457a] text-[10px] tracking-tighter leading-none">
-                             R$ {amendment.value.toLocaleString('pt-BR')}
-                           </span>
-                        </div>
-                        
-                        <div className="flex gap-1">
-                          {userRole !== Role.VIEWER && (
-                            <>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleEdit(amendment)}} 
-                                className="p-0.5 bg-white text-slate-400 border border-slate-200 rounded hover:text-[#0d457a] transition-all"
-                              >
-                                <Edit3 size={8}/>
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); onSelect(amendment)}} 
-                                className="px-1.5 py-0.5 bg-[#0d457a] text-white rounded hover:bg-[#0a365f] transition-all text-[7px] font-black uppercase"
-                              >
-                                Tramitar
-                              </button>
-                            </>
-                          )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-          );
-        })}
+                      </div>
+                  </div>
+              </div>
+          </div>
+        ))}
       </div>
 
-      {/* Modal de Cadastro / Edição Compacto */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-sm p-4 overflow-hidden">
-          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95">
-            <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
+          <div className="bg-white rounded-[48px] w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[95vh]">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                <div>
-                  <h3 className="text-base font-black text-[#0d457a] uppercase tracking-tighter leading-tight">{editingId ? 'Editar SEI' : 'Novo Cadastro SEI'}</h3>
+                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">{editingId ? 'Editar Processo SEI' : 'Novo Registro Governamental'}</h3>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1 flex items-center gap-2">
+                    <Settings2 size={14} className="text-blue-500" /> Parametrização Completa de Emenda
+                  </p>
                </div>
-               <button onClick={() => setIsModalOpen(false)} className="p-1.5 bg-white border border-slate-200 rounded-lg hover:text-red-500 transition-all">
-                  <X size={16}/>
+               <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
+                  <X size={24}/>
                </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <div className="col-span-full md:col-span-1 space-y-1">
-                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Processo SEI</label>
-                    <input type="text" required value={formData.seiNumber} onChange={e => setFormData({...formData, seiNumber: e.target.value})} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-[#0d457a] text-[10px] outline-none focus:ring-1 ring-[#0d457a]" />
+            <form onSubmit={handleSubmit} className="p-8 space-y-10 overflow-y-auto custom-scrollbar flex-1 bg-white">
+              {/* Seção 1: Identificação do Processo */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
+                  <div className="p-1.5 bg-blue-50 text-[#0d457a] rounded-lg"><FileText size={16}/></div>
+                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Identificação e Cronologia</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Número SEI</label>
+                    <div className="relative">
+                      <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                      <input type="text" required value={formData.seiNumber} onChange={e => setFormData({...formData, seiNumber: e.target.value})} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all" placeholder="2025000..." />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Código Interno</label>
-                    <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-[#0d457a] text-[10px]" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Código Interno</label>
+                    <input type="text" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a] uppercase" placeholder="EM-2025-..." />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Ano</label>
-                    <input type="number" required value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-[#0d457a] text-[10px]" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ano Exercício</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                      <input type="number" required value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a]" />
+                    </div>
                   </div>
-                  <div className="col-span-full space-y-1">
-                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Objeto</label>
-                    <textarea required value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-[#0d457a] text-[10px] min-h-[50px]" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Município</label>
-                    <select required value={formData.municipality} onChange={e => setFormData({...formData, municipality: e.target.value})} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-600 text-[10px]">
-                      <option value="">Selecione...</option>
-                      {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Autor</label>
-                    <select value={formData.deputyName} onChange={e => setFormData({...formData, deputyName: e.target.value})} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-600 text-[10px]">
-                      <option value="Executivo Estadual">Executivo Estadual</option>
-                      {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Dotação (R$)</label>
-                    <input type="number" required value={formData.value} onChange={e => setFormData({...formData, value: parseFloat(e.target.value)})} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-black text-[#0d457a] text-[10px]" />
-                  </div>
+                </div>
               </div>
-            </form>
 
-            <div className="px-4 py-3 border-t border-slate-100 flex gap-2 bg-slate-50/50 shrink-0">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-1.5 rounded-lg font-black uppercase text-[7px] text-slate-400 bg-white border border-slate-200">
+              {/* Seção 2: Classificação e Beneficiário */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
+                  <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><MapPin size={16}/></div>
+                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Classificação e Origem</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Município Beneficiário</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                      <select required value={formData.municipality} onChange={e => setFormData({...formData, municipality: e.target.value})} className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase appearance-none">
+                        <option value="">Selecione...</option>
+                        {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Parlamentar / Autor</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                      <select value={formData.deputyName} onChange={e => setFormData({...formData, deputyName: e.target.value})} className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 uppercase appearance-none">
+                        <option value="Executivo Estadual">Executivo Estadual</option>
+                        {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    </div>
+                  </div>
+                  <div className="col-span-full space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Objeto do Repasse</label>
+                    <textarea required value={formData.object} onChange={e => setFormData({...formData, object: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-[24px] font-bold text-slate-600 min-h-[100px] outline-none focus:ring-4 ring-blue-500/5 transition-all" placeholder="Descreva a finalidade da emenda (Ex: Aquisição de equipamentos hospitalares...)" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Seção 3: Financeiro e Orçamentário */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
+                  <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><Landmark size={16}/></div>
+                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Financeiro e Orçamento</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Emenda</label>
+                    <select required value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as AmendmentType})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 text-[10px] uppercase">
+                      {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Alocado (R$)</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16} />
+                      <input type="number" required value={formData.value} onChange={e => setFormData({...formData, value: parseFloat(e.target.value)})} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a]" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Modalidade</label>
+                    <select value={formData.transferMode} onChange={e => setFormData({...formData, transferMode: e.target.value as TransferMode})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 text-[10px] uppercase">
+                      {Object.values(TransferMode).map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GND</label>
+                    <select value={formData.gnd} onChange={e => setFormData({...formData, gnd: e.target.value as GNDType})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-600 text-[10px] uppercase">
+                      {Object.values(GNDType).map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Seção 4: Configurações Técnicas */}
+              <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-1.5 bg-blue-100 text-[#0d457a] rounded-lg"><Layers size={16}/></div>
+                  <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">Requisitos Técnicos GESA</h4>
+                </div>
+                <div className="flex flex-wrap gap-8">
+                  <label className="flex items-center gap-4 cursor-pointer group">
+                    <div className="relative">
+                      <input type="checkbox" checked={formData.suinfra} onChange={e => setFormData({...formData, suinfra: e.target.checked})} className="sr-only" />
+                      <div className={`w-14 h-8 rounded-full transition-all duration-300 ${formData.suinfra ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.suinfra ? 'left-7' : 'left-1'}`}></div>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
+                        <Zap size={14} className={formData.suinfra ? 'text-amber-500' : 'text-slate-300'} /> SUINFRA
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase">Requer Engenharia</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-4 cursor-pointer group">
+                    <div className="relative">
+                      <input type="checkbox" checked={formData.sutis} onChange={e => setFormData({...formData, sutis: e.target.checked})} className="sr-only" />
+                      <div className={`w-14 h-8 rounded-full transition-all duration-300 ${formData.sutis ? 'bg-purple-500' : 'bg-slate-200'}`}></div>
+                      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-sm ${formData.sutis ? 'left-7' : 'left-1'}`}></div>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-2">
+                        <HardDrive size={14} className={formData.sutis ? 'text-purple-400' : 'text-slate-300'} /> SUTIS
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase">Requer Tecnologia</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 rounded-[24px] font-black uppercase text-[10px] text-slate-400 bg-white border border-slate-200 hover:bg-slate-50 transition-all tracking-widest">
                     Cancelar
                   </button>
-                  <button onClick={handleSubmit} type="button" className="flex-[2] py-1.5 bg-[#0d457a] text-white rounded-lg font-black uppercase text-[7px] tracking-widest shadow-lg">
-                    {editingId ? 'Salvar Alterações' : 'Confirmar Cadastro'}
+                  <button type="submit" className="flex-[2] py-5 bg-[#0d457a] text-white rounded-[24px] font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3">
+                    {editingId ? 'Salvar Alterações' : 'Confirmar Cadastro SEI'} <Send size={18} />
                   </button>
-            </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-3 pt-3">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 disabled:opacity-30 bg-white border border-slate-200 rounded text-[#0d457a]">
-              <ChevronLeft size={12}/>
+        <div className="flex justify-center items-center gap-6 pt-10 pb-20">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+              disabled={currentPage === 1} 
+              className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] hover:bg-slate-50 disabled:opacity-30 transition-all shadow-sm"
+            >
+              <ChevronLeft size={24}/>
             </button>
-            <span className="text-[7px] font-black text-slate-400 uppercase">Página {currentPage} de {totalPages}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 disabled:opacity-30 bg-white border border-slate-200 rounded text-[#0d457a]">
-              <ChevronRight size={12}/>
+            <div className="px-8 py-3 bg-[#0d457a] text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em]">
+               Página {currentPage} de {totalPages}
+            </div>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+              disabled={currentPage === totalPages} 
+              className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] hover:bg-slate-50 disabled:opacity-30 transition-all shadow-sm"
+            >
+              <ChevronRight size={24}/>
             </button>
         </div>
       )}

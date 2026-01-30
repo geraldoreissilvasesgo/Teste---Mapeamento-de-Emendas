@@ -1,3 +1,4 @@
+
 /**
  * ARQUIVO DE CONSTANTES GLOBAIS
  * 
@@ -45,6 +46,7 @@ export const GOIAS_DEPUTIES = [
 export const MOCK_USERS: User[] = [
   {
     id: 'test-admin-01',
+    tenantId: 'T-01',
     name: 'Gestor GESA',
     email: 'admin.teste@gesa.go.gov.br',
     role: Role.ADMIN,
@@ -59,6 +61,7 @@ export const MOCK_USERS: User[] = [
 export const MOCK_AMENDMENTS: Amendment[] = [
   {
     id: 'am-001',
+    tenantId: 'T-01',
     code: 'EM-2025-0001',
     seiNumber: '202500067001234',
     year: 2025,
@@ -88,6 +91,7 @@ export const MOCK_AMENDMENTS: Amendment[] = [
   },
   {
     id: 'am-002',
+    tenantId: 'T-01',
     code: 'EM-2025-0002',
     seiNumber: '202500067005678',
     year: 2025,

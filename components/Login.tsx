@@ -1,183 +1,133 @@
-/**
- * COMPONENTE DE LOGIN
- * 
- * Este componente gerencia a tela de autenticação do sistema. Ele é a porta de entrada
- * para usuários não autenticados.
- * 
- * Funcionalidades:
- * - Formulário para inserção de e-mail e senha.
- * - Simulação de um fluxo de Autenticação de Múltiplos Fatores (MFA) para perfis
- *   de maior privilégio (admin, auditor).
- * - Validação de força da senha em tempo real para feedback visual.
- * - Exibição de mensagens de erro claras em caso de falha na autenticação.
- * - Botões de "Login Rápido" para facilitar o acesso em ambiente de desenvolvimento.
- */
+
 import React, { useState, useEffect } from 'react';
-import { signIn } from '../services/firebase';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, Smartphone, CheckCircle2, AlertCircle, Fingerprint } from 'lucide-react';
+import { db, supabase } from '../services/supabase';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, Smartphone, CheckCircle2, AlertCircle, Loader2, UserPlus, Info } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  // Estado para controlar o passo da autenticação (credenciais ou MFA).
   const [step, setStep] = useState<'credentials' | 'mfa'>('credentials');
-  // Estados para os campos do formulário.
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
-  // Estados para controle da UI.
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [success, setSuccess] = useState('');
 
-  // Efeito para calcular a força da senha digitada.
-  useEffect(() => {
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-    setPasswordStrength(strength);
-  }, [password]);
-
-  // Manipulador para a submissão do formulário de credenciais.
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccess('');
 
     try {
-      // Em um ambiente real, aqui haveria uma verificação no backend.
-      // Para simulação, a lógica se baseia no e-mail para decidir se o MFA é necessário.
-      if (email.includes('admin') || email.includes('auditor')) {
+      // Simulação de MFA para contas administrativas no ambiente de homologação
+      if ((email.includes('admin') || email.includes('auditor')) && step === 'credentials') {
         setStep('mfa');
-      } else {
-        await signIn(email, password);
-        // Se o signIn for bem-sucedido, o listener onAuthChange em App.tsx
-        // irá detectar a mudança e redirecionar o usuário.
+        setIsLoading(false);
+        return;
       }
+
+      await db.auth.signIn(email, password);
     } catch (err: any) {
-      const firebaseError = err.code?.split('/')[1]?.replace(/-/g, ' ') || 'Verifique suas credenciais';
-      setError(`Falha na autenticação: ${firebaseError}`);
+      setError(err.message || 'Falha na autenticação. Verifique suas credenciais.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Manipulador para a submissão do código MFA.
-  const handleMfa = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleProvision = async () => {
     setIsLoading(true);
     setError('');
-
-    // Simula a verificação do código MFA. Em produção, isso seria validado por um serviço.
-    if (mfaCode === '123456') {
-      try {
-        await signIn(email, password);
-      } catch (err: any) {
-        setError('Credenciais inválidas mesmo com código MFA correto. Acesso negado.');
-        setStep('credentials'); // Volta para o passo inicial
+    setSuccess('');
+    try {
+      const emailTest = 'admin.teste@gesa.go.gov.br';
+      const passTest = 'Senha@123';
+      
+      await db.auth.signUp(emailTest, passTest, 'Administrador GESA Teste');
+      setSuccess('Conta Admin provisionada! E-mail: ' + emailTest + ' / Senha: ' + passTest);
+      setEmail(emailTest);
+      setPassword(passTest);
+    } catch (err: any) {
+      if (err.message?.includes('already registered')) {
+        setSuccess('Usuário admin.teste já está registrado. Pode logar.');
+        setEmail('admin.teste@gesa.go.gov.br');
+        setPassword('Senha@123');
+      } else {
+        setError(err.message || 'Erro ao provisionar usuário de teste.');
       }
-    } else {
-      setError('Código de autenticação inválido. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
-
-  // Função para preencher e submeter o formulário com dados de teste.
-  const quickLogin = (userType: 'admin' | 'operator') => {
-    const userEmail = userType === 'admin' ? 'admin.teste@gesa.go.gov.br' : 'operador.gesa@goias.gov.br';
-    const userPass = 'Senha@123';
-    
-    setEmail(userEmail);
-    setPassword(userPass);
-
-    // Simula a submissão do formulário após um pequeno delay para que o estado seja atualizado.
-    setTimeout(() => {
-      document.getElementById('login-form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    }, 100);
-  };
-  
-  // Renderiza a barra de força da senha.
-  const renderPasswordStrength = () => (
-    <div className="flex gap-1.5 mt-2">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className={`h-1 flex-1 rounded-full ${passwordStrength > i ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
-      ))}
-    </div>
-  );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-inter">
+    <div className="min-h-screen bg-[#f1f5f9] flex items-center justify-center p-4 font-inter">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/50 p-10">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#0d457a] rounded-3xl text-white mb-4 shadow-xl ring-8 ring-blue-50">
-              <ShieldCheck size={32} />
+        <div className="bg-white rounded-[40px] shadow-2xl border border-slate-200/50 p-12 animate-in fade-in zoom-in-95 duration-500">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-[#0d457a] rounded-[28px] text-white mb-6 shadow-xl ring-8 ring-blue-50">
+              <ShieldCheck size={40} />
             </div>
-            <h1 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Acesso Restrito GESA</h1>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Plataforma de Gestão Governamental</p>
+            <h1 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Portal GESA Cloud</h1>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Autenticação Unificada - Governo de Goiás</p>
           </div>
           
-          {/* Alterna entre o formulário de credenciais e o de MFA */}
           {step === 'credentials' ? (
             <form id="login-form" onSubmit={handleAuth} className="space-y-6">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">E-mail Institucional</label>
-                <div className="relative mt-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Institucional</label>
+                <div className="relative">
                   <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="usuario@gesa.go.gov.br"
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    placeholder="usuario@goias.gov.br"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-bold text-slate-600"
                     required
                   />
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Senha de Acesso</label>
-                <div className="relative mt-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha de Acesso</label>
+                <div className="relative">
                   <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Sua senha"
-                    className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    placeholder="••••••••"
+                    className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/5 outline-none transition-all font-bold text-slate-600"
                     required
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0d457a]">
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#0d457a]">
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-                {password.length > 0 && renderPasswordStrength()}
               </div>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-4 bg-[#0d457a] text-white rounded-xl font-black uppercase text-xs shadow-xl hover:bg-[#0a365f] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-blue-900/20 hover:bg-[#0a365f] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
               >
-                {isLoading ? 'Autenticando...' : 'Avançar'}
-                {!isLoading && <LogIn size={16} />}
+                {isLoading ? <Loader2 className="animate-spin" size={20} /> : <>Acessar Sistema <LogIn size={18} /></>}
               </button>
             </form>
           ) : (
-            <form onSubmit={handleMfa} className="space-y-6 animate-in fade-in">
-              <div className="text-center">
-                 <p className="text-sm text-slate-600">Um código de verificação foi enviado para seu dispositivo. Insira-o abaixo.</p>
-                 <p className="font-bold text-[#0d457a] mt-1">{email}</p>
+            <form onSubmit={handleAuth} className="space-y-6 animate-in fade-in">
+              <div className="text-center bg-blue-50 p-6 rounded-3xl border border-blue-100 mb-6">
+                 <p className="text-xs text-blue-700 font-bold leading-relaxed">Verificação MFA: Insira o código de 6 dígitos enviado ao seu dispositivo.</p>
               </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Código de 6 dígitos</label>
-                <div className="relative mt-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Código de Segurança</label>
+                <div className="relative">
                   <Smartphone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                   <input
                     type="text"
                     value={mfaCode}
                     onChange={(e) => setMfaCode(e.target.value)}
-                    placeholder="123456"
-                    className="w-full text-center tracking-[0.5em] font-bold text-lg pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none transition-all"
+                    placeholder="000000"
+                    className="w-full text-center tracking-[0.5em] font-black text-xl pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none"
                     required
                     maxLength={6}
                   />
@@ -185,32 +135,33 @@ export const Login: React.FC = () => {
               </div>
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full py-4 bg-emerald-600 text-white rounded-xl font-black uppercase text-xs shadow-xl hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-3"
               >
-                {isLoading ? 'Verificando...' : 'Confirmar Acesso'}
-                {!isLoading && <CheckCircle2 size={16} />}
+                Confirmar Identidade <CheckCircle2 size={18} />
               </button>
-               <button onClick={() => setStep('credentials')} type="button" className="w-full text-center text-xs text-slate-500 hover:text-[#0d457a] font-bold">Voltar</button>
+              <button onClick={() => setStep('credentials')} type="button" className="w-full text-center text-[10px] text-slate-400 hover:text-[#0d457a] font-black uppercase tracking-widest mt-2">Voltar</button>
             </form>
           )}
 
-          {/* Mensagem de Erro */}
-          {error && (
-            <div className="mt-6 bg-red-50 text-red-600 border border-red-100 p-4 rounded-xl flex items-center gap-3 text-xs font-bold animate-in fade-in">
-              <AlertCircle size={20} />
-              <p>{error}</p>
-            </div>
-          )}
+          {error && <div className="mt-6 bg-red-50 text-red-600 p-4 rounded-xl text-[10px] font-bold border border-red-100 flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+          {success && <div className="mt-6 bg-emerald-50 text-emerald-600 p-4 rounded-xl text-[10px] font-bold border border-emerald-100 flex items-center gap-2"><CheckCircle2 size={14}/> {success}</div>}
         </div>
         
-        {/* Rodapé com botões de login rápido para desenvolvimento */}
-        <div className="mt-6 text-center space-y-2">
-           <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest">Ambiente de Simulação</p>
-           <div className="flex justify-center gap-3">
-              <button onClick={() => quickLogin('admin')} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-black uppercase rounded-lg hover:bg-slate-300">Admin Rápido</button>
-              <button onClick={() => quickLogin('operator')} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-black uppercase rounded-lg hover:bg-slate-300">Operador Rápido</button>
+        <div className="mt-10 flex flex-col items-center gap-6">
+           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-[32px] border border-slate-200 shadow-sm text-center">
+              <div className="flex items-center justify-center gap-2 text-blue-600 mb-4">
+                 <Info size={16} />
+                 <span className="text-[10px] font-black uppercase tracking-widest">Ações de Homologação</span>
+              </div>
+              <button 
+                onClick={handleProvision}
+                disabled={isLoading}
+                className="flex items-center gap-2 text-[10px] font-black text-[#0d457a] uppercase tracking-widest bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-200 hover:bg-blue-50 transition-all disabled:opacity-50"
+              >
+                <UserPlus size={16} /> Provisionar Usuário de Teste
+              </button>
            </div>
+           <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">Gerência de Suporte Administrativo - GESA</p>
         </div>
       </div>
     </div>

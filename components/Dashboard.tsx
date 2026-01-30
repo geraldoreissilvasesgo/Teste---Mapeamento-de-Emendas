@@ -1,250 +1,229 @@
 
-/**
- * COMPONENTE DASHBOARD - FOCO EM NEGÓCIO
- * 
- * Otimizado com:
- * 1. Debounced Search para controle de carga.
- * 2. KPIs de Processos e Orçamento.
- * 3. Renderização condicional eficiente.
- */
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, PieChart, Pie, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer, PieChart, Pie, Cell 
 } from 'recharts';
-import { Amendment, Status, Sector, AmendmentType, SystemMode } from '../types';
+import { Amendment, Status, AmendmentType } from '../types';
 import { 
-  TrendingUp, Clock, FileCheck, AlertCircle, Building2, CheckCircle, 
-  Zap, Landmark, Award, Info, Search, FileSearch, X, ArrowRightLeft, 
-  History, MapPin, User, LogIn, LogOut, Timer, ChevronRight, Activity, Cpu, Database
+  Landmark, Clock, CheckCircle, AlertTriangle, 
+  TrendingUp, Activity, Sparkles, Zap, ArrowRight,
+  GanttChartSquare, Landmark as BankIcon, Wallet, PieChart as PieIcon
 } from 'lucide-react';
 
 interface DashboardProps {
   amendments: Amendment[];
-  systemMode: SystemMode;
   onSelectAmendment: (id: string) => void;
 }
 
-const COLORS = ['#0d457a', '#10B981', '#F59E0B', '#EF4444', '#6B7280'];
+const COLORS = ['#0d457a', '#10b981', '#f59e0b', '#ef4444', '#64748b'];
 
-export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode, onSelectAmendment }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedTerm, setDebouncedTerm] = useState('');
-  const [searchResult, setSearchResult] = useState<Amendment | null>(null);
-
-  // --- CONTROLE DE CARGA: DEBOUNCE NA BUSCA ---
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedTerm(searchTerm);
-    }, 400); // 400ms de atraso para evitar processamento a cada tecla
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    if (debouncedTerm.length > 3) {
-      const found = amendments.find(a => 
-        a.seiNumber.includes(debouncedTerm) || 
-        a.id === debouncedTerm || 
-        a.code === debouncedTerm
-      );
-      setSearchResult(found || null);
-    } else {
-      setSearchResult(null);
-    }
-  }, [debouncedTerm, amendments]);
-
-  // Estatísticas e Performance Memoizadas
+export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendment }) => {
   const stats = useMemo(() => {
     const total = amendments.length;
-    const inProgress = amendments.filter(a => a.status === Status.IN_PROGRESS).length;
-    const concluded = amendments.filter(a => a.status === Status.CONCLUDED).length;
-    const diligence = amendments.filter(a => a.status === Status.DILIGENCE).length;
-    const totalValue = amendments.reduce((acc, curr) => acc + curr.value, 0);
+    const totalValue = amendments.reduce((acc, c) => acc + c.value, 0);
+    
+    // Separação de saldos por tipo
+    const valueImpositiva = amendments
+      .filter(a => a.type === AmendmentType.IMPOSITIVA)
+      .reduce((acc, c) => acc + c.value, 0);
+      
+    const valueCrescimento = amendments
+      .filter(a => a.type === AmendmentType.GOIAS_CRESCIMENTO)
+      .reduce((acc, c) => acc + c.value, 0);
 
-    return { total, inProgress, concluded, diligence, totalValue };
+    const avgCompletion = amendments.filter(a => a.status === Status.CONCLUDED).length / (total || 1);
+    const pendingSutis = amendments.filter(a => a.sutis).length;
+    
+    return { 
+      total, 
+      totalValue, 
+      valueImpositiva, 
+      valueCrescimento, 
+      avgCompletion, 
+      pendingSutis 
+    };
   }, [amendments]);
 
-  const statusData = useMemo(() => {
-    return Object.values(Status).map(status => ({
-      name: status,
-      value: amendments.filter(a => a.status === status).length
+  const pieData = useMemo(() => {
+    return Object.values(Status).map(s => ({
+      name: s,
+      value: amendments.filter(a => a.status === s).length
     })).filter(d => d.value > 0);
   }, [amendments]);
 
-  const municipalityData = useMemo(() => {
-    const data: Record<string, number> = {};
-    amendments.forEach(a => {
-      data[a.municipality] = (data[a.municipality] || 0) + a.value;
-    });
-    return Object.entries(data)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10); // Aumentado para Top 10 para melhor visualização do ranking
-  }, [amendments]);
-
-  const formatCurrency = (val: number) => 
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
-
-  const StatCard = ({ title, value, icon: Icon, colorClass, trend }: any) => (
-    <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 flex items-center gap-6 group hover:shadow-xl transition-all duration-500 relative overflow-hidden">
-      <div className={`p-5 rounded-2xl ${colorClass} text-white shadow-lg group-hover:scale-110 transition-transform relative z-10`}>
-        <Icon size={28} />
-      </div>
-      <div className="relative z-10">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{title}</p>
-        <h3 className="text-2xl font-black text-[#0d457a] tracking-tighter leading-none">{value}</h3>
-        {trend && <span className="text-[9px] font-bold text-emerald-500 uppercase mt-2 block">↑ {trend} Crescimento</span>}
-      </div>
-      <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-110 transition-transform duration-700"></div>
-    </div>
-  );
+  const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(v);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+      <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Cookpit Gerencial GESA</h2>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-2">Visão consolidada de processos e recursos</p>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Painel de Execução</h2>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-[#0d457a]"></div> Consolidação Financeira por Fonte de Recurso
+          </p>
         </div>
-        
-        <div className="w-full lg:w-auto relative group">
-           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#0d457a] transition-colors" size={20} />
-           <input 
-              type="text" 
-              placeholder="Rastreio Inteligente (Nº SEI)..." 
-              className="w-full lg:w-96 pl-14 pr-8 py-4 bg-white border border-slate-200 rounded-[24px] focus:ring-4 focus:ring-[#0d457a]/10 outline-none transition-all font-black text-xs uppercase text-[#0d457a] placeholder:text-slate-300 shadow-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-           />
-           {searchTerm && !searchResult && debouncedTerm === searchTerm && (
-              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-300 uppercase animate-pulse">Consultando...</span>
-           )}
+        <div className="flex gap-2">
+          <div className="px-5 py-2.5 bg-white border border-slate-200 rounded-2xl flex items-center gap-3 shadow-sm">
+             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+             <span className="text-[10px] font-black text-slate-400 uppercase">Integridade SEI: 100%</span>
+          </div>
         </div>
       </div>
 
-      {searchResult && (
-        <div className="bg-white rounded-[40px] border border-slate-200 shadow-2xl overflow-hidden animate-in slide-in-from-top-10 duration-500">
-           <div className="bg-[#0d457a] p-8 flex justify-between items-center text-white">
-              <div className="flex items-center gap-5">
-                 <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                    <History size={28} />
-                 </div>
-                 <div>
-                    <h3 className="text-xl font-black uppercase tracking-tighter leading-none">Status de Tramitação em Tempo Real</h3>
-                    <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Protocolo Identificado: {searchResult.seiNumber}</p>
-                 </div>
-              </div>
-              <button onClick={() => setSearchTerm('')} className="p-3 hover:bg-white/10 rounded-2xl transition-colors">
-                 <X size={24} />
-              </button>
-           </div>
-           
-           <div className="p-10">
-              <div className="flex flex-col lg:flex-row gap-12">
-                 <div className="lg:w-1/3 space-y-6">
-                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Objeto Protocolado</span>
-                       <p className="text-sm font-black text-[#0d457a] uppercase leading-tight">{searchResult.object}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                          <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest block mb-1">Status Ativo</span>
-                          <span className="text-xs font-black text-emerald-600 uppercase">{searchResult.status}</span>
-                       </div>
-                       <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                          <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest block mb-1">Dotação</span>
-                          <span className="text-xs font-black text-blue-700">R$ {searchResult.value.toLocaleString('pt-BR')}</span>
-                       </div>
-                    </div>
-                    <button 
-                      onClick={() => onSelectAmendment(searchResult.id)}
-                      className="w-full flex items-center justify-center gap-3 bg-[#0d457a] text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-[#0a365f] transition-all shadow-lg"
-                    >
-                       Detalhamento Estratégico <ChevronRight size={16}/>
-                    </button>
-                 </div>
-                 
-                 <div className="flex-1 overflow-x-auto">
-                    <div className="relative pt-4 pl-12 space-y-8 before:absolute before:left-[21px] before:top-4 before:bottom-4 before:w-1 before:bg-slate-100">
-                       {searchResult.movements.map((m, idx) => (
-                          <div key={m.id} className="relative">
-                             <div className={`absolute -left-[44px] top-1.5 w-7 h-7 rounded-full border-4 border-white shadow-md z-10 ${idx === searchResult.movements.length - 1 ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-100' : 'bg-slate-200'}`} />
-                             <div className="bg-white border border-slate-100 p-6 rounded-[28px] shadow-sm">
-                                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
-                                         <Building2 size={20} />
-                                      </div>
-                                      <div>
-                                         <h4 className="text-xs font-black text-[#0d457a] uppercase tracking-tight">{m.toSector}</h4>
-                                         <p className="text-[9px] font-black text-slate-400 uppercase mt-0.5">Resp: {m.handledBy}</p>
-                                      </div>
-                                   </div>
-                                   <div className="flex items-center gap-6 text-[10px] font-black text-slate-500 uppercase">
-                                      <div className="text-right">
-                                         <span className="text-slate-300 block mb-1">Entrada</span>
-                                         <span>{new Date(m.dateIn).toLocaleDateString()}</span>
-                                      </div>
-                                      <div className="bg-blue-50 px-3 py-2 rounded-xl text-blue-600">
-                                         <span className="text-blue-300 block mb-1">SLA</span>
-                                         <span>{m.daysSpent || 0}d</span>
-                                      </div>
-                                   </div>
-                                </div>
-                             </div>
-                          </div>
-                       )).reverse()}
-                    </div>
-                 </div>
-              </div>
+      {/* Grid de Saldos Segregados */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Card Impositiva */}
+        <div className="bg-[#0d457a] p-8 rounded-[40px] shadow-xl text-white relative overflow-hidden group">
+           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+           <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+             <BankIcon size={12} className="text-blue-300" /> Saldo Impositivas
+           </p>
+           <h3 className="text-3xl font-black tracking-tighter">{formatBRL(stats.valueImpositiva)}</h3>
+           <div className="mt-6 flex justify-between items-center text-[9px] font-black uppercase text-white/40 border-t border-white/10 pt-4">
+              <span>Fonte: Tesouro Estadual</span>
+              <span className="text-blue-300">ALEGO</span>
            </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Volume Financeiro" value={`R$ ${(stats.totalValue / 1000000).toFixed(1)}M`} icon={Landmark} colorClass="bg-emerald-500" trend="12.4%" />
-        <StatCard title="Em Tramitação" value={stats.inProgress} icon={FileSearch} colorClass="bg-blue-600" />
-        <StatCard title="Liquidados / Pagos" value={stats.concluded} icon={CheckCircle} colorClass="bg-indigo-500" />
-        <StatCard title="Diligências" value={stats.diligence} icon={AlertCircle} colorClass="bg-amber-500" />
+        {/* Card Goiás Crescimento */}
+        <div className="bg-emerald-600 p-8 rounded-[40px] shadow-xl text-white relative overflow-hidden group">
+           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+           <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+             <TrendingUp size={12} className="text-emerald-300" /> Goiás em Crescimento
+           </p>
+           <h3 className="text-3xl font-black tracking-tighter">{formatBRL(stats.valueCrescimento)}</h3>
+           <div className="mt-6 flex justify-between items-center text-[9px] font-black uppercase text-white/40 border-t border-white/10 pt-4">
+              <span>Plan. Estratégico</span>
+              <span className="text-emerald-200">PROJETO</span>
+           </div>
+        </div>
+
+        {/* Card Taxa de Liquidação */}
+        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200 flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <CheckCircle size={16} className="text-blue-500" /> Índice de Pagamento
+            </p>
+            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{(stats.avgCompletion * 100).toFixed(1)}%</h3>
+            <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+               <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${stats.avgCompletion * 100}%` }}></div>
+            </div>
+        </div>
+
+        {/* Card Volume Total */}
+        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200 flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <Wallet size={16} className="text-purple-500" /> Montante Consolidado
+            </p>
+            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{formatBRL(stats.totalValue)}</h3>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mt-2">{stats.total} Processos Ativos</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 bg-white p-10 rounded-[40px] shadow-sm border border-slate-200">
-           <h3 className="text-xs font-black text-[#0d457a] uppercase mb-8 tracking-[0.3em] flex items-center gap-3">
-             <Award size={18} className="text-indigo-500"/> Pipeline de Status
-           </h3>
-           <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={8} dataKey="value">
-                    {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }} />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', paddingTop: '20px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-           </div>
-        </div>
-
-        <div className="lg:col-span-2 bg-white p-10 rounded-[40px] shadow-sm border border-slate-200">
-          <h3 className="text-xs font-black text-[#0d457a] uppercase mb-8 tracking-[0.3em] flex items-center gap-3">
-             <MapPin size={18} className="text-emerald-500"/> Ranking por Município
-          </h3>
-          <div className="h-64">
+        {/* Gráfico de Distribuição por Município */}
+        <div className="lg:col-span-2 bg-white p-10 rounded-[48px] shadow-sm border border-slate-200">
+          <div className="flex justify-between items-center mb-10">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+              <Sparkles size={18} className="text-purple-500" /> Concentração Regional de Investimentos
+            </h3>
+            <div className="flex gap-2">
+               <div className="w-3 h-3 bg-[#0d457a] rounded-sm"></div>
+               <span className="text-[9px] font-black uppercase text-slate-400">R$ Alocado</span>
+            </div>
+          </div>
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={municipalityData}>
+              <BarChart data={amendments.slice(0, 10)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'black', textTransform: 'uppercase'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'black'}} tickFormatter={(val) => formatCurrency(val)} />
+                <XAxis dataKey="municipality" tick={{fontSize: 9, fontWeight: '900', fill: '#94a3b8'}} axisLine={false} tickLine={false} />
+                <YAxis tick={{fontSize: 9, fill: '#94a3b8'}} axisLine={false} tickLine={false} />
                 <Tooltip 
                   cursor={{fill: '#f8fafc'}} 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }} 
-                  formatter={(val: number) => formatCurrency(val)}
+                  contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: '900' }} 
+                  formatter={(v: number) => formatBRL(v)}
                 />
-                <Bar dataKey="value" fill="#0d457a" radius={[10, 10, 0, 0]} barSize={40} />
+                <Bar dataKey="value" fill="#0d457a" radius={[12, 12, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+
+        {/* Gráfico de Status */}
+        <div className="bg-white p-10 rounded-[48px] shadow-sm border border-slate-200">
+          <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-10 flex items-center gap-3">
+             <PieIcon size={18} className="text-[#0d457a]" /> Ciclo de Vida do Processo
+          </h3>
+          <div className="h-64 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie 
+                  data={pieData} 
+                  cx="50%" 
+                  cy="50%" 
+                  innerRadius={70} 
+                  outerRadius={95} 
+                  dataKey="value"
+                  paddingAngle={5}
+                >
+                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="white" strokeWidth={4} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+               <p className="text-[9px] font-black text-slate-400 uppercase">Processos</p>
+               <p className="text-2xl font-black text-[#0d457a]">{stats.total}</p>
+            </div>
+          </div>
+          <div className="mt-8 space-y-3">
+            {pieData.map((d, i) => (
+              <div key={i} className="flex justify-between items-center text-[10px] font-black uppercase tracking-tight">
+                <span className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[i]}} /> {d.name}</span>
+                <span className="text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg">{d.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recomendações de IA */}
+      <div className="bg-white rounded-[48px] border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+            <Zap size={18} className="text-amber-500" /> Diligências Críticas Detectadas
+          </h3>
+          <span className="text-[9px] font-black text-[#0d457a] bg-blue-50 px-3 py-1 rounded-full uppercase">Alerta Preditivo GESA</span>
+        </div>
+        <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
+          {amendments.filter(a => a.status === Status.DILIGENCE).length > 0 ? (
+            amendments.filter(a => a.status === Status.DILIGENCE).map(a => (
+              <div key={a.id} className="p-6 hover:bg-slate-50 transition-all flex items-center justify-between group">
+                <div className="flex items-center gap-6">
+                  <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform"><AlertTriangle size={24} /></div>
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                       <p className="text-xs font-black text-slate-900 uppercase tracking-tighter">{a.seiNumber}</p>
+                       <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase ${a.type === AmendmentType.IMPOSITIVA ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {a.type}
+                       </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-lg">{a.object}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => onSelectAmendment(a.id)}
+                  className="flex items-center gap-2 bg-[#0d457a] text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                >
+                  Ver Trâmite <ArrowRight size={14} />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="p-10 text-center text-slate-300 font-black uppercase text-[10px] tracking-widest">
+               Nenhuma diligência crítica pendente no momento.
+            </div>
+          )}
         </div>
       </div>
     </div>

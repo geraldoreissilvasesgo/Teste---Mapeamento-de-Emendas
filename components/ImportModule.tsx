@@ -1,3 +1,4 @@
+
 /**
  * MÓDULO DE IMPORTAÇÃO DE PROCESSOS EM LOTE
  * 
@@ -12,6 +13,7 @@ import { Amendment, Status, SectorConfig, Role, AmendmentType, TransferMode, GND
 interface ImportModuleProps {
   onImport: (data: Amendment[]) => void;
   sectors: SectorConfig[];
+  tenantId: string;
 }
 
 interface ValidationError {
@@ -19,7 +21,7 @@ interface ValidationError {
   message: string;
 }
 
-export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors }) => {
+export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, tenantId }) => {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<Amendment[]>([]);
@@ -102,6 +104,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors })
           // Mapeamento básico: SEI;Ano;Objeto;Valor;Municipio;Autor
           const newAmendment: Amendment = {
             id: `imp-${Date.now()}-${index}`,
+            tenantId: tenantId,
             code: `IMP-${cols[1] || new Date().getFullYear()}-${index}`,
             seiNumber: cols[0]?.trim(),
             year: parseInt(cols[1]?.trim()) || new Date().getFullYear(),

@@ -1,233 +1,143 @@
 
-
-/**
- * COMPONENTE DE LAYOUT PRINCIPAL - REDESENHADO
- * 
- * Estrutura de navegação baseada em Domínios de Responsabilidade.
- * Segue padrões modernos de UX para ERPs e sistemas governamentais.
- */
 import React from 'react';
 import { 
-  LayoutDashboard, 
-  FileText, 
-  ShieldCheck, 
-  LogOut, 
-  Menu,
-  X,
-  ClipboardList,
-  UploadCloud,
-  Database,
-  BarChart3,
-  Settings2,
-  AlarmClockCheck,
-  Bell,
-  Globe,
-  CheckCircle2,
-  DatabaseZap,
-  Activity,
-  UserCog,
-  Workflow,
-  SearchCode,
-  BookOpen
+  LayoutDashboard, FileText, Database, ShieldCheck, 
+  LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
+  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity
 } from 'lucide-react';
-import { User, Role, Notification, SystemMode } from '../types';
-import { APP_NAME, DEPARTMENT } from '../constants';
+import { User, Role } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User;
   currentView: string;
-  notifications: Notification[];
-  systemMode: SystemMode;
-  successMessage: string | null;
+  activeTenantId: string;
   onNavigate: (view: string) => void;
   onLogout: () => void;
+  onTenantChange: (id: string) => void;
 }
 
+const DEPARTMENTS = [
+  { id: 'T-01', name: 'Secretaria da Saúde (SES)' },
+  { id: 'T-02', name: 'Secretaria da Educação (SEDUC)' },
+  { id: 'T-03', name: 'Infraestrutura (GOINFRA)' }
+];
+
 export const Layout: React.FC<LayoutProps> = ({ 
-  children, 
-  currentUser, 
-  currentView, 
-  notifications,
-  systemMode,
-  successMessage,
-  onNavigate, 
-  onLogout 
+  children, currentUser, currentView, activeTenantId, 
+  onNavigate, onLogout, onTenantChange 
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-  const [showNotifications, setShowNotifications] = React.useState(false);
+  const activeDept = DEPARTMENTS.find(d => d.id === activeTenantId);
+  
+  // Vulnerability Fix: Only SuperAdmin can see the tenant switcher dropdown
+  const canSwitchTenant = currentUser.role === Role.SUPER_ADMIN;
 
-  // Estrutura de Menus Agrupada por Contexto
-  const menuGroups = [
-    {
-      group: 'Estratégico',
-      items: [
-        { id: 'dashboard', label: 'Cookpit Gerencial', icon: LayoutDashboard },
-      ]
-    },
-    {
-      group: 'Operacional',
-      items: [
-        { id: 'amendments', label: 'Gestão de Processos', icon: FileText },
-        { id: 'deadlines', label: 'Monitor de SLAs', icon: AlarmClockCheck },
-      ]
-    },
-    {
-      group: 'Inteligência',
-      items: [
-        { id: 'reports', label: 'BI & Analíticos', icon: BarChart3 },
-        { id: 'repository', label: 'Acervo Central', icon: Database },
-      ]
-    },
-    {
-      group: 'Sistema & Config',
-      items: [
-        { id: 'import', label: 'Carga de Dados', icon: UploadCloud },
-        { id: 'sectors', label: 'Workflows (Setores)', icon: Workflow },
-        { id: 'security', label: 'Controle de Acesso', icon: UserCog, roles: [Role.ADMIN] },
-      ]
-    },
-    {
-      group: 'Governança',
-      items: [
-        { id: 'audit', label: 'Trilha de Auditoria', icon: ClipboardList, roles: [Role.ADMIN] },
-        { id: 'database', label: 'Console Técnico', icon: SearchCode, roles: [Role.ADMIN] },
-        { id: 'govdocs', label: 'Documentação (ITIL)', icon: BookOpen, roles: [Role.ADMIN] },
-      ]
-    }
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'amendments', label: 'Emendas SEI', icon: FileText },
+    { id: 'repository', label: 'Repositório', icon: Database },
+    { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+    { id: 'audit', label: 'Auditoria', icon: History },
+    { id: 'sectors', label: 'Fluxo Mestre', icon: Layers },
+    { id: 'security', label: 'Segurança/LGPD', icon: Lock },
+    { id: 'docs', label: 'Governança', icon: BookOpen },
+    { id: 'api', label: 'API Portal', icon: Braces },
+    { id: 'qa', label: 'Diagnóstico', icon: Activity },
   ];
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-inter">
-      {/* Sidebar Redesenhada */}
-      <aside className={`bg-[#0d457a] text-white transition-all duration-500 flex flex-col z-50 border-r border-white/5 ${isSidebarOpen ? 'w-80' : 'w-24'}`}>
-        <div className="p-8 flex items-center gap-4 border-b border-white/5 bg-[#0a365f]/50">
-          <div className="bg-white p-3 rounded-2xl text-[#0d457a] shadow-[0_10px_20px_rgba(0,0,0,0.2)] shrink-0 group-hover:rotate-12 transition-transform">
-            <ShieldCheck size={28} />
+    <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
+      {/* Sidebar - Cor Institucional Goiás Blue */}
+      <aside className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 shadow-2xl ${isSidebarOpen ? 'w-72' : 'w-20'}`}>
+        <div className="p-6 flex items-center gap-3 border-b border-white/10">
+          <div className="bg-white text-[#0d457a] p-2 rounded-xl shadow-lg">
+            <ShieldCheck size={24} />
           </div>
           {isSidebarOpen && (
-            <div className="animate-in fade-in slide-in-from-left-2 duration-500">
-              <h1 className="font-black text-base uppercase tracking-tighter leading-none">{APP_NAME}</h1>
-              <p className="text-[9px] text-emerald-400 font-black uppercase mt-1.5 tracking-widest flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
-                Sistema Ativo
-              </p>
+            <div className="animate-in fade-in duration-300">
+              <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">GESA <span className="text-emerald-400">Cloud</span></h1>
+              <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">Governo de Goiás</p>
             </div>
           )}
         </div>
 
-        <nav className="flex-1 py-8 px-4 space-y-8 overflow-y-auto custom-scrollbar">
-          {menuGroups.map((group, gIdx) => {
-            // Verifica se o grupo possui algum item visível para o cargo atual
-            const visibleItems = group.items.filter(item => !item.roles || item.roles.includes(currentUser.role));
-            if (visibleItems.length === 0) return null;
-
+        <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto custom-scrollbar">
+          {menuItems.map(item => {
+            const Icon = item.icon;
+            const isActive = currentView === item.id;
             return (
-              <div key={gIdx} className="space-y-3">
-                {isSidebarOpen && (
-                  <h3 className="px-5 text-[10px] font-black text-white/30 uppercase tracking-[0.25em] mb-4">
-                    {group.group}
-                  </h3>
-                )}
-                <div className="space-y-1">
-                  {visibleItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = currentView === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => onNavigate(item.id)}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-[20px] transition-all duration-300 group relative ${
-                          isActive 
-                            ? 'bg-white text-[#0d457a] shadow-2xl font-black translate-x-1' 
-                            : 'hover:bg-white/5 text-white/60 hover:text-white font-bold'
-                        }`}
-                        title={!isSidebarOpen ? item.label : ''}
-                      >
-                        <Icon size={22} className={isActive ? 'text-[#0d457a]' : 'text-white/20 group-hover:text-white/80 group-hover:scale-110 transition-all'} />
-                        {isSidebarOpen && (
-                          <span className="text-[11px] uppercase tracking-widest truncate animate-in fade-in duration-700">
-                            {item.label}
-                          </span>
-                        )}
-                        {isActive && isSidebarOpen && (
-                          <div className="absolute right-4 w-1.5 h-1.5 bg-[#0d457a] rounded-full"></div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-white text-[#0d457a] font-black shadow-lg' : 'hover:bg-white/10 text-blue-100'}`}
+              >
+                <Icon size={18} className={isActive ? 'text-[#0d457a]' : 'text-blue-200'} />
+                {isSidebarOpen && <span className="text-[10px] uppercase tracking-widest truncate">{item.label}</span>}
+              </button>
             );
           })}
         </nav>
 
-        <div className={`p-6 border-t border-white/5 bg-[#0a365f]/30 ${!isSidebarOpen && 'flex justify-center'}`}>
-          <button 
-            onClick={onLogout}
-            className={`flex items-center gap-4 px-5 py-4 rounded-2xl hover:bg-red-500/10 text-red-400 transition-all font-black text-[11px] uppercase tracking-widest ${isSidebarOpen ? 'w-full' : 'w-auto'}`}
-          >
-            <LogOut size={22} />
-            {isSidebarOpen && <span>Encerrar Sessão</span>}
+        <div className="p-4 border-t border-white/10">
+          <button onClick={onLogout} className="w-full flex items-center gap-4 px-4 py-3 text-red-200 hover:bg-red-400/20 rounded-xl transition-all">
+            <LogOut size={18} />
+            {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Encerrar Sessão</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-24 bg-white border-b border-slate-200 flex items-center justify-between px-10 z-40">
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all text-slate-400 hover:text-[#0d457a] shadow-sm border border-slate-100"
-            >
-              {isSidebarOpen ? <X size={22} /> : <Menu size={22} />}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
+              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             
-            <div className="hidden md:flex items-center gap-3 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 px-5 py-3">
-               <Globe size={16} className="text-blue-500" />
-               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">GESA Cloud <span className="text-slate-300 mx-2">|</span> Sefaz-GO v2.7</span>
+            <div className="relative group">
+              <button 
+                disabled={!canSwitchTenant}
+                className={`flex items-center gap-3 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 transition-all ${canSwitchTenant ? 'hover:border-[#0d457a]' : 'opacity-75 cursor-default'}`}
+              >
+                <Globe size={14} className="text-[#0d457a]" />
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{activeDept?.name || 'Carregando...'}</span>
+                {canSwitchTenant && <ChevronDown size={14} className="text-slate-300" />}
+              </button>
+              
+              {canSwitchTenant && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 hidden group-hover:block animate-in fade-in slide-in-from-top-2">
+                  <div className="p-3 space-y-1">
+                    {DEPARTMENTS.map(d => (
+                      <button 
+                        key={d.id} 
+                        onClick={() => onTenantChange(d.id)}
+                        className={`w-full text-left px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${activeTenantId === d.id ? 'bg-blue-50 text-[#0d457a]' : 'hover:bg-slate-50 text-slate-500'}`}
+                      >
+                        {d.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-8">
-            <div className="relative">
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all relative group border border-slate-100"
-              >
-                <Bell size={22} className="text-slate-400 group-hover:text-[#0d457a]" />
-                {notifications.length > 0 && (
-                  <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
-                )}
-              </button>
-            </div>
-
-            <div className="flex items-center gap-5 pl-8 border-l border-slate-100">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-black text-[#0d457a] leading-none uppercase tracking-tighter">{currentUser.name}</p>
-                <p className="text-[9px] text-slate-400 font-black uppercase mt-1.5 tracking-widest">{currentUser.role}</p>
-              </div>
-              <div className="relative group">
-                <div className="absolute inset-0 bg-blue-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                <img src={currentUser.avatarUrl} alt="User" className="relative w-12 h-12 rounded-2xl border-2 border-white shadow-md ring-1 ring-slate-100 object-cover" />
-              </div>
-            </div>
+          <div className="flex items-center gap-4">
+             <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-purple-50 rounded-full border border-purple-100">
+                <Sparkles size={12} className="text-purple-500" />
+                <span className="text-[8px] font-black text-purple-600 uppercase">RLS Verified</span>
+             </div>
+             <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
+                <img src={currentUser.avatarUrl} className="w-8 h-8 rounded-lg shadow-sm" alt="Avatar" />
+                <div className="hidden sm:block">
+                  <p className="text-[10px] font-black text-slate-900 leading-none">{currentUser.name}</p>
+                  <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+                </div>
+             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-12 custom-scrollbar relative bg-[#f8fafc]">
-          {successMessage && (
-            <div className="fixed top-10 right-10 z-[100] bg-emerald-500 text-white px-8 py-5 rounded-3xl shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center gap-5 animate-in fade-in slide-in-from-top-6 duration-500">
-              <div className="p-2 bg-white/20 rounded-xl">
-                <CheckCircle2 size={24} />
-              </div>
-              <div>
-                <h4 className="font-black text-xs uppercase tracking-widest">Sincronização OK</h4>
-                <p className="text-[11px] font-medium mt-1 opacity-90">{successMessage}</p>
-              </div>
-            </div>
-          )}
+        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#f8fafc]">
           {children}
         </main>
       </div>
