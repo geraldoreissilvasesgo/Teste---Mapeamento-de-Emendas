@@ -79,8 +79,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode, on
     return Object.entries(data)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .slice(0, 10); // Aumentado para Top 10 para melhor visualização do ranking
   }, [amendments]);
+
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
 
   const StatCard = ({ title, value, icon: Icon, colorClass, trend }: any) => (
     <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 flex items-center gap-6 group hover:shadow-xl transition-all duration-500 relative overflow-hidden">
@@ -225,15 +228,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, systemMode, on
 
         <div className="lg:col-span-2 bg-white p-10 rounded-[40px] shadow-sm border border-slate-200">
           <h3 className="text-xs font-black text-[#0d457a] uppercase mb-8 tracking-[0.3em] flex items-center gap-3">
-             <MapPin size={18} className="text-emerald-500"/> Alocação Geográfica GESA
+             <MapPin size={18} className="text-emerald-500"/> Ranking por Município
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={municipalityData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'black', textTransform: 'uppercase'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'black'}} tickFormatter={(val) => `R$ ${val / 1000}k`} />
-                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 'black'}} tickFormatter={(val) => formatCurrency(val)} />
+                <Tooltip 
+                  cursor={{fill: '#f8fafc'}} 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }} 
+                  formatter={(val: number) => formatCurrency(val)}
+                />
                 <Bar dataKey="value" fill="#0d457a" radius={[10, 10, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
