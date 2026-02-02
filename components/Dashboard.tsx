@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, PieChart, Pie, Cell 
 } from 'recharts';
-import { Amendment, Status, AmendmentType } from '../types';
+import { Amendment, StatusConfig, AmendmentType } from '../types';
 import { 
   Landmark, Clock, CheckCircle, AlertTriangle, 
   TrendingUp, Activity, Sparkles, Zap, ArrowRight,
@@ -13,12 +13,11 @@ import {
 
 interface DashboardProps {
   amendments: Amendment[];
+  statusConfigs: StatusConfig[];
   onSelectAmendment: (id: string) => void;
 }
 
-const COLORS = ['#0d457a', '#10b981', '#f59e0b', '#ef4444', '#64748b'];
-
-export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendment }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs, onSelectAmendment }) => {
   const stats = useMemo(() => {
     const total = amendments.length;
     const totalValue = amendments.reduce((acc, c) => acc + c.value, 0);
@@ -31,7 +30,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
       .filter(a => a.type === AmendmentType.GOIAS_CRESCIMENTO)
       .reduce((acc, c) => acc + c.value, 0);
 
-    const avgCompletion = amendments.filter(a => a.status === Status.CONCLUDED).length / (total || 1);
+    // Calcula conclusão baseado na flag isFinal dos status dinâmicos
+    const finalStatusNames = statusConfigs.filter(s => s.isFinal).map(s => s.name);
+    const concludedCount = amendments.filter(a => finalStatusNames.includes(a.status)).length;
+    const avgCompletion = concludedCount / (total || 1);
     
     return { 
       total, 
@@ -40,14 +42,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
       valueCrescimento, 
       avgCompletion 
     };
-  }, [amendments]);
+  }, [amendments, statusConfigs]);
 
   const pieData = useMemo(() => {
-    return Object.values(Status).map(s => ({
-      name: s,
-      value: amendments.filter(a => a.status === s).length
+    // Se não houver status cadastrados, usa os nomes presentes nas emendas
+    const statusPool = statusConfigs.length > 0 
+      ? statusConfigs 
+      : Array.from(new Set(amendments.map(a => a.status))).map(name => ({ name, color: '#64748b' }));
+
+    return statusPool.map(s => ({
+      name: s.name,
+      value: amendments.filter(a => a.status === s.name).length,
+      color: (s as any).color || '#64748b'
     })).filter(d => d.value > 0);
-  }, [amendments]);
+  }, [amendments, statusConfigs]);
 
   const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(v);
 
@@ -57,13 +65,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
         <div>
           <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Cockpit Gerencial</h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-[#0d457a]"></div> Consolidação Financeira por Fonte de Recurso
+            <div className="w-4 h-0.5 bg-[#0d457a]"></div> Consolidação Financeira por Status Dinâmico
           </p>
         </div>
         <div className="flex gap-2">
           <div className="px-5 py-2.5 bg-white border border-slate-200 rounded-2xl flex items-center gap-3 shadow-sm">
              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-             <span className="text-[10px] font-black text-slate-400 uppercase">Integridade SEI: 100%</span>
+             <span className="text-[10px] font-black text-slate-400 uppercase">Monitoramento Ativo</span>
           </div>
         </div>
       </div>
@@ -95,7 +103,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
 
         <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200 flex flex-col justify-center">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <CheckCircle size={16} className="text-blue-500" /> Índice de Pagamento
+                <CheckCircle size={16} className="text-blue-500" /> Índice de Conclusão
             </p>
             <h3 className="text-3xl font-black text-[#0d457a] tracking-tighter">{(stats.avgCompletion * 100).toFixed(1)}%</h3>
             <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -105,10 +113,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
 
         <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200 flex flex-col justify-center">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Wallet size={16} className="text-purple-500" /> Montante Consolidado
+                <Wallet size={16} className="text-purple-500" /> Valor Consolidado
             </p>
             <h3 className="text-3xl font-black text-[#0d457a] tracking-tighter">{formatBRL(stats.totalValue)}</h3>
-            <p className="text-[9px] font-bold text-slate-400 uppercase mt-2">{stats.total} Processos Ativos</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mt-2">{stats.total} Processos Registrados</p>
         </div>
       </div>
 
@@ -116,12 +124,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
         <div className="lg:col-span-2 bg-white p-10 rounded-[48px] shadow-sm border border-slate-200">
           <div className="flex justify-between items-center mb-10">
             <h3 className="text-xs font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-3">
-              <Sparkles size={18} className="text-purple-500" /> Concentração Regional de Investimentos
+              <Sparkles size={18} className="text-purple-500" /> Distribuição Regional de Investimentos
             </h3>
-            <div className="flex gap-2">
-               <div className="w-3 h-3 bg-[#0d457a] rounded-sm"></div>
-               <span className="text-[9px] font-black uppercase text-slate-400">R$ Alocado</span>
-            </div>
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -142,7 +146,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
 
         <div className="bg-white p-10 rounded-[48px] shadow-sm border border-slate-200">
           <h3 className="text-xs font-black text-[#0d457a] uppercase tracking-widest mb-10 flex items-center gap-3">
-             <PieIcon size={18} className="text-[#0d457a]" /> Ciclo de Vida do Processo
+             <PieIcon size={18} className="text-[#0d457a]" /> Estados dos Processos
           </h3>
           <div className="h-64 relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -156,20 +160,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, onSelectAmendm
                   dataKey="value"
                   paddingAngle={5}
                 >
-                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="white" strokeWidth={4} />)}
+                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} stroke="white" strokeWidth={4} />)}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-               <p className="text-[9px] font-black text-slate-400 uppercase">Processos</p>
+               <p className="text-[9px] font-black text-slate-400 uppercase">Total</p>
                <p className="text-2xl font-black text-[#0d457a]">{stats.total}</p>
             </div>
           </div>
-          <div className="mt-8 space-y-3">
+          <div className="mt-8 space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-2">
             {pieData.map((d, i) => (
               <div key={i} className="flex justify-between items-center text-[10px] font-black uppercase tracking-tight text-[#0d457a]">
-                <span className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[i]}} /> {d.name}</span>
+                <span className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: d.color}} /> {d.name}</span>
                 <span className="text-[#0d457a] bg-slate-50 px-2 py-0.5 rounded-lg">{d.value}</span>
               </div>
             ))}

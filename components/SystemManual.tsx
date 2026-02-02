@@ -1,12 +1,9 @@
-
 import React, { useState } from 'react';
 import { 
   FileCode, Book, ShieldCheck, Cpu, Database, Info, Printer, ArrowLeft, 
   Layers, Network, Share2, GitMerge, Lock, Sparkles, Terminal, BarChart3, 
   Map as MapIcon, ChevronRight, Activity, Box, Search, ShieldAlert, Loader2, Download
 } from 'lucide-react';
-// @ts-ignore
-import html2pdf from 'html2pdf.js';
 
 interface SystemManualProps {
   onBack: () => void;
@@ -16,18 +13,26 @@ export const SystemManual: React.FC<SystemManualProps> = ({ onBack }) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportPdf = async () => {
+    const h2p = (window as any).html2pdf;
+    if (!h2p) {
+      alert("A biblioteca de geração de PDF ainda não foi carregada. Por favor, aguarde.");
+      return;
+    }
+
     setIsExporting(true);
     const element = document.getElementById('manual-pdf-content');
+    
     const opt = {
       margin: 10,
       filename: `Dossie_Mapeamento_GESA_${new Date().getFullYear()}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
     try {
-      await html2pdf().set(opt).from(element).save();
+      await h2p().set(opt).from(element).save();
     } catch (error) {
       console.error('Erro ao exportar dossiê:', error);
       window.print();
@@ -104,7 +109,7 @@ export const SystemManual: React.FC<SystemManualProps> = ({ onBack }) => {
       </div>
 
       <div id="manual-pdf-content" className="space-y-12 bg-white p-8 rounded-[40px] print:p-0">
-          <div className="p-20 rounded-[60px] border border-slate-200 shadow-sm text-center space-y-8 print:border-none print:shadow-none print:p-0">
+          <div className="p-20 rounded-[60px] border border-slate-200 shadow-sm text-center space-y-8 print:border-none print:shadow-none print:p-0 pdf-avoid-break">
             <div className="inline-flex items-center justify-center w-24 h-24 bg-[#0d457a] rounded-[32px] text-white shadow-2xl mb-4">
               <MapIcon size={48} />
             </div>
@@ -119,13 +124,13 @@ export const SystemManual: React.FC<SystemManualProps> = ({ onBack }) => {
           </div>
 
           <div className="space-y-8">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 pdf-avoid-break">
                <div className="p-3 bg-blue-50 text-[#0d457a] rounded-2xl"><Network size={24}/></div>
                <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">01. Arquitetura de Camadas</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                {architecturalLayers.map((layer, idx) => (
-                 <div key={idx} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm transition-all group print:break-inside-avoid">
+                 <div key={idx} className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm transition-all group pdf-avoid-break">
                     <div className="flex items-start justify-between mb-6">
                        <div className={`p-4 rounded-2xl ${layer.bg} ${layer.color} shadow-sm group-hover:scale-110 transition-transform`}>
                           <layer.icon size={28} />
@@ -138,7 +143,7 @@ export const SystemManual: React.FC<SystemManualProps> = ({ onBack }) => {
             </div>
           </div>
 
-          <div className="bg-[#0d457a] p-16 rounded-[60px] text-white shadow-2xl space-y-12 print:bg-white print:text-[#0d457a] print:border print:border-slate-200">
+          <div className="bg-[#0d457a] p-16 rounded-[60px] text-white shadow-2xl space-y-12 print:bg-white print:text-[#0d457a] print:border print:border-slate-200 pdf-avoid-break">
              <div className="flex items-center gap-4">
                 <div className="p-3 bg-white/10 text-white rounded-2xl print:bg-slate-100 print:text-[#0d457a]"><Share2 size={24}/></div>
                 <h2 className="text-2xl font-black uppercase tracking-tighter">02. Fluxo de Trabalho</h2>
@@ -157,7 +162,7 @@ export const SystemManual: React.FC<SystemManualProps> = ({ onBack }) => {
              </div>
           </div>
           
-          <div className="text-center pt-20 border-t border-slate-200 text-slate-400">
+          <div className="text-center pt-20 border-t border-slate-200 text-slate-400 pdf-avoid-break">
             <p className="text-[10px] font-black uppercase tracking-[0.3em]">Gerência de Suporte Administrativo - GESA/SUBIPEI</p>
             <p className="text-[8px] font-bold mt-2 uppercase">Dossiê de Mapeamento Técnico Gerado pelo Sistema v2.8.4</p>
           </div>

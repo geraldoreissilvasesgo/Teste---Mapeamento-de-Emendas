@@ -12,10 +12,11 @@ import { Role, Status, User, AuditLog, AuditAction, SectorConfig, AnalysisType, 
 // Informações gerais da aplicação, exibidas no layout e em títulos.
 export const APP_NAME = "Rastreio de Emendas";
 export const DEPARTMENT = "Gerência de Suporte Administrativo - GESA/SUBIPEI";
-export const APP_VERSION = "2.7.1-prod";
+export const APP_VERSION = "2.8.5-prod";
 
 // Configuração inicial de setores reais da estrutura de Goiás (SEI/SUBIPEI).
 export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [
+  { id: 'sec-init', name: 'SES/CEP-20903', defaultSlaDays: 2, analysisType: AnalysisType.DOC_COMPLEMENT },
   { id: 'sec-01', name: 'GESA - Protocolo Central', defaultSlaDays: 2, analysisType: AnalysisType.TECHNICAL },
   { id: 'sec-02', name: 'SUBIPEI - Gabinete', defaultSlaDays: 3, analysisType: AnalysisType.FINAL_APPROVAL },
   { id: 'sec-03', name: 'SUINFRA - Engenharia', defaultSlaDays: 10, analysisType: AnalysisType.TECHNICAL },
@@ -26,20 +27,53 @@ export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [
   { id: 'sec-08', name: 'Gerência de Finanças', defaultSlaDays: 4, analysisType: AnalysisType.PAYMENT_PROC }
 ];
 
-// Lista de municípios de Goiás para preenchimento de formulários.
+// Lista completa de todos os 246 municípios de Goiás.
 export const GOIAS_CITIES = [
-  "Abadia de Goiás", "Abadiânia", "Acreúna", "Adelândia", "Água Fria de Goiás", "Água Limpa", "Águas Lindas de Goiás", 
-  "Alexânia", "Aloândia", "Alto Horizonte", "Alto Paraíso de Goiás", "Alvorada do Norte", "Amaralina", "Americano do Brasil", 
-  "Anápolis", "Anhanguera", "Anicuns", "Aparecida de Goiânia", "Caldas Novas", "Catalão", "Formosa", "Goiânia", "Goianira", 
-  "Itumbiara", "Jaraguá", "Jataí", "Luziânia", "Rio Verde", "Senador Canedo", "Trindade", "Valparaíso de Goiás"
+  "Abadia de Goiás", "Abadiânia", "Acreúna", "Adelândia", "Água Fria de Goiás", "Água Limpa", "Águas Lindas de Goiás", "Alexânia", "Aloândia", "Alto Horizonte", "Alto Paraíso de Goiás", "Alvorada do Norte", "Amaralina", "Americano do Brasil", "Amorinópolis", "Anápolis", "Anhanguera", "Anicuns", "Aparecida de Goiânia", "Aparecida do Rio Doce", "Aporé", "Araçu", "Aragarças", "Aragoiânia", "Araguapaz", "Arenópolis", "Aruanã", "Aurilândia", "Avelinópolis", "Baliza", "Barro Alto", "Bela Vista de Goiás", "Bom Jardim de Goiás", "Bom Jesus de Goiás", "Bonfinópolis", "Bonópolis", "Brazabrantes", "Britânia", "Buriti Alegre", "Buriti de Goiás", "Buritinuópolis", "Cabeceiras", "Cachoeira Alta", "Cachoeira de Goiás", "Cachoeira Dourada", "Caçu", "Caiapônia", "Caldas Novas", "Caldazinha", "Campestre de Goiás", "Campinaçu", "Campinorte", "Campo Alegre de Goiás", "Campo Limpo de Goiás", "Campos Belos", "Campos Verdes", "Carmo do Rio Verde", "Castelândia", "Catalão", "Caturaí", "Cavalcante", "Cezarina", "Chapadão do Céu", "Cidade Ocidental", "Cocalzinho de Goiás", "Colinas do Sul", "Córrego do Ouro", "Corumbá de Goiás", "Corumbaíba", "Cristalina", "Cristianópolis", "Cristalina", "Cristianópolis", "Crixás", "Cromínia", "Cumari", "Damianópolis", "Damolândia", "Davinópolis", "Diorama", "Divinópolis de Goiás", "Doverlândia", "Edealina", "Edéia", "Estrela do Norte", "Faina", "Fazenda Nova", "Firminópolis", "Flores de Goiás", "Formosa", "Formoso", "Gameleira de Goiás", "Goianápolis", "Goiandira", "Goianésia", "Goiânia", "Goianira", "Goiás", "Goiatuba", "Gouvelândia", "Guapó", "Guaraíta", "Guarani de Goiás", "Guarinos", "Heitoraí", "Hidrolândia", "Hidrolina", "Iaciara", "Inaciolândia", "Indiara", "Inhumas", "Ipameri", "Ipiranga de Goiás", "Iporá", "Israelândia", "Itaberaí", "Itaguari", "Itaguaru", "Itajá", "Itapaci", "Itapirapuã", "Itapuranga", "Itarumã", "Itauçu", "Itumbiara", "Ivolândia", "Jandaia", "Jaraguá", "Jataí", "Jaupaci", "Jesúpolis", "Joviânia", "Jussara", "Lagoa Santa", "Leopoldo de Bulhões", "Luziânia", "Mairipotaba", "Mambaí", "Mara Rosa", "Marzagão", "Matrinchã", "Maurilândia", "Mimoso de Goiás", "Minaçu", "Mineiros", "Moiporá", "Monte Alegre de Goiás", "Montes Claros de Goiás", "Montividiu", "Montividiu do Norte", "Morrinhos", "Morro Agudo de Goiás", "Mossâmedes", "Mozarlândia", "Mundo Novo", "Mutunópolis", "Nazário", "Nerópolis", "Niquelândia", "Nova América", "Nova Aurora", "Nova Crixás", "Nova Glória", "Nova Iguaçu de Goiás", "Nova Roma", "Nova Veneza", "Novo Brasil", "Novo Gama", "Novo Planalto", "Orizona", "Ouro Verde de Goiás", "Ouvidor", "Padre Bernardo", "Palestina de Goiás", "Palmeiras de Goiás", "Palmelo", "Palminópolis", "Panamá", "Paranaiguara", "Paraúna", "Perolândia", "Petrolina de Goiás", "Pilar de Goiás", "Piracanjuba", "Piranhas", "Pirenópolis", "Pires do Rio", "Planaltina", "Pontalina", "Porangatu", "Porteirão", "Portelândia", "Posse", "Professor Jamil", "Quirinópolis", "Rialma", "Rianápolis", "Rio Quente", "Rio Verde", "Rubiataba", "Sanclerlândia", "Santa Bárbara de Goiás", "Santa Cruz de Goiás", "Santa Fé de Goiás", "Santa Helena de Goiás", "Santa Isabel", "Santa Rita do Araguaia", "Santa Rita do Novo Destino", "Santa Rosa de Goiás", "Santa Tereza de Goiás", "Santa Terezinha de Goiás", "Santo Antônio da Barra", "Santo Antônio de Goiás", "Santo Antônio do Descoberto", "São Domingos", "São Francisco de Goiás", "São João d'Aliança", "São João da Paraúna", "São Luís de Montes Claros", "São Luíz do Norte", "São Miguel do Araguaia", "São Miguel do Passa Quatro", "São Patrício", "São Simão", "Senador Canedo", "Serranópolis", "Silvânia", "Simolândia", "Sítio d'Abadia", "Taquaral de Goiás", "Teresina de Goiás", "Terezópolis de Goiás", "Três Ranchos", "Trindade", "Trombas", "Turvânia", "Turvelândia", "Uirapuru", "Uruaçu", "Uruana", "Urutaí", "Valparaíso de Goiás", "Varjão", "Vianópolis", "Vicentinópolis", "Vila Boa", "Vila Propício"
 ];
 
-// Lista de deputados estaduais da ALEGO.
+// Lista oficial dos 41 deputados estaduais da ALEGO (Legislatura 2023-2027).
 export const GOIAS_DEPUTIES = [
-  "Adriana Accorsi", "Amilton Filho", "Amauri Ribeiro", "Antônio Gomide", "Bia de Lima", "Bruno Peixoto",
-  "Cairo Salim", "Charles Bento", "Clécio Alves", "Delegado Eduardo Prado", "Dr. George Morais",
-  "Gustavo Sebba", "Issy Quinan", "Lincoln Tejota", "Lucas Calil", "Major Araújo", "Mauro Rubem",
-  "Paulo Cezar Martins", "Talles Barreto", "Vívian Naves", "Wilde Cambão"
+  "Alessandro Moreira",
+  "Amilton Filho",
+  "Amauri Ribeiro",
+  "Anderson Teodoro",
+  "André do Premium",
+  "Antônio Gomide",
+  "Bia de Lima",
+  "Bruno Peixoto",
+  "Cairo Salim",
+  "Charles Bento",
+  "Clécio Alves",
+  "Coronel Adailton",
+  "Cristiano Galindo",
+  "Cristóvão Tormin",
+  "Delegado Eduardo Prado",
+  "Dr. George Morais",
+  "Dr. José Machado",
+  "Dra. Zélia",
+  "Gugu Nader",
+  "Gustavo Sebba",
+  "Henrique César",
+  "Issy Quinan",
+  "Jamil Calife",
+  "Julio Pina",
+  "Karlos Cabral",
+  "Lineu Olimpio",
+  "Lincoln Tejota",
+  "Lucas Calil",
+  "Lucas do Vale",
+  "Mauro Rubem",
+  "Paulo Cezar Martins",
+  "Renato de Castro",
+  "Ricardo Quirino",
+  "Rosângela Rezende",
+  "Talles Barreto",
+  "Thiago Albernaz",
+  "Veter Martins",
+  "Vívian Naves",
+  "Wagner Neto",
+  "Wilde Cambão"
 ];
 
 // Usuário padrão para bypassar a tela de login em ambiente de desenvolvimento.
@@ -70,8 +104,8 @@ export const MOCK_AMENDMENTS: Amendment[] = [
     municipality: 'Goiânia',
     object: 'Aquisição de Ambulância para Unidade de Saúde Central',
     value: 250000.00,
-    status: Status.IN_PROGRESS,
-    currentSector: 'GESA - Protocolo Central',
+    status: Status.DOCUMENT_ANALYSIS,
+    currentSector: 'SES/CEP-20903',
     createdAt: new Date().toISOString(),
     suinfra: false,
     sutis: false,
@@ -80,7 +114,7 @@ export const MOCK_AMENDMENTS: Amendment[] = [
         id: 'mov-01',
         amendmentId: 'am-001',
         fromSector: 'Origem Externa',
-        toSector: 'GESA - Protocolo Central',
+        toSector: 'SES/CEP-20903',
         dateIn: new Date(Date.now() - 86400000 * 2).toISOString(),
         dateOut: null,
         deadline: new Date(Date.now() + 86400000 * 3).toISOString(),
@@ -108,7 +142,7 @@ export const MOCK_AMENDMENTS: Amendment[] = [
       {
         id: 'mov-02',
         amendmentId: 'am-002',
-        fromSector: 'GESA - Protocolo Central',
+        fromSector: 'SES/CEP-20903',
         toSector: 'SUINFRA - Engenharia',
         dateIn: new Date(Date.now() - 86400000 * 5).toISOString(),
         dateOut: null,

@@ -1,8 +1,7 @@
 
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 2.7.5-stable
- * Foco: Tipagem estrita e conformidade com boas práticas de engenharia.
+ * Versão: 2.9.5-stable
  */
 
 export enum SystemMode {
@@ -35,6 +34,7 @@ export enum GNDType {
   INVESTIMENTO = '4 - Investimento'
 }
 
+// Mantido apenas para compatibilidade de tipos, mas o sistema agora utiliza strings dinâmicas
 export enum AnalysisType {
   TECHNICAL = 'Análise Técnica',
   LEGAL = 'Parecer Jurídico',
@@ -48,25 +48,32 @@ export interface SectorConfig {
   id: string;
   name: string;
   defaultSlaDays: number;
-  analysisType: AnalysisType;
+  analysisType: string; // Agora dinâmico vindo de StatusConfig
 }
 
-export interface AIAnalysisResult {
-  summary: string;
-  bottleneck: string;
-  recommendation: string;
-  riskScore: number;
-  completionProbability: number;
+export interface StatusConfig {
+  id: string;
+  tenantId: string;
+  name: string;
+  color: string;
+  isFinal?: boolean;
 }
 
 export enum Status {
+  DOCUMENT_ANALYSIS = 'Análise da Documentação',
   IN_PROGRESS = 'Em Tramitação',
   DILIGENCE = 'Em Diligência',
   REJECTED = 'Rejeitado',
   CONCLUDED = 'Liquidado / Pago',
-  ARCHIVED = 'Arquivado',
-  CONSOLIDATION = 'Em Consolidação',
-  FORWARDING = 'Encaminhado'
+  ARCHIVED = 'Arquivado'
+}
+
+export interface DeadlineExtension {
+  originalDeadline: string;
+  newDeadline: string;
+  justification: string;
+  extendedAt: string;
+  extendedBy: string;
 }
 
 export interface AmendmentMovement {
@@ -80,7 +87,8 @@ export interface AmendmentMovement {
   daysSpent: number;
   handledBy: string;
   remarks?: string;
-  analysisType?: AnalysisType;
+  analysisType?: string;
+  extension?: DeadlineExtension;
 }
 
 export interface Amendment {
@@ -94,7 +102,7 @@ export interface Amendment {
   municipality: string;
   object: string;
   value: number;
-  status: Status;
+  status: string;
   currentSector: string;
   movements: AmendmentMovement[];
   suinfra?: boolean;
@@ -131,7 +139,9 @@ export enum AuditAction {
   AI_ANALYSIS = 'Análise IA',
   TENANT_SWITCH = 'Troca de Tenant',
   SECURITY = 'Segurança',
-  ERROR = 'Erro'
+  ERROR = 'Erro',
+  EXTEND_DEADLINE = 'Dilação de Prazo',
+  STATUS_CONFIG = 'Configuração de Status'
 }
 
 export type AuditSeverity = 'INFO' | 'WARN' | 'CRITICAL';
@@ -145,4 +155,12 @@ export interface AuditLog {
   details: string;
   timestamp: string;
   severity: AuditSeverity;
+}
+
+export interface AIAnalysisResult {
+  summary: string;
+  bottleneck: string;
+  recommendation: string;
+  riskScore: number;
+  completionProbability: number;
 }

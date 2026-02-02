@@ -1,284 +1,301 @@
 
-
-/**
- * MÓDULO DE GESTÃO DE SETORES TÉCNICOS (FLUXO MESTRE)
- * 
- * Este componente permite definir a arquitetura permanente do fluxo.
- * Regra de Negócio: Uma vez registrado, o setor é permanente. 
- * Apenas o SLA (prazo) pode ser editado para ajustes operacionais.
- */
 import React, { useState, useMemo } from 'react';
-import { SectorConfig, AnalysisType } from '../types';
+import { SectorConfig, StatusConfig } from '../types';
 import { 
   Plus, Clock, ShieldCheck, X, Building2, Briefcase, 
-  Lock, AlertCircle, Info, CheckCircle2, Search, ArrowRight, Trash2, ShieldAlert, LayoutList, Pencil, Save
+  Lock, Info, Search, Save, Pencil, ShieldAlert,
+  Database, FileJson, CheckCircle2, Loader2, Copy, Check, Terminal, Edit2
 } from 'lucide-react';
 
 interface SectorManagementProps {
   sectors: SectorConfig[];
+  statuses: StatusConfig[];
   onAdd: (sector: SectorConfig) => void;
-  onReset: () => void;
+  onBatchAdd: (sectors: any[]) => void;
   onUpdateSla: (id: string, newSla: number) => void;
+  error?: string | null;
 }
 
-export const SectorManagement: React.FC<SectorManagementProps> = ({ sectors, onAdd, onReset, onUpdateSla }) => {
+export const SectorManagement: React.FC<SectorManagementProps> = ({ 
+  sectors, statuses, onAdd, onBatchAdd, onUpdateSla, error 
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSqlModalOpen, setIsSqlModalOpen] = useState(error === 'DATABASE_SETUP_REQUIRED');
+  const [batchText, setBatchText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingSlaId, setEditingSlaId] = useState<string | null>(null);
-  const [tempSla, setTempSla] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [newSector, setNewSector] = useState<Partial<SectorConfig>>({
     name: '',
     defaultSlaDays: 5,
-    analysisType: AnalysisType.TECHNICAL
+    analysisType: statuses.length > 0 ? statuses[0].name : ''
   });
+
+  const [editingSector, setEditingSector] = useState<SectorConfig | null>(null);
+
+  const sqlSetup = `-- 1. Criar Tabela de Setores
+create table if not exists sectors (
+  id uuid primary key default gen_random_uuid(),
+  "tenantId" text not null default 'T-01',
+  name text not null,
+  "defaultSlaDays" integer default 5,
+  "analysisType" text,
+  "createdAt" timestamp with time zone default now()
+);
+
+-- 2. Habilitar Segurança RLS
+alter table sectors enable row level security;
+create policy "Acesso Total para Testes" on sectors for all using (true);`;
 
   const filteredSectors = useMemo(() => {
     return sectors.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [sectors, searchTerm]);
 
-  const handleReset = () => {
-    if (window.confirm("⚠️ ALERTA: Esta ação apagará todos os setores atuais. Esta é uma operação de reset da arquitetura de fluxo. Confirmar?")) {
-      onReset();
-    }
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlSetup);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const startEditSla = (sector: SectorConfig) => {
-    setEditingSlaId(sector.id);
-    setTempSla(sector.defaultSlaDays);
-  };
+  const handleBatchSubmit = async () => {
+    const lines = batchText.split('\n').filter(l => l.trim() !== '');
+    if (lines.length === 0) return;
 
-  const saveSla = (id: string) => {
-    if (tempSla > 0) {
-      onUpdateSla(id, tempSla);
-      setEditingSlaId(null);
+    setIsLoading(true);
+    const sectorsToInsert = lines.map(line => ({
+      name: line.trim().toUpperCase(),
+      defaultSlaDays: 5,
+      analysisType: statuses.length > 0 ? statuses[0].name : 'Análise Técnica'
+    }));
+
+    try {
+      await onBatchAdd(sectorsToInsert);
+      setBatchText('');
+      setIsBatchModalOpen(false);
+    } catch (e) {
+      alert("Falha na inserção em lote: Verifique se a tabela física existe no Supabase.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newSector.name) {
-      const exists = sectors.some(s => s.name.toLowerCase() === newSector.name?.toLowerCase());
-      if (exists) {
-        alert("Este setor já está registrado.");
-        return;
-      }
-
       onAdd({
-        id: `SEC-${Date.now()}`,
-        name: newSector.name,
+        name: newSector.name.toUpperCase(),
         defaultSlaDays: newSector.defaultSlaDays || 5,
-        analysisType: newSector.analysisType || AnalysisType.TECHNICAL
+        analysisType: newSector.analysisType || (statuses.length > 0 ? statuses[0].name : '')
       } as SectorConfig);
-      
       setIsModalOpen(false);
-      setNewSector({ name: '', defaultSlaDays: 5, analysisType: AnalysisType.TECHNICAL });
+      setNewSector({ name: '', defaultSlaDays: 5, analysisType: statuses.length > 0 ? statuses[0].name : '' });
+    }
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingSector) {
+      onAdd(editingSector);
+      setIsEditModalOpen(false);
+      setEditingSector(null);
     }
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Cabeçalho de Gestão */}
+      {error === 'DATABASE_SETUP_REQUIRED' && (
+        <div className="bg-red-50 border border-red-200 p-8 rounded-[40px] flex flex-col items-center text-center gap-6 shadow-xl shadow-red-900/5">
+          <div className="w-20 h-20 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center animate-bounce">
+            <ShieldAlert size={40} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-red-900 uppercase">Tabela 'sectors' não encontrada!</h3>
+            <p className="text-xs text-red-700 font-bold uppercase mt-2 max-w-xl">
+              O sistema detectou que a estrutura de banco de dados ainda não foi inicializada no seu Supabase. 
+            </p>
+          </div>
+          <button 
+            onClick={() => setIsSqlModalOpen(true)}
+            className="px-10 py-5 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-red-700 transition-all flex items-center gap-3"
+          >
+            <Terminal size={18} /> Abrir Guia SQL
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Arquitetura de Fluxo</h2>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2 flex items-center gap-2">
-            <Lock size={14} className="text-amber-500"/> Registro Permanente de Unidades Técnicas GESA
+            <Lock size={14} className="text-amber-500"/> Unidades Técnicas GESA Cloud (Imutáveis)
           </p>
         </div>
         <div className="flex gap-3">
+            <div className="hidden md:flex items-center gap-2 px-6 py-4 bg-emerald-50 border border-emerald-100 rounded-[20px] text-emerald-700 text-[10px] font-black uppercase tracking-widest">
+                <ShieldCheck size={16} /> Registros Protegidos para Auditoria
+            </div>
             <button 
-              onClick={handleReset} 
-              className="flex items-center gap-2 bg-white text-red-500 border border-red-100 px-6 py-4 rounded-[20px] hover:bg-red-50 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest"
+              onClick={() => setIsBatchModalOpen(true)} 
+              className="flex items-center gap-2 bg-white text-[#0d457a] border border-slate-200 px-6 py-4 rounded-[20px] hover:bg-slate-50 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest"
             >
-                <Trash2 size={16} /> Reset Total
+                <Database size={16} /> Inserção em Lote
             </button>
             <button 
               onClick={() => setIsModalOpen(true)} 
-              className="flex items-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-[20px] hover:bg-[#0a365f] transition-all shadow-[0_10px_20px_rgba(13,69,122,0.2)] uppercase text-[11px] font-black tracking-[0.2em] group"
+              className="flex items-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-[20px] hover:bg-[#0a365f] transition-all shadow-lg uppercase text-[11px] font-black tracking-[0.2em]"
             >
-                <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 
-                Registrar Novo Setor
+                <Plus size={18} /> Novo Setor
             </button>
         </div>
       </div>
 
-      {/* Alerta de Regra de Negócio */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-2xl flex gap-4 items-start shadow-sm">
-         <div className="p-2 bg-blue-500 text-white rounded-lg shadow-md"><ShieldAlert size={20}/></div>
-         <div>
-            <h4 className="text-blue-800 font-black text-xs uppercase tracking-wider">Protocolo de Imutabilidade Operacional</h4>
-            <p className="text-blue-700 text-xs font-medium mt-1 leading-relaxed">
-              Para garantir a integridade histórica dos trâmites, os nomes e tipos de análise dos setores são <strong>permanentes</strong> após o registro. 
-              Apenas o <strong>prazo (SLA)</strong> pode ser editado para refletir a capacidade produtiva de cada unidade.
-            </p>
-         </div>
-      </div>
-
-      {/* Filtro de Busca */}
       <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex items-center gap-3">
          <Search size={20} className="text-slate-300 ml-2" />
          <input 
             type="text" 
-            placeholder="Pesquisar setores registrados..."
+            placeholder="Pesquisar setores registrados na base..."
             className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-slate-600 placeholder:text-slate-300 uppercase"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
          />
-         <div className="px-4 py-1.5 bg-slate-50 rounded-xl text-[10px] font-black text-slate-400 uppercase border border-slate-100">
-            Ativos: {sectors.length}
-         </div>
       </div>
 
-      {/* Grid de Setores */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredSectors.map(sector => (
-          <div key={sector.id} className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 hover:shadow-xl hover:border-[#0d457a]/20 transition-all group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-500"></div>
-            
+          <div key={sector.id} className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 hover:shadow-xl hover:border-[#0d457a]/20 transition-all group relative">
             <div className="relative z-10">
                 <div className="flex justify-between items-start mb-6">
-                   <div className="p-3 bg-blue-50 text-[#0d457a] rounded-2xl group-hover:bg-[#0d457a] group-hover:text-white transition-colors duration-300 shadow-sm">
+                   <div className="p-3 bg-blue-50 text-[#0d457a] rounded-2xl group-hover:bg-[#0d457a] group-hover:text-white transition-colors">
                       <Building2 size={24} />
                    </div>
-                   <span className="flex items-center gap-1.5 text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase border border-emerald-100">
-                      <ShieldCheck size={12}/> Registrado
-                   </span>
+                   <div className="flex gap-2">
+                     <button 
+                        onClick={() => { setEditingSector(sector); setIsEditModalOpen(true); }}
+                        className="p-2 bg-slate-50 text-slate-400 hover:text-[#0d457a] hover:bg-blue-50 rounded-xl transition-all"
+                        title="Editar SLA/Dados"
+                     >
+                        <Edit2 size={16} />
+                     </button>
+                     <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase border border-emerald-100">Registrado</span>
+                </div>
                 </div>
                 
                 <h3 className="font-black text-base text-[#0d457a] uppercase leading-tight mb-2 min-h-[40px]">{sector.name}</h3>
-                <div className="flex items-center gap-2 mb-6">
-                   <Briefcase size={14} className="text-slate-300" />
-                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{sector.analysisType}</span>
-                </div>
                 
-                <div className="pt-6 border-t border-slate-100">
-                    <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-2">SLA Operacional</span>
-                        
-                        {editingSlaId === sector.id ? (
-                           <div className="flex items-center gap-2 animate-in zoom-in-95">
-                              <input 
-                                 type="number" 
-                                 value={tempSla} 
-                                 onChange={(e) => setTempSla(parseInt(e.target.value))}
-                                 className="w-20 px-3 py-2 bg-slate-50 border border-[#0d457a] rounded-lg text-sm font-black text-[#0d457a] outline-none"
-                                 autoFocus
-                              />
-                              <button onClick={() => saveSla(sector.id)} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors shadow-sm">
-                                 <Save size={14} />
-                              </button>
-                              <button onClick={() => setEditingSlaId(null)} className="p-2 bg-slate-100 text-slate-400 rounded-lg hover:bg-slate-200 transition-colors shadow-sm">
-                                 <X size={14} />
-                              </button>
-                           </div>
-                        ) : (
-                           <div className="flex items-center justify-between group/sla">
-                              <div className="flex items-center gap-2">
-                                  <Clock size={16} className="text-amber-500" />
-                                  <span className="text-base font-black text-[#0d457a]">{sector.defaultSlaDays} Dias</span>
-                              </div>
-                              <button 
-                                 onClick={() => startEditSla(sector)}
-                                 className="opacity-0 group-hover/sla:opacity-100 p-2 text-slate-300 hover:text-[#0d457a] hover:bg-slate-50 rounded-lg transition-all"
-                                 title="Editar Prazo"
-                              >
-                                 <Pencil size={14} />
-                              </button>
-                           </div>
-                        )}
+                <div className="pt-6 border-t border-slate-100 space-y-4">
+                    <div>
+                        <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1 block">Estado Vinculado</span>
+                        <span className="text-[10px] font-bold text-blue-600 uppercase">{sector.analysisType}</span>
+                    </div>
+                    <div>
+                        <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-2 block">SLA Operacional</span>
+                        <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Clock size={16} className="text-amber-500" />
+                            <span className="text-base font-black text-[#0d457a]">{sector.defaultSlaDays} Dias</span>
+                        </div>
+                        </div>
                     </div>
                 </div>
             </div>
           </div>
         ))}
-
-        {filteredSectors.length === 0 && (
-          <div className="col-span-full py-32 text-center bg-slate-50 rounded-[40px] border-4 border-dashed border-slate-200">
-             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <LayoutList size={32} className="text-slate-300"/>
-             </div>
-             <h3 className="text-slate-400 font-black uppercase tracking-widest">Nenhum setor cadastrado</h3>
-             <p className="text-slate-300 text-xs font-bold uppercase mt-2">Clique em "Registrar Novo Setor" para iniciar.</p>
-          </div>
-        )}
       </div>
 
-      {/* Modal de Cadastro Permanente */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Registro Permanente</h3>
-                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Goiás em Crescimento - Fluxo Mestre</p>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-4 bg-white border border-slate-200 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
-                <X size={24}/>
-              </button>
+          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Novo Registro</h3>
+              <button onClick={() => setIsModalOpen(false)}><X/></button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-10 space-y-8">
-              <div className="bg-amber-50 p-5 rounded-2xl flex gap-4 items-center border border-amber-100">
-                 <div className="p-2 bg-amber-500 text-white rounded-xl shadow-sm"><Info size={20}/></div>
-                 <p className="text-xs text-amber-800 font-bold leading-tight uppercase tracking-tight">Cuidado: O nome e a atribuição não poderão ser alterados após o registro para manter a integridade dos dados.</p>
-              </div>
-
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">Nome da Unidade / Setor</label>
-                <div className="relative">
-                    <Building2 size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" />
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Nome da Unidade</label>
+                <input 
+                  type="text" 
+                  value={newSector.name} 
+                  onChange={(e) => setNewSector({...newSector, name: e.target.value})} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase" 
+                  required 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">SLA Padrão (Dias)</label>
                     <input 
-                      type="text" 
-                      value={newSector.name} 
-                      onChange={(e) => setNewSector({...newSector, name: e.target.value})} 
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none transition-all font-bold text-[#0d457a] uppercase placeholder:text-slate-300" 
+                      type="number" 
+                      value={newSector.defaultSlaDays} 
+                      onChange={(e) => setNewSector({...newSector, defaultSlaDays: parseInt(e.target.value)})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a]" 
                       required 
-                      placeholder="Ex: GESA - PROTOCOLO" 
                     />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">SLA Inicial (Dias)</label>
-                  <div className="relative">
-                      <Clock size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" />
-                      <input 
-                        type="number" 
-                        value={newSector.defaultSlaDays} 
-                        onChange={(e) => setNewSector({...newSector, defaultSlaDays: parseInt(e.target.value)})} 
-                        className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none transition-all font-bold" 
-                        required 
-                        min="1" 
-                      />
                   </div>
-                </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Tipo de Análise (Estado do Ciclo)</label>
+                    <select 
+                      value={newSector.analysisType} 
+                      onChange={(e) => setNewSector({...newSector, analysisType: e.target.value})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-600 uppercase text-xs"
+                    >
+                      <option value="">Selecione um Estado...</option>
+                      {statuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
+                  </div>
+              </div>
+              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg">Registrar Setor</button>
+            </form>
+          </div>
+        </div>
+      )}
 
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">Atribuição GESA</label>
-                  <div className="relative">
-                      <Briefcase size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" />
-                      <select 
-                        value={newSector.analysisType} 
-                        onChange={(e) => setNewSector({...newSector, analysisType: e.target.value as AnalysisType})} 
-                        className="w-full pl-14 pr-10 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-[#0d457a]/10 outline-none transition-all appearance-none font-bold text-slate-600"
-                      >
-                          {(Object.values(AnalysisType) as string[]).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <ArrowRight size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 rotate-90" />
+      {isEditModalOpen && editingSector && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
+          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Ajustar Unidade</h3>
+              <button onClick={() => setIsEditModalOpen(false)}><X/></button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="p-8 space-y-6">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Nome da Unidade</label>
+                <input 
+                  type="text" 
+                  value={editingSector.name} 
+                  onChange={(e) => setEditingSector({...editingSector, name: e.target.value})} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase" 
+                  required 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">SLA Operacional (Dias)</label>
+                    <input 
+                      type="number" 
+                      value={editingSector.defaultSlaDays} 
+                      onChange={(e) => setEditingSector({...editingSector, defaultSlaDays: parseInt(e.target.value)})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a]" 
+                      required 
+                    />
                   </div>
-                </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Tipo de Análise (Estado do Ciclo)</label>
+                    <select 
+                      value={editingSector.analysisType} 
+                      onChange={(e) => setEditingSector({...editingSector, analysisType: e.target.value})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-600 uppercase text-xs"
+                    >
+                      <option value="">Selecione um Estado...</option>
+                      {statuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
+                  </div>
               </div>
-              
-              <div className="pt-6 border-t border-slate-100">
-                  <button 
-                    type="submit" 
-                    className="w-full py-5 bg-[#0d457a] text-white rounded-[24px] font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-4 group"
-                  >
-                    Efetivar Registro <CheckCircle2 size={22} className="group-hover:scale-110 transition-transform"/>
-                  </button>
-              </div>
+              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2">
+                <Save size={18} /> Salvar Alterações
+              </button>
             </form>
           </div>
         </div>

@@ -57,8 +57,13 @@ export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysis
       }
     });
 
-    // Parse do resultado retornado pela IA
-    return JSON.parse(response.text) as AIAnalysisResult;
+    // Extração e limpeza do texto retornado pela IA conforme diretrizes do SDK
+    const jsonStr = response.text?.trim();
+    if (!jsonStr) {
+      throw new Error("O modelo retornou uma resposta vazia.");
+    }
+
+    return JSON.parse(jsonStr) as AIAnalysisResult;
   } catch (error) {
     console.error("AI Analysis Error:", error);
     return {

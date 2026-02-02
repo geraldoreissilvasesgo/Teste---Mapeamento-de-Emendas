@@ -29,8 +29,9 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const initialOrigin = 'SES/CEP-20903';
-  const [initialDestination, setInitialDestination] = useState<string>('');
+  const initialOrigin = 'Origem Externa';
+  const mandatorySector = 'SES/CEP-20903';
+  const [initialDestination, setInitialDestination] = useState<string>(mandatorySector);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -113,9 +114,9 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
             municipality: cols[4]?.trim(),
             deputyName: cols[5]?.trim() || 'Não Informado',
             type: AmendmentType.IMPOSITIVA, // Default
-            status: Status.IN_PROGRESS,
-            currentSector: 'Aguardando Distribuição',
-            movements: [], // Será preenchido ao confirmar
+            status: Status.DOCUMENT_ANALYSIS, // Regra obrigatória
+            currentSector: mandatorySector, // Regra obrigatória
+            movements: [], 
             createdAt: new Date().toISOString(),
             suinfra: false,
             sutis: false
@@ -156,7 +157,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
         dateOut: null,
         deadline: deadline.toISOString(),
         daysSpent: 0,
-        handledBy: 'Sistema (Importação)',
+        handledBy: 'Sistema (Importação Lote)',
         analysisType: destSectorConfig?.analysisType,
       };
 
@@ -171,7 +172,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
     setFile(null);
     setParsedData([]);
     setValidationErrors([]);
-    setInitialDestination('');
+    setInitialDestination(mandatorySector);
   };
 
   const handleDownloadTemplate = () => {
@@ -241,8 +242,8 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
                     onChange={(e) => setInitialDestination(e.target.value)}
                     className="pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0d457a] outline-none text-sm font-bold text-slate-600 appearance-none"
                  >
-                    <option value="">Selecione o Destino Inicial</option>
-                    {sectors.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    <option value={mandatorySector}>{mandatorySector} (Obrigatório)</option>
+                    {sectors.filter(s => s.name !== mandatorySector).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                  </select>
                  <Info size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
                </div>
