@@ -2,7 +2,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Amendment, AIAnalysisResult } from "../types";
 
+/**
+ * SERVIÇO DE INTELIGÊNCIA ARTIFICIAL (IA)
+ * Utiliza o modelo Gemini 3.0 Pro para realizar análises preditivas em processos burocráticos.
+ */
 export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysisResult> => {
+  // Verifica se a chave de API está presente no ambiente
   if (!process.env.API_KEY) {
     return {
       summary: "Análise Preditiva Indisponível (Sem API Key)",
@@ -14,21 +19,25 @@ export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysis
   }
 
   try {
+    // Inicialização do SDK do Google GenAI
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Prompt de sistema estruturado para atuar como especialista em eficiência pública
     const prompt = `
-      Você é um especialista em eficiência burocrática da GESA/GO.
+      Você é um especialista em eficiência burocrática da GESA Cloud.
       Analise o processo SEI ${amendment.seiNumber} - "${amendment.object}".
       Localização Atual: ${amendment.currentSector}.
-      Histórico: ${amendment.movements.length} tramitações.
+      Histórico: ${amendment.movements.length} tramitações realizadas.
       
-      Gere uma análise JSON com:
-      1. summary: Resumo da situação.
-      2. bottleneck: Identifique o gargalo mais provável.
-      3. recommendation: Ação imediata sugerida.
-      4. riskScore: Risco de atraso (0-100).
-      5. completionProbability: Probabilidade de pagamento este ano (0-1).
+      Gere uma análise técnica em formato JSON contendo:
+      1. summary: Um breve resumo executivo do status.
+      2. bottleneck: Identifique o provável gargalo técnico ou administrativo.
+      3. recommendation: Sugestão de ação imediata para o gestor.
+      4. riskScore: Pontuação de risco de atraso (0-100).
+      5. completionProbability: Probabilidade de liquidação financeira este ano (0-1).
     `;
 
+    // Chamada ao modelo com esquema de resposta JSON forçado para estabilidade
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -48,13 +57,14 @@ export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysis
       }
     });
 
+    // Parse do resultado retornado pela IA
     return JSON.parse(response.text) as AIAnalysisResult;
   } catch (error) {
     console.error("AI Analysis Error:", error);
     return {
-      summary: "Falha na análise técnica por IA.",
+      summary: "Falha na análise técnica por IA. O serviço pode estar sobrecarregado.",
       bottleneck: "Indeterminado",
-      recommendation: "Revise o histórico manualmente.",
+      recommendation: "Realize a conferência manual do processo no SEI.",
       riskScore: 0,
       completionProbability: 0
     };

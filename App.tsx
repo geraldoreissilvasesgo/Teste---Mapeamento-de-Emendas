@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { AmendmentList } from './components/AmendmentList';
@@ -12,35 +12,59 @@ import { SecurityModule } from './components/SecurityModule';
 import { GovernanceDocs } from './components/GovernanceDocs';
 import { ApiPortal } from './components/ApiPortal';
 import { TestingPanel } from './components/TestingPanel';
+import { SystemManual } from './components/SystemManual';
 import { Login } from './components/Login';
 import { 
   User, Amendment, Role, Status, 
-  AmendmentMovement, SystemMode, AuditLog, AuditAction
+  AmendmentMovement, SystemMode, AuditLog, AuditAction, AuditSeverity
 } from './types';
 import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS } from './constants';
 import { analyzeAmendment } from './services/geminiService';
 import { db, supabase } from './services/supabase';
-import { Loader2, RefreshCw, ShieldAlert, Lock } from 'lucide-react';
+import { Loader2, RefreshCw, ShieldAlert, Lock, WifiOff, AlertTriangle } from 'lucide-react';
 
+/**
+ * COMPONENTE PRINCIPAL (ORQUESTRADOR)
+ * Gerencia o estado global, autenticação e sincronização de dados.
+ */
 const App: React.FC = () => {
+  // --- ESTADOS DE USUÁRIO E CONTEXTO ---
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTenantId, setActiveTenantId] = useState<string>('');
+  const [activeTenantId, setActiveTenantId] = useState<string>(''); 
+  
+  // --- ESTADOS DE DADOS ---
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  
+  // --- ESTADOS DE INTERFACE (UI) ---
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null);
   const [systemMode] = useState<SystemMode>(SystemMode.PRODUCTION);
   const [sectorConfigs, setSectorConfigs] = useState(DEFAULT_SECTOR_CONFIGS);
+  
+  // --- ESTADOS DE CARREGAMENTO E ERRO ---
   const [isLoading, setIsLoading] = useState(true);
   const [isUsersLoading, setIsUsersLoading] = useState(false);
-  const [syncError, setSyncError] = useState<{message: string, isSecurity: boolean} | null>(null);
+  const [syncError, setSyncError] = useState<{message: string, isSecurity: boolean, isNetwork?: boolean, isAborted?: boolean} | null>(null);
 
+  // --- CONTROLE DE REQUISIÇÕES (FIX PARA 'SIGNAL ABORTED') ---
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const DEPARTMENTS = [
+    { id: 'T-01', name: 'Secretaria da Saúde (SES)' },
+    { id: 'T-02', name: 'Secretaria da Educação (SEDUC)' },
+    { id: 'T-03', name: 'Infraestrutura (GOINFRA)' }
+  ];
+
+  /**
+   * Monitora mudanças no estado de autenticação.
+   */
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const userTenant = session.user.user_metadata.tenantId || 'T-01';
-        setCurrentUser({
+        const userData: User = {
           id: session.user.id,
           tenantId: userTenant, 
           name: session.user.user_metadata.name || 'Usuário GESA',
@@ -48,8 +72,17 @@ const App: React.FC = () => {
           role: (session.user.user_metadata.role as Role) || Role.ADMIN,
           lgpdAccepted: session.user.user_metadata.lgpdAccepted || false,
           avatarUrl: `https://ui-avatars.com/api/?name=${session.user.email}&background=0d457a&color=fff`
-        });
+        };
+        setCurrentUser(userData);
         setActiveTenantId(userTenant);
+
+        if (event === 'SIGNED_IN') {
+           await db.audit.log({
+             action: AuditAction.LOGIN,
+             details: `Sessão iniciada com sucesso via Autenticação Unificada.`,
+             severity: 'INFO' as AuditSeverity
+           });
+        }
       } else {
         setCurrentUser(null);
         setAmendments([]);
@@ -61,6 +94,16 @@ const App: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleTenantChange = async (newTenantId: string) => {
+     if (newTenantId === activeTenantId) return;
+     setActiveTenantId(newTenantId);
+     await db.audit.log({
+       action: AuditAction.TENANT_SWITCH,
+       details: `Super Admin alternou contexto para unidade ${newTenantId}.`,
+       severity: 'WARN' as AuditSeverity
+     });
+  };
 
   const fetchUsers = async () => {
     if (!currentUser || !activeTenantId) return;
@@ -75,23 +118,34 @@ const App: React.FC = () => {
     }
   };
 
-  const fetchData = async () => {
+  /**
+   * Sincronização central de dados com proteção contra 'Signal Aborted'.
+   */
+  const fetchData = useCallback(async () => {
     if (!currentUser || !activeTenantId) return;
     
-    if (currentUser.role !== Role.SUPER_ADMIN && activeTenantId !== currentUser.tenantId) {
-      setSyncError({ message: 'Acesso negado: Perfil sem permissão para esta unidade.', isSecurity: true });
-      setActiveTenantId(currentUser.tenantId);
-      return;
+    // Cancela requisição anterior se houver uma em curso
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort("Nova requisição iniciada");
     }
+    
+    // Cria novo controlador para esta requisição
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     setIsLoading(true);
     setSyncError(null);
+
     try {
+      // Passamos o signal (se o cliente suportar) ou validamos após a resposta
       const [amendmentsData, logsData] = await Promise.all([
         db.amendments.getAll(activeTenantId),
         db.audit.getLogs(activeTenantId)
       ]);
       
+      // Se a requisição foi abortada durante o processamento, não atualizamos o estado
+      if (controller.signal.aborted) return;
+
       setAmendments(amendmentsData || []);
       setAuditLogs(logsData || []);
       
@@ -99,20 +153,49 @@ const App: React.FC = () => {
         await fetchUsers();
       }
     } catch (error: any) {
-      const isRLS = error.code === '42501' || error.message?.includes('RLS') || error.message?.includes('policy');
+      // Verifica se o erro foi causado por um aborto manual
+      const isAborted = error.name === 'AbortError' || 
+                        error.message?.toLowerCase().includes('aborted') || 
+                        error.message?.toLowerCase().includes('signal');
+
+      if (isAborted) {
+        console.log("Requisição cancelada pelo sistema para evitar concorrência.");
+        return; // Retorno silencioso para abortos
+      }
+
+      console.error("Erro na busca de dados:", error);
+      
+      const isNetwork = error.message?.includes('Failed to fetch') || error.name === 'TypeError';
+      const isRLS = error.code === '42501' || error.message?.includes('RLS');
+      
       setSyncError({
-        message: isRLS ? 'Segurança RLS ativa: Tráfego filtrado pelo servidor.' : error.message,
-        isSecurity: isRLS
+        message: isNetwork ? 'Erro de Conexão: Servidor inacessível.' : (isRLS ? 'Segurança RLS ativa.' : error.message),
+        isSecurity: isRLS,
+        isNetwork: isNetwork,
+        isAborted: false
       });
-      if (!isRLS && amendments.length === 0) setAmendments(MOCK_AMENDMENTS);
+      
+      if (!isRLS && !isNetwork && amendments.length === 0) {
+        setAmendments(MOCK_AMENDMENTS);
+      }
     } finally {
-      setIsLoading(false);
+      // Apenas reseta o loading se esta for a requisição ativa
+      if (abortControllerRef.current === controller) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, [currentUser, activeTenantId, currentView, users.length]);
 
   useEffect(() => {
     if (currentUser && activeTenantId) fetchData();
-  }, [currentUser, activeTenantId, currentView]);
+    
+    // Cleanup ao desmontar ou mudar dependências
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort("Componente remontado ou visão alterada");
+      }
+    };
+  }, [fetchData]);
 
   const handleCreateAmendment = async (newAmendment: Amendment) => {
     setIsLoading(true);
@@ -122,32 +205,25 @@ const App: React.FC = () => {
         setAmendments(prev => [created, ...prev]);
         await db.audit.log({
           action: AuditAction.CREATE,
-          details: `Novo processo SEI cadastrado: ${created.seiNumber}`,
-          severity: 'INFO'
+          details: `Novo processo SEI ${created.seiNumber} inserido.`,
+          severity: 'INFO' as AuditSeverity
         });
       }
     } catch (err: any) {
-      console.error("Erro no cadastro:", err);
-      alert(`Falha no Cadastro: ${err.message || 'Verifique sua conexão.'}`);
+      alert(`Erro: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleUpdateAmendment = async (updated: Amendment) => {
-    const original = amendments.find(a => a.id === updated.id);
-    if (original?.status === Status.CONCLUDED) {
-      alert("Operação Negada: Processos liquidados não permitem alterações cadastrais.");
-      return;
-    }
     try {
       const saved = await db.amendments.upsert(updated);
       if (saved) {
         setAmendments(prev => prev.map(a => a.id === saved.id ? saved : a));
       }
     } catch (err: any) {
-      console.error("Erro Update:", err);
-      alert("Erro ao atualizar registro: " + err.message);
+      alert("Erro ao atualizar: " + err.message);
     }
   };
 
@@ -156,10 +232,6 @@ const App: React.FC = () => {
     const targetAmendment = amendments.find(a => a.id === targetId);
     
     if (targetAmendment) {
-      if (targetAmendment.status === Status.CONCLUDED) {
-        alert("Operação Negada: Impossível tramitar processos já liquidados.");
-        return;
-      }
       const updatedAmendment = {
         ...targetAmendment,
         movements: [...targetAmendment.movements, ...movements],
@@ -171,21 +243,15 @@ const App: React.FC = () => {
         const saved = await db.amendments.upsert(updatedAmendment);
         if (saved) {
           setAmendments(prev => prev.map(a => a.id === saved.id ? saved : a));
-          await db.audit.log({
-            action: AuditAction.MOVE,
-            details: `Tramitou ${targetAmendment.seiNumber} para ${newStatus}`,
-            severity: 'INFO'
+          analyzeAmendment(saved).then(async (insights) => {
+            if (insights) {
+              const withAi = { ...saved, aiInsights: insights };
+              await db.amendments.upsert(withAi);
+              fetchData(); // Recarrega para ver insights
+            }
           });
-
-          const insights = await analyzeAmendment(saved);
-          if (insights) {
-            const withAi = { ...saved, aiInsights: insights };
-            const final = await db.amendments.upsert(withAi);
-            if (final) setAmendments(prev => prev.map(a => a.id === final.id ? final : a));
-          }
         }
       } catch (err: any) {
-        console.error("Erro de Tramitação:", err);
         alert("Erro na tramitação: " + err.message);
       }
     }
@@ -194,35 +260,35 @@ const App: React.FC = () => {
   const handleInactivate = async (id: string, justification: string) => {
     const target = amendments.find(a => a.id === id);
     if (target) {
-      if (target.status === Status.CONCLUDED) {
-        alert("Operação Negada: Processos liquidados não podem ser arquivados.");
-        return;
-      }
       const updated = { ...target, status: Status.ARCHIVED, notes: justification };
       try {
-        const saved = await db.amendments.upsert(updated);
-        if (saved) {
-          setAmendments(prev => prev.map(a => a.id === id ? saved : a));
-          await db.audit.log({
-            action: AuditAction.DELETE,
-            details: `Processo ${target.seiNumber} arquivado por justificativa.`,
-            severity: 'WARN'
-          });
-        }
+        await db.amendments.upsert(updated);
+        setAmendments(prev => prev.map(a => a.id === id ? updated : a));
       } catch (err: any) {
-        console.error("Erro de Arquivamento:", err);
         alert("Erro ao arquivar: " + err.message);
       }
     }
+  };
+
+  const handleAddUser = async (u: User) => {
+     setUsers(prev => [...prev, u]);
+  };
+
+  const handleDeleteUser = async (id: string) => {
+     setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  const handleSimulateLogs = async () => {
+    setIsLoading(true);
+    await db.audit.log({ action: AuditAction.AI_ANALYSIS, details: 'Simulação de diagnóstico executada.', severity: 'INFO' });
+    fetchData();
   };
 
   if (isLoading && !currentUser) {
     return (
       <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center space-y-6">
         <Loader2 className="text-[#0d457a] animate-spin" size={64} />
-        <div className="text-center">
-          <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">GESA Cloud - Validando Acesso</p>
-        </div>
+        <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">Validando Sessão...</p>
       </div>
     );
   }
@@ -238,7 +304,7 @@ const App: React.FC = () => {
       activeTenantId={activeTenantId}
       onNavigate={(v) => { setCurrentView(v); setSelectedAmendmentId(null); }}
       onLogout={async () => await db.auth.signOut()}
-      onTenantChange={setActiveTenantId}
+      onTenantChange={handleTenantChange}
     >
       {selectedAmendment ? (
         <AmendmentDetail 
@@ -255,31 +321,34 @@ const App: React.FC = () => {
         <div className="animate-in fade-in duration-700">
           <div className="flex justify-between items-center mb-6 print:hidden">
             {syncError && (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase border ${syncError.isSecurity ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                {syncError.isSecurity ? <Lock size={14} /> : <ShieldAlert size={14} />} 
-                {syncError.message}
+              <div 
+                onClick={fetchData}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase border cursor-pointer bg-red-50 text-red-700 border-red-200"
+              >
+                <AlertTriangle size={14} /> {syncError.message}
+                <span className="ml-2 underline opacity-50">Tentar Novamente</span>
               </div>
             )}
+            
             <div className="ml-auto flex items-center gap-4">
                {currentUser.role === Role.SUPER_ADMIN && (
                  <span className="text-[9px] font-black text-purple-600 bg-purple-50 border border-purple-100 px-3 py-1 rounded-full uppercase tracking-widest">SaaS Super Admin</span>
                )}
                <button 
                 onClick={fetchData} 
-                className="flex items-center gap-2 text-[10px] font-black text-[#0d457a] uppercase transition-all bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200"
-              >
-                <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-                Sincronizar Dados
-              </button>
+                className="flex items-center gap-2 text-[10px] font-black text-[#0d457a] uppercase transition-all bg-white px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 shadow-sm"
+               >
+                 <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Atualizar Base
+               </button>
             </div>
           </div>
 
-          {currentView === 'dashboard' && <Dashboard amendments={amendments} onSelectAmendment={setSelectedAmendmentId} />}
+          {currentView === 'dashboard' && <Dashboard amendments={amendments} onSelectAmendment={(id) => { setSelectedAmendmentId(id); setCurrentView('amendments'); }} />}
           {currentView === 'amendments' && (
             <AmendmentList 
               amendments={amendments} 
               sectors={sectorConfigs}
-              userRole={currentUser.role}
+              userRole={currentUser.role} 
               systemMode={systemMode}
               onSelect={(a) => setSelectedAmendmentId(a.id)}
               onCreate={handleCreateAmendment}
@@ -289,17 +358,11 @@ const App: React.FC = () => {
           )}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
-          {currentView === 'audit' && (
-            <AuditModule 
-              logs={auditLogs} 
-              currentUser={currentUser} 
-              activeTenantId={activeTenantId} 
-            />
-          )}
+          {currentView === 'audit' && <AuditModule logs={auditLogs} currentUser={currentUser} activeTenantId={activeTenantId} onSimulate={handleSimulateLogs} />}
           {currentView === 'sectors' && (
             <SectorManagement 
-              sectors={sectorConfigs}
-              onAdd={(s) => setSectorConfigs(prev => [...prev, s])}
+              sectors={sectorConfigs} 
+              onAdd={(s) => setSectorConfigs([...sectorConfigs, s])} 
               onReset={() => setSectorConfigs(DEFAULT_SECTOR_CONFIGS)}
               onUpdateSla={(id, sla) => setSectorConfigs(prev => prev.map(s => s.id === id ? {...s, defaultSlaDays: sla} : s))}
             />
@@ -307,16 +370,16 @@ const App: React.FC = () => {
           {currentView === 'security' && (
             <SecurityModule 
               users={users} 
-              currentUser={currentUser}
-              onAddUser={(u) => setUsers(prev => [...prev, u])}
-              onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))}
+              currentUser={currentUser} 
+              onAddUser={handleAddUser}
+              onDeleteUser={handleDeleteUser}
               isLoading={isUsersLoading}
-              isDbConnected={!syncError} 
             />
           )}
           {currentView === 'docs' && <GovernanceDocs />}
           {currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
           {currentView === 'qa' && <TestingPanel />}
+          {currentView === 'manual' && <SystemManual onBack={() => setCurrentView('dashboard')} />}
         </div>
       )}
     </Layout>

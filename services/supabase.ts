@@ -1,17 +1,23 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * CONFIGURAÇÃO DO SUPABASE
+ * Gerencia a conexão com o backend as-a-service, incluindo autenticação,
+ * banco de dados Postgres e políticas de segurança RLS (Row Level Security).
+ */
 const supabaseUrl = 'https://nisqwvdrbytsdwtlivjl.supabase.co';
 const supabaseKey = 'sb_publishable_fcGp4p7EA7gJnyiJJURoZA_HcML_653';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Função auxiliar para gerar UUID caso o banco não o faça automaticamente
+/**
+ * Função utilitária para gerar identificadores únicos (UUID) para novos registros.
+ */
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback simples para ambientes sem randomUUID
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -19,7 +25,13 @@ const generateUUID = () => {
   });
 };
 
+/**
+ * ABSTRAÇÃO DO BANCO DE DADOS (DB WRAPPER)
+ * Centraliza as chamadas de API para facilitar a manutenção e garantir
+ * que as regras de SaaS (isolamento por tenantId) sejam aplicadas.
+ */
 export const db = {
+  // --- MÓDULO DE AUTENTICAÇÃO ---
   auth: {
     async signIn(email: string, pass: string) {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -37,7 +49,7 @@ export const db = {
           data: {
             name: name,
             role: 'Administrador de Unidade',
-            tenantId: 'T-01'
+            tenantId: 'T-01' // Tenant padrão inicial
           }
         }
       });
@@ -49,6 +61,8 @@ export const db = {
       if (error) throw error;
     }
   },
+
+  // --- MÓDULO DE PERFIS DE USUÁRIO (RBAC) ---
   profiles: {
     async get(id: string) {
       const { data, error } = await supabase
@@ -67,14 +81,8 @@ export const db = {
       if (error) throw error;
       return data || [];
     },
-    async update(id: string, updates: any) {
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', id);
-      if (error) throw error;
-    },
     async rotateApiKey(id: string) {
+      // Gera uma nova chave de API para integrações externas
       const newKey = `gesa_live_${Math.random().toString(36).substring(2, 15)}_${Math.random().toString(36).substring(2, 15)}`;
       const { error } = await supabase
         .from('profiles')
@@ -84,6 +92,8 @@ export const db = {
       return newKey;
     }
   },
+
+  // --- MÓDULO DE EMENDAS E PROCESSOS (CORE) ---
   amendments: {
     async getAll(tenantId: string) {
       const { data, error } = await supabase
@@ -97,6 +107,7 @@ export const db = {
         throw error;
       }
       
+      // Garante que o campo movements seja sempre um array para evitar quebras na UI
       return (data || []).map(a => ({
         ...a,
         movements: Array.isArray(a.movements) ? a.movements : []
@@ -106,15 +117,13 @@ export const db = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Sessão expirada. Por favor, faça login novamente.');
 
-      // Prepara o objeto garantindo o tenantId do usuário logado e saneamento de movimentos
       const sanitizedAmendment = {
         ...amendment,
         tenantId: user.user_metadata.tenantId || amendment.tenantId || 'T-01',
         movements: Array.isArray(amendment.movements) ? amendment.movements : []
       };
 
-      // CORREÇÃO DE INTEGRIDADE: Se for um ID temporário, geramos um UUID real.
-      // O banco de dados rejeita inserções se a coluna 'id' for PK e estiver nula sem gerador default.
+      // Gerenciamento de IDs para novos registros (SaaS isolation)
       const idStr = String(sanitizedAmendment.id || '');
       const isNewRecord = idStr.startsWith('temp-') || idStr.startsWith('imp-') || !sanitizedAmendment.id;
 
@@ -129,16 +138,14 @@ export const db = {
         
       if (error) {
         console.error('Erro de persistência:', error);
-        // Tradução de erro comum do Postgres para o usuário
-        if (error.code === '23502') {
-          throw new Error('Falha no Banco: O campo "id" é obrigatório e não pôde ser gerado. Contate o suporte técnico.');
-        }
         throw new Error(`Erro ao salvar no banco: ${error.message}`);
       }
       
       return data[0];
     }
   },
+
+  // --- MÓDULO DE AUDITORIA (COMPLIANCE) ---
   audit: {
     async getLogs(tenantId: string) {
       const { data, error } = await supabase
@@ -146,7 +153,7 @@ export const db = {
         .select('*')
         .eq('tenantId', tenantId)
         .order('timestamp', { ascending: false })
-        .limit(100);
+        .limit(200); // Retorna os últimos 200 eventos
         
       if (error) throw error;
       return data || [];

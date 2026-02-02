@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
-  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity
+  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -44,11 +44,12 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'docs', label: 'Governança', icon: BookOpen },
     { id: 'api', label: 'API Portal', icon: Braces },
     { id: 'qa', label: 'Diagnóstico', icon: Activity },
+    { id: 'manual', label: 'Manual Técnico', icon: FileCode },
   ];
 
   return (
     <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
-      <aside className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 shadow-2xl ${isSidebarOpen ? 'w-72' : 'w-20'}`}>
+      <aside className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 shadow-2xl no-print ${isSidebarOpen ? 'w-72' : 'w-20'}`}>
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           <div className="bg-white text-[#0d457a] p-2 rounded-xl shadow-lg">
             <ShieldCheck size={24} />
@@ -87,7 +88,7 @@ export const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40 no-print">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
               {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -136,7 +137,7 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#f8fafc]">
+        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#f8fafc] print:p-0 print:bg-white print:overflow-visible">
           {children}
         </main>
       </div>
