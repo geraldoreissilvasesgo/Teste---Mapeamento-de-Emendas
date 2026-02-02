@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
-  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode
+  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode, Terminal
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -43,15 +43,16 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'security', label: 'Segurança/LGPD', icon: Lock },
     { id: 'docs', label: 'Governança', icon: BookOpen },
     { id: 'api', label: 'API Portal', icon: Braces },
+    { id: 'debugger', label: 'Console de Engenharia', icon: Terminal },
     { id: 'qa', label: 'Diagnóstico', icon: Activity },
     { id: 'manual', label: 'Manual Técnico', icon: FileCode },
   ];
 
   return (
     <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
-      {/* Sidebar Semântico */}
+      {/* Sidebar com Tags Semânticas e ARIA */}
       <aside 
-        aria-label="Navegação Principal"
+        aria-label="Menu principal de navegação"
         className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 shadow-2xl no-print ${isSidebarOpen ? 'w-72' : 'w-20'}`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
@@ -75,6 +76,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
                 className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-white text-[#0d457a] font-black shadow-lg' : 'hover:bg-white/10 text-blue-100'}`}
               >
                 <Icon size={18} className={isActive ? 'text-[#0d457a]' : 'text-blue-200'} aria-hidden="true" />
@@ -87,8 +89,8 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="p-4 border-t border-white/10">
           <button 
             onClick={onLogout} 
-            className="w-full flex items-center gap-4 px-4 py-3 text-red-200 hover:bg-red-400/20 rounded-xl transition-all"
             aria-label="Sair do sistema"
+            className="w-full flex items-center gap-4 px-4 py-3 text-red-200 hover:bg-red-400/20 rounded-xl transition-all"
           >
             <LogOut size={18} aria-hidden="true" />
             {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Encerrar Sessão</span>}
@@ -97,7 +99,7 @@ export const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Header Semântico */}
+        {/* Header com Tags Semânticas */}
         <header 
           className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40 no-print"
           role="banner"
@@ -105,8 +107,9 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+              aria-expanded={isSidebarOpen}
+              aria-label={isSidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
               className="p-2 hover:bg-slate-50 rounded-lg text-slate-400"
-              aria-label={isSidebarOpen ? 'Recolher menu' : 'Expandir menu'}
             >
               {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -114,9 +117,9 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="relative group">
               <button 
                 disabled={!canSwitchTenant}
-                className={`flex items-center gap-3 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 transition-all ${canSwitchTenant ? 'hover:border-[#0d457a]' : 'opacity-75 cursor-default'}`}
                 aria-haspopup="listbox"
-                aria-expanded="false"
+                aria-label="Selecionar unidade organizacional"
+                className={`flex items-center gap-3 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 transition-all ${canSwitchTenant ? 'hover:border-[#0d457a]' : 'opacity-75 cursor-default'}`}
               >
                 <Globe size={14} className="text-[#0d457a]" aria-hidden="true" />
                 <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-tight">{activeDept?.name || 'Carregando...'}</span>
@@ -124,14 +127,17 @@ export const Layout: React.FC<LayoutProps> = ({
               </button>
               
               {canSwitchTenant && (
-                <ul className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 hidden group-hover:block animate-in fade-in slide-in-from-top-2" role="listbox">
+                <ul 
+                  role="listbox"
+                  className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 hidden group-hover:block animate-in fade-in slide-in-from-top-2"
+                >
                   {DEPARTMENTS.map(d => (
                     <li key={d.id}>
                       <button 
                         onClick={() => onTenantChange(d.id)}
-                        className={`w-full text-left px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${activeTenantId === d.id ? 'bg-blue-50 text-[#0d457a]' : 'hover:bg-slate-50 text-[#0d457a]'}`}
                         role="option"
                         aria-selected={activeTenantId === d.id}
+                        className={`w-full text-left px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${activeTenantId === d.id ? 'bg-blue-50 text-[#0d457a]' : 'hover:bg-slate-50 text-[#0d457a]'}`}
                       >
                         {d.name}
                       </button>
@@ -144,5 +150,28 @@ export const Layout: React.FC<LayoutProps> = ({
 
           <div className="flex items-center gap-4">
              <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-purple-50 rounded-full border border-purple-100">
-                <Sparkles size={12} className="text-purple-500" />
-                <span className="text-[8px] font-black text-purple-600 uppercase">RL
+                <Sparkles size={12} className="text-purple-500" aria-hidden="true" />
+                <span className="text-[8px] font-black text-purple-600 uppercase">RLS Verified</span>
+             </div>
+             <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
+                <img src={currentUser.avatarUrl} className="w-8 h-8 rounded-lg shadow-sm" alt={`Foto de perfil de ${currentUser.name}`} />
+                <div className="hidden sm:block">
+                  <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
+                  <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+                </div>
+             </div>
+          </div>
+        </header>
+
+        {/* Área de Conteúdo Principal */}
+        <main 
+          className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#f8fafc] print:p-0 print:bg-white print:overflow-visible"
+          id="main-content"
+          role="main"
+        >
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+};

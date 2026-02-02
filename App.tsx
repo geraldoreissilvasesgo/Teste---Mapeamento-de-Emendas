@@ -13,6 +13,7 @@ import { GovernanceDocs } from './components/GovernanceDocs';
 import { ApiPortal } from './components/ApiPortal';
 import { TestingPanel } from './components/TestingPanel';
 import { SystemManual } from './components/SystemManual';
+import { DebugConsole } from './components/DebugConsole';
 import { Login } from './components/Login';
 import { 
   User, Amendment, Role, Status, 
@@ -51,61 +52,10 @@ const App: React.FC = () => {
   // --- CONTROLE DE REQUISIÇÕES (FIX PARA 'SIGNAL ABORTED') ---
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const DEPARTMENTS = [
-    { id: 'T-01', name: 'Secretaria da Saúde (SES)' },
-    { id: 'T-02', name: 'Secretaria da Educação (SEDUC)' },
-    { id: 'T-03', name: 'Infraestrutura (GOINFRA)' }
-  ];
-
   /**
-   * Monitora mudanças no estado de autenticação.
+   * Busca perfis de usuários vinculados ao tenant atual.
    */
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const userTenant = session.user.user_metadata.tenantId || 'T-01';
-        const userData: User = {
-          id: session.user.id,
-          tenantId: userTenant, 
-          name: session.user.user_metadata.name || 'Usuário GESA',
-          email: session.user.email || '',
-          role: (session.user.user_metadata.role as Role) || Role.ADMIN,
-          lgpdAccepted: session.user.user_metadata.lgpdAccepted || false,
-          avatarUrl: `https://ui-avatars.com/api/?name=${session.user.email}&background=0d457a&color=fff`
-        };
-        setCurrentUser(userData);
-        setActiveTenantId(userTenant);
-
-        if (event === 'SIGNED_IN') {
-           await db.audit.log({
-             action: AuditAction.LOGIN,
-             details: `Sessão iniciada com sucesso via Autenticação Unificada.`,
-             severity: 'INFO' as AuditSeverity
-           });
-        }
-      } else {
-        setCurrentUser(null);
-        setAmendments([]);
-        setAuditLogs([]);
-        setUsers([]);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleTenantChange = async (newTenantId: string) => {
-     if (newTenantId === activeTenantId) return;
-     setActiveTenantId(newTenantId);
-     await db.audit.log({
-       action: AuditAction.TENANT_SWITCH,
-       details: `Super Admin alternou contexto para unidade ${newTenantId}.`,
-       severity: 'WARN' as AuditSeverity
-     });
-  };
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     if (!currentUser || !activeTenantId) return;
     setIsUsersLoading(true);
     try {
@@ -116,7 +66,7 @@ const App: React.FC = () => {
     } finally {
       setIsUsersLoading(false);
     }
-  };
+  }, [currentUser, activeTenantId]);
 
   /**
    * Sincronização central de dados com proteção contra 'Signal Aborted'.
@@ -137,31 +87,26 @@ const App: React.FC = () => {
     setSyncError(null);
 
     try {
-      // Passamos o signal (se o cliente suportar) ou validamos após a resposta
+      // Busca paralela otimizada
       const [amendmentsData, logsData] = await Promise.all([
         db.amendments.getAll(activeTenantId),
         db.audit.getLogs(activeTenantId)
       ]);
       
-      // Se a requisição foi abortada durante o processamento, não atualizamos o estado
+      // Validação de sinal para evitar atualizações em componentes desmontados
       if (controller.signal.aborted) return;
 
       setAmendments(amendmentsData || []);
       setAuditLogs(logsData || []);
       
-      if (currentView === 'security' || users.length === 0) {
+      if (currentView === 'security' || currentView === 'debugger' || users.length === 0) {
         await fetchUsers();
       }
     } catch (error: any) {
-      // Verifica se o erro foi causado por um aborto manual
       const isAborted = error.name === 'AbortError' || 
-                        error.message?.toLowerCase().includes('aborted') || 
-                        error.message?.toLowerCase().includes('signal');
+                        error.message?.toLowerCase().includes('aborted');
 
-      if (isAborted) {
-        console.log("Requisição cancelada pelo sistema para evitar concorrência.");
-        return; // Retorno silencioso para abortos
-      }
+      if (isAborted) return; // Retorno silencioso para abortos controlados
 
       console.error("Erro na busca de dados:", error);
       
@@ -179,25 +124,26 @@ const App: React.FC = () => {
         setAmendments(MOCK_AMENDMENTS);
       }
     } finally {
-      // Apenas reseta o loading se esta for a requisição ativa
       if (abortControllerRef.current === controller) {
         setIsLoading(false);
       }
     }
-  }, [currentUser, activeTenantId, currentView, users.length]);
+  }, [currentUser, activeTenantId, currentView, users.length, fetchUsers]);
 
-  useEffect(() => {
-    if (currentUser && activeTenantId) fetchData();
-    
-    // Cleanup ao desmontar ou mudar dependências
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort("Componente remontado ou visão alterada");
-      }
-    };
-  }, [fetchData]);
+  /**
+   * Handlers de Ação com useCallback para evitar re-renders desnecessários de componentes filhos
+   */
+  const handleTenantChange = useCallback(async (newTenantId: string) => {
+     if (newTenantId === activeTenantId) return;
+     setActiveTenantId(newTenantId);
+     await db.audit.log({
+       action: AuditAction.TENANT_SWITCH,
+       details: `Super Admin alternou contexto para unidade ${newTenantId}.`,
+       severity: 'WARN' as AuditSeverity
+     });
+  }, [activeTenantId]);
 
-  const handleCreateAmendment = async (newAmendment: Amendment) => {
+  const handleCreateAmendment = useCallback(async (newAmendment: Amendment) => {
     setIsLoading(true);
     try {
       const created = await db.amendments.upsert(newAmendment);
@@ -214,9 +160,9 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const handleUpdateAmendment = async (updated: Amendment) => {
+  const handleUpdateAmendment = useCallback(async (updated: Amendment) => {
     try {
       const saved = await db.amendments.upsert(updated);
       if (saved) {
@@ -225,9 +171,9 @@ const App: React.FC = () => {
     } catch (err: any) {
       alert("Erro ao atualizar: " + err.message);
     }
-  };
+  }, []);
 
-  const handleTramitation = async (movements: AmendmentMovement[], newStatus: Status) => {
+  const handleTramitation = useCallback(async (movements: AmendmentMovement[], newStatus: Status) => {
     const targetId = movements[0].amendmentId;
     const targetAmendment = amendments.find(a => a.id === targetId);
     
@@ -247,7 +193,7 @@ const App: React.FC = () => {
             if (insights) {
               const withAi = { ...saved, aiInsights: insights };
               await db.amendments.upsert(withAi);
-              fetchData(); // Recarrega para ver insights
+              fetchData(); 
             }
           });
         }
@@ -255,9 +201,9 @@ const App: React.FC = () => {
         alert("Erro na tramitação: " + err.message);
       }
     }
-  };
+  }, [amendments, fetchData]);
 
-  const handleInactivate = async (id: string, justification: string) => {
+  const handleInactivate = useCallback(async (id: string, justification: string) => {
     const target = amendments.find(a => a.id === id);
     if (target) {
       const updated = { ...target, status: Status.ARCHIVED, notes: justification };
@@ -268,26 +214,44 @@ const App: React.FC = () => {
         alert("Erro ao arquivar: " + err.message);
       }
     }
-  };
+  }, [amendments]);
 
-  const handleAddUser = async (u: User) => {
-     setUsers(prev => [...prev, u]);
-  };
+  // Ciclo de Vida da Sessão
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const userTenant = session.user.user_metadata.tenantId || 'T-01';
+        const userData: User = {
+          id: session.user.id,
+          tenantId: userTenant, 
+          name: session.user.user_metadata.name || 'Usuário GESA',
+          email: session.user.email || '',
+          role: (session.user.user_metadata.role as Role) || Role.ADMIN,
+          lgpdAccepted: session.user.user_metadata.lgpdAccepted || false,
+          avatarUrl: `https://ui-avatars.com/api/?name=${session.user.email}&background=0d457a&color=fff`
+        };
+        setCurrentUser(userData);
+        setActiveTenantId(userTenant);
+      } else {
+        setCurrentUser(null);
+      }
+      setIsLoading(false);
+    });
 
-  const handleDeleteUser = async (id: string) => {
-     setUsers(prev => prev.filter(u => u.id !== id));
-  };
+    return () => subscription.unsubscribe();
+  }, []);
 
-  const handleSimulateLogs = async () => {
-    setIsLoading(true);
-    await db.audit.log({ action: AuditAction.AI_ANALYSIS, details: 'Simulação de diagnóstico executada.', severity: 'INFO' });
-    fetchData();
-  };
+  useEffect(() => {
+    if (currentUser && activeTenantId) fetchData();
+    return () => {
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, [fetchData, currentUser, activeTenantId]);
 
   if (isLoading && !currentUser) {
     return (
       <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center space-y-6">
-        <Loader2 className="text-[#0d457a] animate-spin" size={64} />
+        <Loader2 className="text-[#0d457a] animate-spin" size={64} aria-hidden="true" />
         <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">Validando Sessão...</p>
       </div>
     );
@@ -321,13 +285,13 @@ const App: React.FC = () => {
         <div className="animate-in fade-in duration-700">
           <div className="flex justify-between items-center mb-6 print:hidden">
             {syncError && (
-              <div 
+              <button 
                 onClick={fetchData}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase border cursor-pointer bg-red-50 text-red-700 border-red-200"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase border cursor-pointer bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition-all"
               >
-                <AlertTriangle size={14} /> {syncError.message}
+                <AlertTriangle size={14} aria-hidden="true" /> {syncError.message}
                 <span className="ml-2 underline opacity-50">Tentar Novamente</span>
-              </div>
+              </button>
             )}
             
             <div className="ml-auto flex items-center gap-4">
@@ -336,9 +300,10 @@ const App: React.FC = () => {
                )}
                <button 
                 onClick={fetchData} 
+                aria-label="Atualizar dados do servidor"
                 className="flex items-center gap-2 text-[10px] font-black text-[#0d457a] uppercase transition-all bg-white px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 shadow-sm"
                >
-                 <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Atualizar Base
+                 <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} aria-hidden="true" /> Atualizar Base
                </button>
             </div>
           </div>
@@ -358,11 +323,11 @@ const App: React.FC = () => {
           )}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
-          {currentView === 'audit' && <AuditModule logs={auditLogs} currentUser={currentUser} activeTenantId={activeTenantId} onSimulate={handleSimulateLogs} />}
+          {currentView === 'audit' && <AuditModule logs={auditLogs} currentUser={currentUser} activeTenantId={activeTenantId} onSimulate={() => fetchData()} />}
           {currentView === 'sectors' && (
             <SectorManagement 
               sectors={sectorConfigs} 
-              onAdd={(s) => setSectorConfigs([...sectorConfigs, s])} 
+              onAdd={(s) => setSectorConfigs(prev => [...prev, s])} 
               onReset={() => setSectorConfigs(DEFAULT_SECTOR_CONFIGS)}
               onUpdateSla={(id, sla) => setSectorConfigs(prev => prev.map(s => s.id === id ? {...s, defaultSlaDays: sla} : s))}
             />
@@ -371,13 +336,14 @@ const App: React.FC = () => {
             <SecurityModule 
               users={users} 
               currentUser={currentUser} 
-              onAddUser={handleAddUser}
-              onDeleteUser={handleDeleteUser}
+              onAddUser={(u) => setUsers(prev => [...prev, u])}
+              onDeleteUser={(id) => setUsers(prev => prev.filter(u => u.id !== id))}
               isLoading={isUsersLoading}
             />
           )}
           {currentView === 'docs' && <GovernanceDocs />}
           {currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
+          {currentView === 'debugger' && <DebugConsole amendments={amendments} currentUser={currentUser} logs={auditLogs} />}
           {currentView === 'qa' && <TestingPanel />}
           {currentView === 'manual' && <SystemManual onBack={() => setCurrentView('dashboard')} />}
         </div>

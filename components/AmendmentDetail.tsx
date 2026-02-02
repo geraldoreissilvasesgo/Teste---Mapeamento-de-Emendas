@@ -4,7 +4,7 @@
  * 
  * Este componente exibe uma visão completa e aprofundada de um único processo SEI.
  * Ele é o núcleo para a tramitação e análise individual.
- * Atualizado para permitir a mudança de status durante o trâmite e bloquear edições em processos liquidados.
+ * Atualizado para exibir o rastreamento histórico detalhado de movimentações.
  */
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Amendment, Status, User, Role, SectorConfig, AmendmentMovement, AnalysisType, SystemMode, GNDType } from '../types';
@@ -12,7 +12,8 @@ import {
   ArrowLeft, Send, MapPin, Calendar, Clock, AlertTriangle, 
   CheckCircle2, FileText, Building2, ShieldOff, 
   ShieldCheck, Printer, FileSearch, Zap, XCircle, Search, ArrowRight, X, ChevronDown,
-  Landmark, Layers, Plus, Trash2, User as UserIcon, DollarSign, MessageSquare, ArrowRightLeft, FastForward, Upload, FileUp, AlertCircle, Tag, Lock
+  Landmark, Layers, Plus, Trash2, User as UserIcon, DollarSign, MessageSquare, ArrowRightLeft, FastForward, Upload, FileUp, AlertCircle, Tag, Lock,
+  History, CalendarDays, UserCheck, Sparkles, TrendingUp, BarChart3
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -121,20 +122,17 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     window.print();
   }, []);
 
-  const canEdit = (currentUser.role === Role.ADMIN || currentUser.role === Role.OPERATOR) && !isLiquidated;
-  
-  const getStatusStyle = (status: Status) => {
-     switch (status) {
-        case Status.CONCLUDED: return { bg: 'bg-emerald-50', text: 'text-emerald-600', icon: CheckCircle2 };
-        case Status.IN_PROGRESS: return { bg: 'bg-blue-50', text: 'text-blue-600', icon: Clock };
-        case Status.DILIGENCE: return { bg: 'bg-amber-50', text: 'text-amber-600', icon: AlertTriangle };
-        case Status.REJECTED: return { bg: 'bg-red-50', text: 'text-red-600', icon: XCircle };
-        case Status.ARCHIVED: return { bg: 'bg-slate-50', text: 'text-slate-600', icon: FileSearch };
-        default: return { bg: 'bg-gray-50', text: 'text-gray-600', icon: FileText };
+  const statusStyle = useMemo(() => {
+    switch (amendment.status) {
+      case Status.CONCLUDED: return { bg: 'bg-emerald-50', text: 'text-emerald-600', icon: CheckCircle2 };
+      case Status.IN_PROGRESS: return { bg: 'bg-blue-50', text: 'text-blue-600', icon: Clock };
+      case Status.DILIGENCE: return { bg: 'bg-amber-50', text: 'text-amber-600', icon: AlertTriangle };
+      case Status.REJECTED: return { bg: 'bg-red-50', text: 'text-red-600', icon: XCircle };
+      case Status.ARCHIVED: return { bg: 'bg-slate-50', text: 'text-slate-600', icon: FileSearch };
+      default: return { bg: 'bg-gray-50', text: 'text-gray-600', icon: FileText };
     }
-  };
+  }, [amendment.status]);
 
-  const statusStyle = getStatusStyle(amendment.status);
   const StatusIcon = statusStyle.icon;
 
   const movementsList = useMemo(() => {
@@ -227,7 +225,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
         
         <div className="p-10">
           {!isInactive && !isLiquidated && (currentUser.role === Role.ADMIN || currentUser.role === Role.OPERATOR) && (
-            <div ref={tramitacaoRef} className="bg-[#0d457a] p-12 rounded-[48px] border-4 border-white shadow-[0_35px_60px_-15px_rgba(13,69,122,0.3)] mb-16 relative overflow-hidden group">
+            <div ref={tramitacaoRef} className="bg-[#0d457a] p-12 rounded-[48px] border-4 border-white shadow-[0_35_60px_-15px_rgba(13,69,122,0.3)] mb-16 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
               
@@ -327,128 +325,246 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
              <div className="space-y-10">
-                <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.4em] flex items-center gap-4 mb-14">
-                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-[#0d457a] shadow-sm"><Clock size={20} /></div>
-                    Histórico de Tramitações
-                </h3>
+                <div className="flex justify-between items-center mb-10">
+                   <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.4em] flex items-center gap-4">
+                       <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-[#0d457a] shadow-sm"><History size={20} /></div>
+                       Histórico de Tramitação
+                   </h3>
+                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-full">
+                      <CalendarDays size={14} className="text-slate-400"/>
+                      <span className="text-[10px] font-black text-slate-500 uppercase">Auditado em Tempo Real</span>
+                   </div>
+                </div>
+
                 <div className="relative pl-12 space-y-12 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[3px] before:bg-slate-100">
-                    {movementsList.length > 0 ? movementsList.reverse().map((m, idx) => (
-                        <div key={m.id} className="relative group">
-                            <div className={`absolute -left-[44px] top-1.5 w-8 h-8 rounded-full border-[8px] border-white shadow-xl z-10 transition-all duration-700 ${idx === 0 ? 'bg-emerald-500 scale-150 animate-pulse' : 'bg-slate-200 group-hover:bg-blue-400'}`} />
-                            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all duration-500 group-hover:border-[#0d457a]/20">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                          {new Date(m.dateIn).toLocaleDateString('pt-BR', {day: '2-digit', month: 'long', year: 'numeric'})} • {new Date(m.dateIn).toLocaleTimeString()}
-                                        </p>
-                                        <h4 className="text-base font-black text-[#0d457a] uppercase tracking-tight">{m.toSector}</h4>
-                                    </div>
-                                    {m.deadline && (
-                                        <span className={`text-[10px] px-4 py-1.5 rounded-xl font-black uppercase shadow-sm ${new Date(m.deadline) < new Date() && !m.dateOut ? 'bg-red-500 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                                            {m.dateOut ? 'Processado' : `SLA: ${new Date(m.deadline).toLocaleDateString()}`}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-4 text-[11px] text-slate-500 font-bold uppercase mb-4">
-                                    <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner"><UserIcon size={14}/></div>
-                                    <span>Resp: <span className="text-[#0d457a] font-black">{m.handledBy}</span></span>
-                                </div>
-                                {m.remarks && (
-                                  <div className="mt-2 p-3 bg-slate-50 rounded-xl text-[10px] font-medium text-slate-500 italic">
-                                    "{m.remarks}"
+                    {movementsList.length > 0 ? [...movementsList].reverse().map((m, idx) => {
+                        const isCurrent = idx === 0 && !m.dateOut;
+                        return (
+                          <div key={m.id} className="relative group animate-in slide-in-from-left-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
+                              <div className={`absolute -left-[44px] top-1.5 w-8 h-8 rounded-full border-[8px] border-white shadow-xl z-10 transition-all duration-700 ${isCurrent ? 'bg-emerald-500 scale-150 animate-pulse' : 'bg-slate-200 group-hover:bg-[#0d457a]'}`} />
+                              <div className={`bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all duration-500 group-hover:border-[#0d457a]/20 ${isCurrent ? 'ring-2 ring-emerald-500/20' : ''}`}>
+                                  <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-6">
+                                      <div>
+                                          <div className="flex items-center gap-2 mb-2">
+                                             <Building2 size={16} className="text-slate-300" />
+                                             <h4 className="text-base font-black text-[#0d457a] uppercase tracking-tight leading-none">{m.toSector}</h4>
+                                          </div>
+                                          <div className="flex flex-wrap gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                             <span className="flex items-center gap-1.5"><Clock size={12} className="text-emerald-500"/> Entrada: {new Date(m.dateIn).toLocaleString('pt-BR')}</span>
+                                             {m.dateOut && (
+                                               <span className="flex items-center gap-1.5"><ArrowRight size={12} className="text-blue-500"/> Saída: {new Date(m.dateOut).toLocaleString('pt-BR')}</span>
+                                             )}
+                                          </div>
+                                      </div>
+                                      <div className="flex shrink-0">
+                                        {m.deadline && !m.dateOut && (
+                                            <span className={`text-[10px] px-4 py-1.5 rounded-xl font-black uppercase shadow-sm ${new Date(m.deadline) < new Date() ? 'bg-red-500 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                                                {`Limite SLA: ${new Date(m.deadline).toLocaleDateString()}`}
+                                            </span>
+                                        )}
+                                        {m.dateOut && (
+                                          <span className="text-[10px] px-4 py-1.5 rounded-xl font-black uppercase bg-blue-50 text-blue-600 border border-blue-100">
+                                             Concluído em Setor
+                                          </span>
+                                        )}
+                                      </div>
                                   </div>
-                                )}
-                                {m.analysisType && (
-                                    <div className="mt-4 flex items-center gap-2">
-                                        <span className="inline-block text-[10px] bg-blue-50 text-[#0d457a] px-4 py-1.5 rounded-xl uppercase font-black tracking-widest border border-blue-100">{m.analysisType}</span>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-inner group-hover:bg-[#0d457a]/5 transition-colors">
+                                             <UserCheck size={18} className="group-hover:text-[#0d457a] transition-colors"/>
+                                          </div>
+                                          <div>
+                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">Responsável</p>
+                                             <p className="text-[11px] font-black text-[#0d457a] uppercase">{m.handledBy}</p>
+                                          </div>
+                                      </div>
+                                      
+                                      {m.analysisType && (
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 rounded-2xl bg-blue-50/50 flex items-center justify-center text-[#0d457a] shadow-inner group-hover:bg-[#0d457a] group-hover:text-white transition-all">
+                                                 <Layers size={18} />
+                                              </div>
+                                              <div>
+                                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-0.5">Tipo de Análise</p>
+                                                 <p className="text-[11px] font-black text-blue-600 uppercase">{m.analysisType}</p>
+                                              </div>
+                                          </div>
+                                      )}
+                                  </div>
+
+                                  {m.remarks && (
+                                    <div className="mt-6 p-5 bg-slate-50 rounded-[24px] border border-slate-100 relative overflow-hidden group/remarks">
+                                      <div className="absolute top-0 left-0 w-1 h-full bg-[#0d457a]/20 group-hover/remarks:bg-[#0d457a] transition-all" />
+                                      <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest flex items-center gap-2">
+                                         <MessageSquare size={12} /> Despacho Técnico
+                                      </p>
+                                      <p className="text-[11px] font-bold text-slate-600 leading-relaxed italic">
+                                        "{m.remarks}"
+                                      </p>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    )) : (
-                      <div className="text-slate-300 font-black uppercase text-[10px] tracking-widest p-4">
-                        Sem registros.
+                                  )}
+                              </div>
+                          </div>
+                        );
+                    }) : (
+                      <div className="bg-slate-50 p-12 rounded-[40px] border-4 border-dashed border-slate-100 text-center">
+                        <History size={48} className="text-slate-200 mx-auto mb-4" />
+                        <p className="text-slate-300 font-black uppercase text-[10px] tracking-widest leading-relaxed">
+                          Nenhum registro de movimentação <br/> localizado para este protocolo.
+                        </p>
                       </div>
                     )}
                 </div>
              </div>
 
              <div className="space-y-12">
-                <div className="bg-white p-10 rounded-[56px] border border-slate-200 shadow-sm relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full translate-x-1/2 -translate-y-1/2 -z-10"></div>
-                   <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.3em] mb-10 flex items-center gap-4">
-                      <FileText size={22} className="text-blue-500"/> Documentação Digital
-                   </h3>
-                   
-                   <div className="p-12 border-4 border-dashed border-slate-100 rounded-[48px] text-center bg-slate-50/30 group hover:bg-blue-50/50 hover:border-blue-200 transition-all duration-500">
-                      <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-blue-500 shadow-xl mx-auto mb-6 group-hover:scale-110 transition-transform">
-                         <Upload size={32}/>
+                {/* Insights de IA (Google Gemini) */}
+                <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:rotate-12 transition-transform duration-700"><Sparkles size={120}/></div>
+                    <div className="flex justify-between items-center mb-10">
+                        <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.4em] flex items-center gap-4">
+                           <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 shadow-sm"><Sparkles size={20} /></div>
+                           Análise Preditiva GESA-IA
+                        </h3>
+                        {amendment.aiInsights && (
+                          <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase border border-emerald-100">Score Confiável</span>
+                        )}
+                    </div>
+
+                    {amendment.aiInsights ? (
+                      <div className="space-y-8 animate-in zoom-in-95 duration-500">
+                         <div className="grid grid-cols-2 gap-4">
+                            <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                  <TrendingUp size={14} className="text-blue-500"/> Risco de Atraso
+                               </p>
+                               <div className="flex items-end gap-2">
+                                  <p className="text-3xl font-black text-[#0d457a] tracking-tighter">{amendment.aiInsights.riskScore}%</p>
+                                  <span className={`text-[10px] font-bold mb-1 uppercase ${amendment.aiInsights.riskScore > 60 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                    {amendment.aiInsights.riskScore > 60 ? 'Crítico' : 'Sob Controle'}
+                                  </span>
+                                </div>
+                            </div>
+                            <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                  <CheckCircle2 size={14} className="text-emerald-500"/> Prob. Liquidação
+                               </p>
+                               <div className="flex items-end gap-2">
+                                  <p className="text-3xl font-black text-[#0d457a] tracking-tighter">{(amendment.aiInsights.completionProbability * 100).toFixed(0)}%</p>
+                                  <span className="text-[10px] font-bold mb-1 text-slate-400 uppercase">Exercício Atual</span>
+                               </div>
+                            </div>
+                         </div>
+
+                         <div className="space-y-4">
+                            <div className="p-6 bg-blue-50/50 rounded-[32px] border border-blue-100/50">
+                               <h4 className="text-[10px] font-black text-[#0d457a] uppercase mb-2 tracking-widest">Resumo Estratégico</h4>
+                               <p className="text-xs text-slate-600 leading-relaxed font-medium">{amendment.aiInsights.summary}</p>
+                            </div>
+                            <div className="p-6 bg-amber-50/50 rounded-[32px] border border-amber-100/50">
+                               <h4 className="text-[10px] font-black text-[#0d457a] uppercase mb-2 tracking-widest flex items-center gap-2">
+                                  <AlertCircle size={14} className="text-amber-500"/> Gargalo Identificado
+                               </h4>
+                               <p className="text-xs text-slate-600 leading-relaxed font-bold italic">"{amendment.aiInsights.bottleneck}"</p>
+                            </div>
+                            <div className="p-6 bg-[#0d457a] rounded-[32px] text-white shadow-xl shadow-blue-900/20">
+                               <h4 className="text-[10px] font-black text-white/50 uppercase mb-3 tracking-widest flex items-center gap-2">
+                                  <Zap size={14} className="text-yellow-400"/> Recomendação Técnica
+                               </h4>
+                               <p className="text-xs font-bold leading-relaxed">{amendment.aiInsights.recommendation}</p>
+                            </div>
+                         </div>
                       </div>
-                      <p className="text-sm font-black text-[#0d457a] uppercase tracking-tighter">Anexar PDF SEI</p>
-                      <label className="mt-8 inline-block cursor-pointer">
-                         <input type="file" accept=".pdf" className="hidden" />
-                         <span className="bg-[#0d457a] text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-[#0a365f] transition-all flex items-center gap-3">
-                            <FileUp size={18} /> Selecionar
-                         </span>
-                      </label>
+                    ) : (
+                      <div className="py-20 text-center bg-slate-50 rounded-[40px] border-4 border-dashed border-slate-100">
+                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm animate-bounce">
+                            <Sparkles size={24} className="text-purple-400" />
+                         </div>
+                         <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest leading-relaxed">
+                           Aguardando processamento de IA... <br/> A análise automática será gerada no próximo trâmite.
+                         </p>
+                      </div>
+                    )}
+                </div>
+
+                {/* Notas e Observações Adicionais */}
+                <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm">
+                   <h3 className="text-[12px] font-black text-[#0d457a] uppercase tracking-[0.4em] mb-8 flex items-center gap-4">
+                       <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm"><FileText size={20} /></div>
+                       Notas da Pasta Orçamentária
+                   </h3>
+                   <div className="space-y-6">
+                      <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                         <p className="text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Observações Administrativas</p>
+                         <p className="text-xs text-slate-600 leading-relaxed italic">
+                           {amendment.notes || 'Nenhuma observação complementar registrada para este processo.'}
+                         </p>
+                      </div>
+                      <div className="flex gap-4">
+                         <div className="flex-1 p-5 bg-white border border-slate-100 rounded-[28px] flex items-center gap-4">
+                            <div className="p-3 bg-blue-50 text-[#0d457a] rounded-2xl"><Calendar size={20}/></div>
+                            <div>
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Criado em</p>
+                               <p className="text-xs font-black text-[#0d457a]">{new Date(amendment.createdAt).toLocaleDateString()}</p>
+                            </div>
+                         </div>
+                         <div className="flex-1 p-5 bg-white border border-slate-100 rounded-[28px] flex items-center gap-4">
+                            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><BarChart3 size={20}/></div>
+                            <div>
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Passos Totais</p>
+                               <p className="text-xs font-black text-[#0d457a]">{movementsList.length} Trâmites</p>
+                            </div>
+                         </div>
+                      </div>
                    </div>
-                   <p className="mt-8 text-[9px] text-slate-300 font-black uppercase text-center leading-relaxed tracking-widest">
-                      Padrão GESA: Apenas arquivos PDF originais.
-                   </p>
                 </div>
              </div>
           </div>
         </div>
       </div>
 
-      {isArchiveModalOpen && !isLiquidated && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-red-900/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[32px] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col">
-             <div className="p-6 border-b border-slate-100 bg-red-50 flex items-center gap-4 shrink-0">
-                <div className="p-3 bg-red-500 text-white rounded-[16px] shadow-lg">
-                   <AlertCircle size={24} />
-                </div>
-                <div>
-                   <h3 className="text-xl font-black text-red-600 uppercase tracking-tighter leading-none">Arquivamento</h3>
-                   <p className="text-red-400 text-[9px] font-black uppercase tracking-widest mt-1">SEI: {amendment.seiNumber}</p>
-                </div>
-             </div>
-             
-             <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-                <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100">
-                   <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
-                      Justificativa Técnica de Arquivamento
-                   </p>
-                </div>
-                
-                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Justificativa</label>
-                   <textarea 
-                      className="w-full p-4 bg-slate-50 border-2 border-slate-100 focus:border-red-500 rounded-[24px] outline-none transition-all min-h-[120px] font-bold text-[#0d457a] uppercase text-xs"
-                      placeholder="Descreva o motivo..."
-                      value={archiveJustification}
-                      onChange={(e) => setArchiveJustification(e.target.value)}
-                   />
-                </div>
-             </div>
-
-             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-4 shrink-0">
-                <button 
-                  onClick={() => setIsArchiveModalOpen(false)}
-                  className="flex-1 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest text-[#0d457a] border border-slate-200 bg-white hover:bg-slate-50 transition-all"
-                >
-                   Cancelar
-                </button>
-                <button 
-                  onClick={confirmArchive}
-                  disabled={!archiveJustification.trim() || archiveJustification.trim().length < 5}
-                  className="flex-1 py-4 bg-red-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all disabled:opacity-30 disabled:grayscale"
-                >
-                   Arquivar
-                </button>
-             </div>
+      {/* Modal de Justificativa de Arquivamento */}
+      {isArchiveModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-red-950/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-red-500">
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+               <div>
+                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Confirmar Arquivamento</h3>
+                  <p className="text-red-500 text-[10px] font-black uppercase tracking-widest mt-1">Operação Irreversível - GESA Cloud</p>
+               </div>
+               <button onClick={() => setIsArchiveModalOpen(false)} className="p-3 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-2xl transition-all">
+                  <X size={24} />
+               </button>
+            </div>
+            <div className="p-10 space-y-8">
+               <div className="bg-red-50 p-6 rounded-[24px] border border-red-100 flex gap-4 items-start">
+                  <AlertTriangle className="text-red-500 shrink-0" size={24} />
+                  <p className="text-xs text-red-800 font-bold leading-relaxed uppercase tracking-tight">
+                    Ao arquivar este processo, ele sairá da fila ativa de tramitação e será marcado como inativo na base de dados governamental.
+                  </p>
+               </div>
+               <div className="space-y-4">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Justificativa Legal / Técnica</label>
+                  <textarea 
+                    className="w-full p-6 bg-slate-50 border border-slate-200 rounded-[28px] text-sm font-bold text-[#0d457a] outline-none focus:ring-4 ring-red-500/10 min-h-[150px] transition-all"
+                    placeholder="Descreva o motivo formal do arquivamento deste processo SEI..."
+                    value={archiveJustification}
+                    onChange={(e) => setArchiveJustification(e.target.value)}
+                  />
+               </div>
+               <div className="flex gap-4">
+                  <button onClick={() => setIsArchiveModalOpen(false)} className="flex-1 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">
+                    Cancelar
+                  </button>
+                  <button onClick={confirmArchive} className="flex-1 py-5 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-red-900/20 hover:bg-red-700 transition-all flex items-center justify-center gap-3">
+                    Efetivar Arquivo <Trash2 size={18} />
+                  </button>
+               </div>
+            </div>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
  * Versão: 2.7.5-stable
+ * Foco: Tipagem estrita e conformidade com boas práticas de engenharia.
  */
 
 export enum SystemMode {
