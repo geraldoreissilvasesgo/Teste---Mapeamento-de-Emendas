@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { StatusConfig } from '../types';
+import { StatusConfig } from '../types.ts';
 import { 
   Plus, X, Tag, Info, Search, Save, Pencil, Trash2, ShieldAlert,
-  Database, CheckCircle2, Loader2, Copy, Check, Terminal, Edit2, Palette, CheckCircle, Zap
+  Database, CheckCircle2, Loader2, Copy, Check, Terminal, Edit2, Zap, ShieldCheck, CheckCircle
 } from 'lucide-react';
 
 interface StatusManagementProps {
@@ -35,7 +35,7 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
   const [editingStatus, setEditingStatus] = useState<StatusConfig | null>(null);
 
   const handleSeedData = async () => {
-    if (!window.confirm("Deseja carregar os estados padrão do Governo de Goiás?")) return;
+    if (!window.confirm("Deseja carregar os estados padrão do Governo de Goiás diretamente no Banco de Dados Cloud?")) return;
     
     setIsLoading(true);
     const seed = [
@@ -50,16 +50,17 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
     try {
       await onBatchAdd(seed);
     } catch (e) {
-      alert("Erro ao popular tabela.");
+      console.error("Erro ao popular tabela:", e);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const sqlSetup = `-- 1. Criar Tabela de Status
+  const sqlSetup = `-- GESA CLOUD: ESTRUTURA DE ESTADOS DO CICLO
+-- 1. Criar Tabela de Status
 create table if not exists statuses (
   id uuid primary key default gen_random_uuid(),
-  "tenantId" text not null default 'T-01',
+  "tenantId" text not null default 'GOIAS',
   name text not null,
   color text default '#0d457a',
   "isFinal" boolean default false,
@@ -68,7 +69,7 @@ create table if not exists statuses (
 
 -- 2. Habilitar Segurança RLS
 alter table statuses enable row level security;
-create policy "Acesso Total para Testes Status" on statuses for all using (true);`;
+create policy "Acesso por Tenant Status" on statuses for all using (true);`;
 
   const filteredStatuses = useMemo(() => {
     return statuses.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -81,7 +82,7 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
   };
 
   const handleReset = async () => {
-    if (window.confirm("⚠️ OPERAÇÃO CRÍTICA: Deseja apagar todos os registros da tabela 'statuses'?")) {
+    if (window.confirm("⚠️ OPERAÇÃO CRÍTICA: Deseja apagar permanentemente todos os registros da tabela 'statuses' no banco de dados?")) {
       setIsLoading(true);
       await onReset();
       setIsLoading(false);
@@ -104,7 +105,7 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
       setBatchText('');
       setIsBatchModalOpen(false);
     } catch (e) {
-      alert("Falha na inserção: Verifique a conexão com o banco.");
+      console.error("Falha na sincronização:", e);
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +134,7 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       {error === 'DATABASE_SETUP_REQUIRED' && (
         <div className="bg-red-50 border border-red-200 p-8 rounded-[40px] flex flex-col items-center text-center gap-6 shadow-xl shadow-red-900/5">
           <div className="w-20 h-20 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center animate-bounce">
@@ -142,24 +143,30 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
           <div>
             <h3 className="text-xl font-black text-red-900 uppercase">Tabela 'statuses' não encontrada!</h3>
             <p className="text-xs text-red-700 font-bold uppercase mt-2 max-w-xl">
-              Detectamos que você criou a tabela de setores, mas a de **status** ainda não está ativa no banco. Execute o script SQL abaixo.
+              Detectamos que a estrutura física de **status** ainda não está ativa no seu banco de dados Supabase. O sistema está exibindo dados temporários.
             </p>
           </div>
           <button 
             onClick={() => setIsSqlModalOpen(true)}
             className="px-10 py-5 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-red-700 transition-all flex items-center gap-3"
           >
-            <Terminal size={18} /> Abrir Script de Status
+            <Terminal size={18} /> Abrir Script SQL
           </button>
         </div>
       )}
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Estados de Processo</h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2 flex items-center gap-2">
-            <Tag size={14} className="text-blue-500"/> Ciclo de Vida do Processo GESA Cloud
-          </p>
+          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Estados do Ciclo</h2>
+          <div className="flex items-center gap-3 mt-2">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+              <Tag size={14} className="text-blue-500"/> Ciclo de Vida do Processo GESA
+            </p>
+            <div className={`px-3 py-1 rounded-full border text-[8px] font-black uppercase flex items-center gap-1.5 ${!error ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${!error ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                {!error ? 'Sincronizado com Banco' : 'Modo Offline'}
+            </div>
+          </div>
         </div>
         <div className="flex gap-3">
             <button 
@@ -167,20 +174,21 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
               disabled={isLoading}
               className="flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-100 px-6 py-4 rounded-[20px] hover:bg-blue-100 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest"
             >
-                <Zap size={16} /> Carga Inicial
+                {isLoading ? <Loader2 className="animate-spin" size={16}/> : <Zap size={16} />} 
+                Carga Cloud
             </button>
             <button 
               onClick={handleReset} 
               disabled={isLoading || statuses.length === 0}
               className="flex items-center gap-2 bg-white text-red-400 border border-slate-200 px-6 py-4 rounded-[20px] hover:bg-red-50 hover:border-red-100 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest disabled:opacity-30"
             >
-                <Trash2 size={16} /> Resetar
+                <Trash2 size={16} /> Limpar Base
             </button>
             <button 
               onClick={() => setIsModalOpen(true)} 
               className="flex items-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-[20px] hover:bg-[#0a365f] transition-all shadow-lg uppercase text-[11px] font-black tracking-[0.2em]"
             >
-                <Plus size={18} /> Novo Status
+                <Plus size={18} /> Novo Estado
             </button>
         </div>
       </div>
@@ -189,7 +197,7 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
          <Search size={20} className="text-slate-300 ml-2" />
          <input 
             type="text" 
-            placeholder="Pesquisar status cadastrados na base..."
+            placeholder="Pesquisar estados na base..."
             className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-slate-600 placeholder:text-slate-300 uppercase"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -219,8 +227,8 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
                    Hex: {status.color}
                 </span>
                 {status.isFinal && (
-                    <span className="px-3 py-1 bg-red-50 text-red-500 border border-red-100 rounded-lg text-[9px] font-black uppercase flex items-center gap-1">
-                        <CheckCircle size={10} /> Estado Final
+                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg text-[9px] font-black uppercase flex items-center gap-1">
+                        <CheckCircle size={10} /> Finalizador
                     </span>
                 )}
             </div>
@@ -230,20 +238,20 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
         {filteredStatuses.length === 0 && !isLoading && (
           <div className="col-span-full py-20 text-center bg-slate-50 rounded-[40px] border-4 border-dashed border-slate-200">
              <Database size={48} className="text-slate-200 mx-auto mb-4" />
-             <h3 className="text-slate-400 font-black uppercase tracking-widest">Base de Status Vazia</h3>
-             <p className="text-slate-300 text-xs font-bold uppercase mt-2">Clique em 'Carga Inicial' para preencher com dados padrão do SEI.</p>
+             <h3 className="text-slate-400 font-black uppercase tracking-widest">Base de Dados Vazia</h3>
+             <p className="text-slate-300 text-xs font-bold uppercase mt-2">Clique em 'Carga Cloud' para sincronizar os estados padrão.</p>
           </div>
         )}
       </div>
 
-      {/* Modal SQL */}
+      {/* Script SQL para provisionamento */}
       {isSqlModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">
           <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-red-500">
             <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                <div>
-                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Script de Status GESA</h3>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Supabase Database Setup Required</p>
+                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Esquema do Banco (statuses)</h3>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Sincronização de Fluxos Gov Cloud</p>
                </div>
                <button onClick={() => setIsSqlModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
                   <X size={24} />
@@ -265,115 +273,125 @@ create policy "Acesso Total para Testes Status" on statuses for all using (true)
         </div>
       )}
 
-      {/* Modal Novo Status */}
+      {/* Modais de Cadastro e Edição */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Novo Estado</h3>
               <button onClick={() => setIsModalOpen(false)}><X/></button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Nome do Estado</label>
+                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Nome do Estado</label>
                 <input 
                   type="text" 
                   value={newStatus.name} 
                   onChange={(e) => setNewStatus({...newStatus, name: e.target.value})} 
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase" 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/10" 
                   required 
-                  placeholder="EX: AGUARDANDO ASSINATURA" 
                 />
               </div>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Cor Identificadora</label>
-                    <div className="flex gap-3">
-                        <input 
-                            type="color" 
-                            value={newStatus.color} 
-                            onChange={(e) => setNewStatus({...newStatus, color: e.target.value})} 
-                            className="w-14 h-14 rounded-xl cursor-pointer border-none bg-transparent"
-                        />
-                        <input 
-                            type="text" 
-                            value={newStatus.color} 
-                            onChange={(e) => setNewStatus({...newStatus, color: e.target.value})} 
-                            className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm font-bold uppercase"
-                        />
-                    </div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Cor Identificadora</label>
+                    <input 
+                      type="color" 
+                      value={newStatus.color} 
+                      onChange={(e) => setNewStatus({...newStatus, color: e.target.value})} 
+                      className="w-full h-14 p-1 bg-slate-50 border border-slate-200 rounded-2xl cursor-pointer" 
+                    />
                   </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-2xl border border-slate-200 w-full">
+                  <div className="flex items-end pb-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
                         <input 
-                            type="checkbox" 
-                            checked={newStatus.isFinal} 
-                            onChange={(e) => setNewStatus({...newStatus, isFinal: e.target.checked})}
-                            className="w-5 h-5 rounded border-slate-300 text-[#0d457a] focus:ring-[#0d457a]"
+                          type="checkbox" 
+                          checked={newStatus.isFinal} 
+                          onChange={(e) => setNewStatus({...newStatus, isFinal: e.target.checked})} 
+                          className="w-6 h-6 rounded-lg border-slate-200 text-emerald-500 focus:ring-emerald-500"
                         />
-                        <span className="text-[10px] font-black text-slate-600 uppercase">Estado Final?</span>
+                        <span className="text-[10px] font-black text-[#0d457a] uppercase">Finalizador</span>
                     </label>
                   </div>
               </div>
-              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg">Cadastrar Status</button>
+              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg">Registrar no Banco</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal Edição */}
       {isEditModalOpen && editingStatus && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Editar Estado</h3>
+          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Ajustar Estado</h3>
               <button onClick={() => setIsEditModalOpen(false)}><X/></button>
             </div>
             <form onSubmit={handleEditSubmit} className="p-8 space-y-6">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Nome do Estado</label>
+                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Nome</label>
                 <input 
                   type="text" 
                   value={editingStatus.name} 
                   onChange={(e) => setEditingStatus({...editingStatus, name: e.target.value})} 
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase" 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none" 
                   required 
                 />
               </div>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Cor Identificadora</label>
-                    <div className="flex gap-3">
-                        <input 
-                            type="color" 
-                            value={editingStatus.color} 
-                            onChange={(e) => setEditingStatus({...editingStatus, color: e.target.value})} 
-                            className="w-14 h-14 rounded-xl cursor-pointer border-none bg-transparent"
-                        />
-                        <input 
-                            type="text" 
-                            value={editingStatus.color} 
-                            onChange={(e) => setEditingStatus({...editingStatus, color: e.target.value})} 
-                            className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm font-bold uppercase"
-                        />
-                    </div>
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Cor</label>
+                    <input 
+                      type="color" 
+                      value={editingStatus.color} 
+                      onChange={(e) => setEditingStatus({...editingStatus, color: e.target.value})} 
+                      className="w-full h-14 p-1 bg-slate-50 border border-slate-200 rounded-2xl cursor-pointer" 
+                    />
                   </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-2xl border border-slate-200 w-full">
+                  <div className="flex items-end pb-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
                         <input 
-                            type="checkbox" 
-                            checked={editingStatus.isFinal} 
-                            onChange={(e) => setEditingStatus({...editingStatus, isFinal: e.target.checked})}
-                            className="w-5 h-5 rounded border-slate-300 text-[#0d457a] focus:ring-[#0d457a]"
+                          type="checkbox" 
+                          checked={editingStatus.isFinal} 
+                          onChange={(e) => setEditingStatus({...editingStatus, isFinal: e.target.checked})} 
+                          className="w-6 h-6 rounded-lg border-slate-200 text-emerald-500 focus:ring-emerald-500"
                         />
-                        <span className="text-[10px] font-black text-slate-600 uppercase">Estado Final?</span>
+                        <span className="text-[10px] font-black text-[#0d457a] uppercase">Finalizador</span>
                     </label>
                   </div>
               </div>
-              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2">
-                 <Save size={18} /> Salvar Alterações
-              </button>
+              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg">Salvar Alterações Cloud</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isBatchModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
+          <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Inserção em Lote</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase mt-1">Nomes por linha</p>
+              </div>
+              <button onClick={() => setIsBatchModalOpen(false)}><X/></button>
+            </div>
+            <div className="p-8 space-y-6">
+              <textarea 
+                value={batchText}
+                onChange={(e) => setBatchText(e.target.value)}
+                placeholder="PROCESSO EM ANÁLISE&#10;DOCUMENTAÇÃO OK&#10;AGUARDANDO EMPENHO"
+                className="w-full h-64 p-6 bg-slate-50 border border-slate-200 rounded-3xl font-mono text-xs text-[#0d457a] outline-none focus:ring-4 ring-blue-500/5 resize-none uppercase"
+              />
+              <button 
+                onClick={handleBatchSubmit}
+                disabled={isLoading || !batchText.trim()}
+                className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Database size={20} />}
+                Confirmar Sincronização Lote
+              </button>
+            </div>
           </div>
         </div>
       )}

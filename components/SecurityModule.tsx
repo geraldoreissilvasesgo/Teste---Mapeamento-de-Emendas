@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { User, Role } from '../types';
+import { User, Role } from '../types.ts';
 import { 
   Trash2, UserPlus, Shield, Mail, Lock, Eye, EyeOff, Info, 
   UserCheck, Fingerprint, X, ShieldCheck, Search, Loader2,
   UserCog, Key, CheckCircle2, Building2, ShieldAlert, FileText,
-  AlertCircle
+  AlertCircle, Terminal, Copy, Check, Smartphone
 } from 'lucide-react';
 
 interface SecurityModuleProps {
@@ -14,29 +14,50 @@ interface SecurityModuleProps {
   currentUser: User;
   isLoading?: boolean;
   isDbConnected?: boolean;
+  onNavigateToRegister: () => void;
+  error?: string | null;
 }
 
 export const SecurityModule: React.FC<SecurityModuleProps> = ({ 
   users, 
-  onAddUser, 
   onDeleteUser, 
   currentUser, 
   isLoading = false,
-  isDbConnected = true 
+  isDbConnected = true,
+  onNavigateToRegister,
+  error
 }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [lgpdConfirmation, setLgpdConfirmation] = useState(false);
-  const [newUser, setNewUser] = useState({ 
-    name: '',
-    email: '',
-    role: Role.OPERATOR,
-    password: '',
-    department: 'SES/SUBIPEI'
-  });
+  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isAdmin = currentUser.role === Role.ADMIN || currentUser.role === Role.SUPER_ADMIN;
+
+  const sqlSetup = `-- GESA CLOUD: ESTRUTURA DE IDENTIDADE GOVERNAMENTAL
+-- 1. Criar Tabela de Usuários (Public)
+create table if not exists users (
+  id uuid primary key default gen_random_uuid(),
+  "tenantId" text not null default 'GOIAS',
+  name text not null,
+  email text unique not null,
+  role text not null,
+  password text, -- Hash de senha para contingência
+  department text,
+  "avatarUrl" text,
+  "lgpdAccepted" boolean default false,
+  "mfaEnabled" boolean default false,
+  "createdAt" timestamp with time zone default now()
+);
+
+-- 2. Habilitar Segurança RLS (Row Level Security)
+alter table users enable row level security;
+
+-- 3. Políticas de Acesso Granular
+create policy "Acesso por Tenant" on users 
+  for select using (true); -- Em prod: auth.uid() match
+
+create policy "Gestão Administrativa" on users 
+  for all using (true);`;
 
   const maskEmail = (email: string) => {
     if (!email) return '***';
@@ -48,6 +69,12 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     return email;
   };
 
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlSetup);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const filteredUsers = users.filter(u => {
     const term = searchTerm.toLowerCase();
     return !term ||
@@ -55,67 +82,53 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       (u.email?.toLowerCase().includes(term) || false);
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lgpdConfirmation) {
-      alert("É necessário confirmar a ciência dos termos da LGPD para prosseguir.");
-      return;
-    }
-    if (newUser.name && newUser.email && newUser.role && newUser.password) {
-      onAddUser(newUser);
-      setIsModalOpen(false);
-      setLgpdConfirmation(false);
-      setNewUser({ name: '', email: '', role: Role.OPERATOR, password: '', department: 'SES/SUBIPEI' });
-    } else {
-      alert("Preencha todos os campos obrigatórios.");
-    }
-  };
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      {error === 'DATABASE_SETUP_REQUIRED' && (
+        <div className="bg-amber-50 border border-amber-200 p-8 rounded-[40px] flex flex-col items-center text-center gap-6 shadow-xl shadow-amber-900/5 mb-8">
+          <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center animate-pulse">
+            <ShieldAlert size={40} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-amber-900 uppercase">Sincronização com Supabase Necessária</h3>
+            <p className="text-xs text-amber-700 font-bold uppercase mt-2 max-w-xl">
+              A tabela 'users' ainda não foi provisionada no seu ambiente. O sistema está operando em modo de memória volátil (Mock).
+            </p>
+          </div>
+          <button 
+            onClick={() => setIsSqlModalOpen(true)}
+            className="px-10 py-5 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-amber-700 transition-all flex items-center gap-3"
+          >
+            <Terminal size={18} /> Ver Script de Migração
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Segurança e LGPD</h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1 flex items-center gap-2">
-            <Shield size={14} className="text-blue-500" /> Governança de Identidade e Dados Pessoais
+          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Segurança e LGPD</h2>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-3 flex items-center gap-2">
+            <Shield size={16} className="text-blue-500" /> Governança de Identidade e Dados Pessoais
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-500 ${isDbConnected ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}>
-            <div className={`w-2 h-2 rounded-full ${isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
-            <span className="text-[10px] font-black uppercase tracking-widest">
-                {isDbConnected ? 'Base Conectada' : 'Base Desconectada'}
+          <div className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl border transition-all duration-500 ${!error ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}>
+            <div className={`w-2 h-2 rounded-full ${!error ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+            <span className="text-[9px] font-black uppercase tracking-widest">
+                {!error ? 'Banco de Dados Online' : 'Banco Offline (Modo Local)'}
             </span>
           </div>
 
           {isAdmin && (
             <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-[#0d457a] text-white px-6 py-3 rounded-2xl hover:bg-[#0a365f] transition-all shadow-lg uppercase text-[10px] font-black tracking-widest group"
+              onClick={onNavigateToRegister}
+              className="flex items-center gap-3 bg-[#0d457a] text-white px-6 py-4 rounded-2xl hover:bg-[#0a365f] transition-all shadow-lg uppercase text-[10px] font-black tracking-widest group"
             >
-              <UserPlus size={16} className="group-hover:scale-110 transition-transform" />
-              Cadastrar Novo Colaborador
+              <UserPlus size={18} className="group-hover:scale-110 transition-transform" />
+              Provisionar Servidor
             </button>
           )}
         </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-            <input 
-              type="text" 
-              placeholder="Pesquisar por nome ou e-mail corporativo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-xs uppercase text-slate-600 placeholder:text-slate-300"
-            />
-          </div>
-          <div className="flex items-center gap-3 px-4 py-3 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-             <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">
-               {users.length} Colaboradores Ativos
-             </span>
-          </div>
       </div>
 
       <div className="bg-white rounded-[40px] shadow-sm border border-slate-200 overflow-hidden">
@@ -124,9 +137,9 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
             <thead className="bg-slate-50/50">
               <tr>
                 <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Identidade Governamental</th>
-                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail Institucional</th>
-                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Perfil de Acesso</th>
-                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Consentimento LGPD</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Perfil</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">MFA</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">LGPD</th>
                 <th className="px-8 py-6 text-right"></th>
               </tr>
             </thead>
@@ -135,44 +148,40 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 <tr key={user.id} className="group hover:bg-slate-50/50 transition-colors">
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-[#0d457a] text-white flex items-center justify-center font-black text-sm uppercase">
-                        {user.name?.charAt(0) || 'S'}
+                      <div className="w-11 h-11 rounded-2xl bg-[#0d457a] text-white flex items-center justify-center font-black text-sm uppercase shadow-sm overflow-hidden">
+                        {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : (user.name?.charAt(0) || 'S')}
                       </div>
                       <div>
-                        <span className="text-xs font-black text-[#0d457a] uppercase block leading-tight">{user.name || 'Servidor GESA'}</span>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{user.department || 'SES/SUBIPEI'}</span>
+                        <span className="text-xs font-black text-[#0d457a] uppercase block leading-tight">{user.name}</span>
+                        <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-tighter mt-1">{maskEmail(user.email)}</span>
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-6">
-                    <span className="text-xs font-mono font-bold text-slate-500">{maskEmail(user.email)}</span>
-                  </td>
                   <td className="px-8 py-6 text-center">
-                    <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-tighter border ${
-                      user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN ? 'bg-red-50 text-red-600 border-red-100' : 
-                      user.role === Role.VIEWER ? 'bg-slate-50 text-slate-500 border-slate-100' :
-                      'bg-blue-50 text-blue-600 border-blue-100'
+                    <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
+                      user.role.includes('Admin') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'
                     }`}>
                       {user.role}
                     </span>
                   </td>
                   <td className="px-8 py-6 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className={`flex items-center gap-1.5 text-[9px] font-black uppercase px-3 py-1 rounded-lg border ${user.lgpdAccepted ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-slate-400 bg-slate-50 border-slate-100'}`}>
-                        {/* Fix: AlertCircle was missing from imports, but used here */}
-                        {user.lgpdAccepted ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
-                        {user.lgpdAccepted ? 'Confirmado' : 'Pendente'}
-                      </span>
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[8px] font-black uppercase border ${user.mfaEnabled ? 'text-purple-600 bg-purple-50 border-purple-100' : 'text-slate-300 bg-slate-50 border-slate-100'}`}>
+                      <Smartphone size={10} /> {user.mfaEnabled ? 'ATIVO' : 'OFF'}
+                    </div>
+                  </td>
+                  <td className="px-8 py-6 text-center">
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[8px] font-black uppercase border ${user.lgpdAccepted ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100'}`}>
+                      <ShieldCheck size={10} /> {user.lgpdAccepted ? 'ACEITO' : 'PENDENTE'}
                     </div>
                   </td>
                   <td className="px-8 py-6 text-right">
                     {isAdmin && user.id !== currentUser.id && (
                       <button 
-                        onClick={() => { if(confirm('Deseja realmente revogar o acesso deste colaborador?')) onDeleteUser(user.id); }}
-                        className="p-3 bg-white border border-slate-200 text-slate-300 hover:text-red-500 hover:border-red-100 rounded-xl transition-all shadow-sm"
+                        onClick={() => { if(confirm('⚠️ CRÍTICO: Revogar acesso deste colaborador?')) onDeleteUser(user.id); }}
+                        className="p-3 bg-white border border-slate-200 text-slate-300 hover:text-red-500 hover:border-red-200 rounded-xl transition-all shadow-sm"
                         title="Revogar Acesso"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                       </button>
                     )}
                   </td>
@@ -183,120 +192,31 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
-      {isModalOpen && isAdmin && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-[#0d457a] text-white rounded-2xl shadow-lg"><UserPlus size={24}/></div>
-                <div>
-                   <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Novo Colaborador</h3>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Provisionamento de Identidade GESA Cloud</p>
-                </div>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={24}/></button>
+      {/* Modal SQL */}
+      {isSqlModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">
+          <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-amber-500">
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+               <div>
+                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Esquema do Banco (users)</h3>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Sincronização de Identidade Gov Cloud</p>
+               </div>
+               <button onClick={() => setIsSqlModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
+                  <X size={24} />
+               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nome Completo do Servidor</label>
-                  <div className="relative">
-                    <UserCog size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <input 
-                      type="text" 
-                      value={newUser.name} 
-                      onChange={(e) => setNewUser({...newUser, name: e.target.value})} 
-                      className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/10" 
-                      required 
-                      placeholder="NOME COMPLETO"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">E-mail Corporativo (@goias.gov.br)</label>
-                  <div className="relative">
-                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <input 
-                      type="email" 
-                      value={newUser.email} 
-                      onChange={(e) => setNewUser({...newUser, email: e.target.value})} 
-                      className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] outline-none focus:ring-4 ring-blue-500/10" 
-                      required 
-                      placeholder="servidor@goias.gov.br"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Perfil RBAC</label>
-                      <select 
-                        value={newUser.role}
-                        onChange={(e) => setNewUser({...newUser, role: e.target.value as Role})}
-                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-600 uppercase text-xs outline-none"
-                      >
-                        <option value={Role.OPERATOR}>Operador GESA</option>
-                        <option value={Role.VIEWER}>Consultor Externo</option>
-                        <option value={Role.ADMIN}>Administrador de Unidade</option>
-                      </select>
-                   </div>
-                   <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Lotação / Gerência</label>
-                      <input 
-                        type="text" 
-                        value={newUser.department}
-                        onChange={(e) => setNewUser({...newUser, department: e.target.value})}
-                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none text-xs" 
-                        placeholder="EX: SES/SUBIPEI/GESA"
-                      />
-                   </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Senha Provisória</label>
-                  <div className="relative">
-                    <Key size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                    <input 
-                      type={showPass ? "text" : "password"} 
-                      value={newUser.password} 
-                      onChange={(e) => setNewUser({...newUser, password: e.target.value})} 
-                      className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] outline-none focus:ring-4 ring-blue-500/10" 
-                      required 
-                      placeholder="••••••••"
-                    />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
-                      {showPass ? <EyeOff size={18}/> : <Eye size={18}/>}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100 space-y-4">
-                 <div className="flex items-start gap-3">
-                   <ShieldAlert size={18} className="text-blue-500 shrink-0 mt-0.5" />
-                   <p className="text-[10px] text-blue-800 font-bold uppercase leading-relaxed">
-                     Ao cadastrar, você declara que este colaborador possui vínculo institucional e que o tratamento de seus dados pessoais será realizado exclusivamente para fins de auditoria pública.
-                   </p>
-                 </div>
-                 <label className="flex items-center gap-3 p-3 bg-white/50 rounded-xl cursor-pointer hover:bg-white transition-all">
-                    <input 
-                      type="checkbox" 
-                      checked={lgpdConfirmation}
-                      onChange={(e) => setLgpdConfirmation(e.target.checked)}
-                      className="w-5 h-5 rounded border-blue-200 text-[#0d457a]"
-                    />
-                    <span className="text-[9px] font-black text-[#0d457a] uppercase">Confirmo ciência dos termos de privacidade e LGPD</span>
-                 </label>
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-3 hover:bg-[#0a365f] transition-all"
-              >
-                Finalizar Cadastro <CheckCircle2 size={18} />
-              </button>
-            </form>
+            <div className="p-10 space-y-6">
+               <pre className="bg-slate-900 text-blue-400 p-6 rounded-3xl font-mono text-[11px] overflow-x-auto h-72 border border-white/5 shadow-inner">
+                   {sqlSetup}
+               </pre>
+               <button 
+                  onClick={handleCopySql}
+                  className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-xl"
+               >
+                 {copied ? <Check size={18}/> : <Copy size={18}/>}
+                 {copied ? 'Copiado!' : 'Copiar Script SQL'}
+               </button>
+            </div>
           </div>
         </div>
       )}

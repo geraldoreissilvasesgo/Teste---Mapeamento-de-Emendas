@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Terminal, Cpu, Database, Activity, Code2, Globe, 
@@ -7,7 +6,7 @@ import {
   Network, Play, Pause, Trash2, Maximize2, Monitor,
   Wifi, Signal, Clock, Box
 } from 'lucide-react';
-import { Amendment, User, AuditLog } from '../types';
+import { Amendment, User, AuditLog } from '../types.ts';
 
 interface DebugConsoleProps {
   amendments: Amendment[];
@@ -67,7 +66,7 @@ export const DebugConsole: React.FC<DebugConsoleProps> = ({ amendments, currentU
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col space-y-6 animate-in fade-in duration-500 font-inter">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+      <div className="flex flex-col lg:space-x-6 lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Console de Engenharia</h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 flex items-center gap-2">

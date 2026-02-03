@@ -1,14 +1,6 @@
-
-/**
- * MÓDULO DE IMPORTAÇÃO DE PROCESSOS EM LOTE
- * 
- * Este componente permite que os usuários cadastrem múltiplos processos de uma só vez
- * através do upload de um arquivo CSV. Ele valida os dados, mostra um resumo
- * dos registros válidos e inválidos, e permite a confirmação da importação.
- */
 import React, { useState, useRef } from 'react';
 import { UploadCloud, FileText, AlertCircle, Check, X, Send, Download, FileSpreadsheet, Info } from 'lucide-react';
-import { Amendment, Status, SectorConfig, Role, AmendmentType, TransferMode, GNDType, AmendmentMovement } from '../types';
+import { Amendment, Status, SectorConfig, Role, AmendmentType, TransferMode, GNDType, AmendmentMovement } from '../types.ts';
 
 interface ImportModuleProps {
   onImport: (data: Amendment[]) => void;

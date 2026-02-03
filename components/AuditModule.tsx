@@ -3,28 +3,22 @@ import React, { useState, useMemo } from 'react';
 import { 
   Search, Download, ShieldAlert, Bug, 
   Activity, X, Terminal, Fingerprint, Database, Binary, History,
-  GitBranch, Rocket, RotateCcw, ShieldCheck, Cpu, Code2, AlertTriangle, 
-  ChevronLeft, ChevronRight, PlayCircle
+  GitBranch, Rocket, ShieldCheck, Code2, AlertTriangle, 
+  ChevronLeft, ChevronRight, Copy, Check, RefreshCw, Loader2
 } from 'lucide-react';
-import { AuditLog, AuditAction, User as AppUser } from '../types';
-import { db } from '../services/supabase';
+import { AuditLog, AuditAction, User as AppUser } from '../types.ts';
 
-/**
- * MÓDULO DE AUDITORIA E GOVERNANÇA (COMPLIANCE)
- * Responsável por exibir a trilha de auditoria imutável, o status do pipeline CI/CD,
- * as versões de release e os controles de segurança do sistema.
- */
 interface AuditModuleProps {
   logs: AuditLog[];
   currentUser: AppUser;
   activeTenantId: string;
-  onSimulate?: () => void;
+  onRefresh: () => void;
+  error?: string | null;
 }
 
 const ITEMS_PER_PAGE = 15;
 
-// Mapeamento visual para cada tipo de ação registrada
-const actionVisuals = {
+const actionVisuals: Record<string, { icon: React.ElementType, color: string, bg: string }> = {
   [AuditAction.LOGIN]: { icon: History, color: 'text-sky-500', bg: 'bg-sky-50' },
   [AuditAction.CREATE]: { icon: Code2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   [AuditAction.UPDATE]: { icon: Binary, color: 'text-amber-500', bg: 'bg-amber-50' },
@@ -36,16 +30,37 @@ const actionVisuals = {
   [AuditAction.TENANT_SWITCH]: { icon: Database, color: 'text-slate-500', bg: 'bg-slate-50' },
 };
 
-export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, activeTenantId, onSimulate }) => {
+export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, activeTenantId, onRefresh, error }) => {
   const [activeTab, setActiveTab] = useState<'logs' | 'code' | 'cicd' | 'releases'>('logs');
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSqlModalOpen, setIsSqlModalOpen] = useState(error === 'DATABASE_SETUP_REQUIRED');
+  const [copied, setCopied] = useState(false);
 
-  /**
-   * Filtragem de logs em memória para busca rápida.
-   */
+  const sqlSetup = `-- GESA CLOUD: TRILHA DE AUDITORIA IMUTÁVEL
+create table if not exists audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  "tenantId" text not null default 'GOIAS',
+  "actorId" text,
+  "actorName" text,
+  action text not null,
+  details text,
+  severity text default 'INFO',
+  timestamp timestamp with time zone default now()
+);
+alter table audit_logs enable row level security;
+create policy "Acesso por Tenant Auditoria" on audit_logs for select using (true);
+create policy "Sistema Grava Auditoria" on audit_logs for insert with check (true);`;
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await onRefresh();
+    setTimeout(() => setIsRefreshing(false), 800);
+  };
+
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       const term = searchTerm.toLowerCase();
@@ -61,9 +76,6 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, act
     });
   }, [logs, searchTerm, severityFilter]);
 
-  /**
-   * Sumarização de estatísticas para os cartões informativos.
-   */
   const stats = useMemo(() => {
     return {
       total: logs.length,
@@ -76,9 +88,6 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, act
   const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
   const paginatedLogs = filteredLogs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  /**
-   * Gera um arquivo CSV com os logs filtrados para auditoria externa.
-   */
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -98,181 +107,180 @@ export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, act
     }
   };
 
-  /**
-   * Simula uma requisição de rollback de versão (apenas visual).
-   */
-  const handleRollbackRequest = async (version: string) => {
-    if (window.confirm(`⚠️ OPERAÇÃO DE SEGURANÇA: Deseja realmente solicitar o rollback para a versão ${version}? Esta ação será auditada.`)) {
-      try {
-        await db.audit.log({
-          tenantId: activeTenantId,
-          actorId: currentUser.id,
-          actorName: currentUser.name,
-          action: AuditAction.SECURITY,
-          details: `Solicitação de Rollback para v${version} iniciada manualmente via Portal de Auditoria.`,
-          severity: 'CRITICAL'
-        });
-        alert(`Solicitação de rollback da v${version} enviada para o time de DevOps.`);
-      } catch (err) {
-        console.error("Erro ao registrar auditoria de rollback", err);
-      }
-    }
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlSetup);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      {/* Título do Módulo */}
+      {error === 'DATABASE_SETUP_REQUIRED' && (
+        <div className="bg-amber-50 border border-amber-200 p-8 rounded-[40px] flex flex-col items-center text-center gap-6 shadow-xl shadow-amber-900/5 mb-8">
+          <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center animate-pulse">
+            <ShieldAlert size={40} />
+          </div>
+          <h3 className="text-xl font-black text-amber-900 uppercase">Tabela 'audit_logs' Offline</h3>
+          <button 
+            onClick={() => setIsSqlModalOpen(true)}
+            className="px-10 py-5 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-amber-700 transition-all flex items-center gap-3"
+          >
+            <Terminal size={18} /> Gerar Script SQL
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Auditoria & Segurança</h2>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.25em] mt-3 flex items-center gap-2">
-            <Fingerprint size={16} className="text-blue-500" /> Rastreabilidade e Governança GESA Cloud
+            <Fingerprint size={16} className="text-blue-500" /> Rastreabilidade Governamental GESA Cloud
           </p>
         </div>
         
-        {/* Menu de Abas Técnicas */}
-        <div className="flex flex-wrap gap-2 p-1.5 bg-white border border-slate-200 rounded-[24px] shadow-sm no-print">
-           {[
-             { id: 'logs', label: 'Eventos de Sistema', icon: History },
-             { id: 'cicd', label: 'Pipeline CI/CD', icon: Rocket },
-             { id: 'releases', label: 'Versões', icon: GitBranch },
-             { id: 'code', label: 'Conformidade', icon: ShieldCheck }
-           ].map(tab => (
-             <button 
-               key={tab.id}
-               onClick={() => { setActiveTab(tab.id as any); setCurrentPage(1); }}
-               className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-[#0d457a] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
-             >
-                <tab.icon size={14} /> {tab.label}
-             </button>
-           ))}
+        <div className="flex gap-3 no-print">
+            <button 
+              onClick={handleManualRefresh}
+              className="p-4 bg-white border border-slate-200 text-[#0d457a] rounded-2xl hover:bg-blue-50 transition-all shadow-sm flex items-center gap-2"
+            >
+              {isRefreshing ? <Loader2 className="animate-spin" size={18}/> : <RefreshCw size={18}/>}
+            </button>
+            <button 
+              onClick={handleExport}
+              disabled={isExporting || logs.length === 0}
+              className="flex items-center justify-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-[#0a365f] transition-all disabled:opacity-50"
+            >
+              <Download size={16} /> Exportar CSV
+            </button>
         </div>
       </div>
 
-      {/* Visão de Logs (Trilha de Auditoria) */}
-      {activeTab === 'logs' && (
-        <div className="space-y-6 animate-in fade-in duration-500">
-           {/* Cartões de Status */}
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
-              <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex flex-col justify-center">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total de Eventos</p>
-                  <p className="text-2xl font-black text-[#0d457a]">{stats.total}</p>
-              </div>
-              <div className="bg-emerald-50 p-6 rounded-[32px] border border-emerald-100 shadow-sm flex flex-col justify-center">
-                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Informativos</p>
-                  <p className="text-2xl font-black text-emerald-600">{stats.info}</p>
-              </div>
-              <div className="bg-amber-50 p-6 rounded-[32px] border border-amber-100 shadow-sm flex flex-col justify-center">
-                  <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Alertas</p>
-                  <p className="text-2xl font-black text-amber-600">{stats.warn}</p>
-              </div>
-              <div className="bg-red-50 p-6 rounded-[32px] border border-red-100 shadow-sm flex flex-col justify-center">
-                  <p className="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1">Críticos</p>
-                  <p className="text-2xl font-black text-red-600">{stats.critical}</p>
-              </div>
-           </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+        <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Eventos</p>
+            <p className="text-2xl font-black text-[#0d457a]">{stats.total}</p>
+        </div>
+        <div className="bg-emerald-50 p-6 rounded-[32px] border border-emerald-100">
+            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Normais</p>
+            <p className="text-2xl font-black text-emerald-600">{stats.info}</p>
+        </div>
+        <div className="bg-amber-50 p-6 rounded-[32px] border border-amber-100">
+            <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Avisos</p>
+            <p className="text-2xl font-black text-amber-600">{stats.warn}</p>
+        </div>
+        <div className="bg-red-50 p-6 rounded-[32px] border border-red-100">
+            <p className="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1">Críticos</p>
+            <p className="text-2xl font-black text-red-600">{stats.critical}</p>
+        </div>
+      </div>
 
-           {/* Barra de Busca e Filtros */}
-           <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 flex flex-col lg:flex-row gap-5 items-center no-print">
-              <div className="relative flex-1 w-full">
-                  <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                  <input 
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Pesquisar logs por operador ou ação..."
-                    className="w-full pl-16 pr-8 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-xs uppercase text-[#0d457a]"
-                  />
-              </div>
-              <div className="relative w-full lg:w-48">
-                 <select 
-                    value={severityFilter}
-                    onChange={(e) => setSeverityFilter(e.target.value)}
-                    className="w-full pl-4 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none appearance-none cursor-pointer"
-                 >
-                    <option value="all">Severidade: Todas</option>
-                    <option value="INFO">INFO</option>
-                    <option value="WARN">AVISO</option>
-                    <option value="CRITICAL">CRÍTICO</option>
-                 </select>
-              </div>
-              <div className="flex gap-2 w-full lg:w-auto">
-                {onSimulate && (
-                   <button 
-                    onClick={onSimulate}
-                    className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all"
-                  >
-                    <PlayCircle size={16} /> Simular Logs
-                  </button>
-                )}
-                <button 
-                  onClick={handleExport}
-                  disabled={isExporting}
-                  className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-[#0a365f] transition-all disabled:opacity-50"
-                >
-                  <Download size={16} /> Exportar
-                </button>
-              </div>
-           </div>
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 flex flex-col lg:flex-row gap-5 items-center no-print">
+          <div className="relative flex-1 w-full">
+              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              <input 
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Filtrar por servidor ou detalhe da ação..."
+                className="w-full pl-16 pr-8 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-xs uppercase text-[#0d457a]"
+              />
+          </div>
+          <div className="w-full lg:w-48">
+             <select 
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value)}
+                className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none"
+             >
+                <option value="all">Todas Severidades</option>
+                <option value="INFO">INFO</option>
+                <option value="WARN">AVISO</option>
+                <option value="CRITICAL">CRÍTICO</option>
+             </select>
+          </div>
+      </div>
 
-           {/* Tabela de Dados */}
-           <div className="bg-white rounded-[40px] shadow-sm border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead className="bg-slate-50/50">
-                        <tr>
-                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Atividade / Timestamp</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Agente Responsável</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Registro de Evento</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Severidade</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-inter">
-                        {paginatedLogs.map(log => {
-                            const Visual = actionVisuals[log.action as keyof typeof actionVisuals] || { icon: Activity, color: 'text-gray-500', bg: 'bg-gray-50' };
-                            return (
-                                <tr key={log.id} className="group hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-2xl ${Visual.bg} ${Visual.color} shadow-sm group-hover:scale-110 transition-transform`}>
-                                                <Visual.icon size={18} />
-                                            </div>
-                                            <div>
-                                                <span className="text-[11px] font-black text-[#0d457a] uppercase block mb-1">{log.action || 'SISTEMA'}</span>
-                                                <span className="text-[9px] font-mono text-slate-300">{new Date(log.timestamp).toLocaleString('pt-BR')}</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-[10px] font-black uppercase">
-                                             {log.actorName?.charAt(0) || 'S'}
-                                          </div>
-                                          <span className="text-xs font-black text-slate-600 uppercase tracking-tight">{log.actorName || 'Sistema / Core'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <p className="text-[10px] font-medium text-slate-500 leading-relaxed max-w-sm" title={log.details}>{log.details}</p>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm ${
-                                          log.severity === 'CRITICAL' ? 'bg-red-50 text-red-600 border-red-200' :
-                                          log.severity === 'WARN' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                          'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                        }`}>
-                                          {log.severity}
-                                        </span>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-              </div>
-           </div>
+      <div className="bg-white rounded-[40px] shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+              <thead className="bg-slate-50/50">
+                  <tr>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Atividade</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Servidor Responsável</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição do Evento</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Risco</th>
+                  </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-inter">
+                  {paginatedLogs.map(log => {
+                      const Visual = actionVisuals[log.action] || { icon: Activity, color: 'text-gray-500', bg: 'bg-gray-50' };
+                      return (
+                          <tr key={log.id} className="group hover:bg-slate-50/50 transition-colors">
+                              <td className="px-8 py-6">
+                                  <div className="flex items-center gap-4">
+                                      <div className={`p-3 rounded-2xl ${Visual.bg} ${Visual.color} shadow-sm`}>
+                                          <Visual.icon size={18} />
+                                      </div>
+                                      <div>
+                                          <span className="text-[11px] font-black text-[#0d457a] uppercase block mb-1">{log.action}</span>
+                                          <span className="text-[9px] font-mono text-slate-400">{new Date(log.timestamp).toLocaleString('pt-BR')}</span>
+                                      </div>
+                                  </div>
+                              </td>
+                              <td className="px-8 py-6">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-7 h-7 rounded-lg bg-[#0d457a] text-white flex items-center justify-center text-[10px] font-black uppercase">
+                                       {log.actorName?.charAt(0) || 'S'}
+                                    </div>
+                                    <span className="text-xs font-black text-slate-600 uppercase tracking-tight">{log.actorName || 'Sistema'}</span>
+                                  </div>
+                              </td>
+                              <td className="px-8 py-6">
+                                  <p className="text-[10px] font-medium text-slate-500 leading-relaxed max-w-sm">{log.details}</p>
+                              </td>
+                              <td className="px-8 py-6 text-center">
+                                  <span className={`px-4 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border ${
+                                    log.severity === 'CRITICAL' ? 'bg-red-600 text-white border-red-700 animate-pulse' :
+                                    log.severity === 'WARN' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                    'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                  }`}>
+                                    {log.severity}
+                                  </span>
+                              </td>
+                          </tr>
+                      );
+                  })}
+                  {paginatedLogs.length === 0 && (
+                     <tr>
+                       <td colSpan={4} className="py-20 text-center">
+                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhuma atividade registrada no banco de dados.</p>
+                       </td>
+                     </tr>
+                  )}
+              </tbody>
+          </table>
+        </div>
+      </div>
+
+      {isSqlModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">
+          <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-amber-500">
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+               <div>
+                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Esquema do Banco (audit_logs)</h3>
+               </div>
+               <button onClick={() => setIsSqlModalOpen(false)}><X/></button>
+            </div>
+            <div className="p-10 space-y-6">
+               <pre className="bg-slate-900 text-blue-400 p-6 rounded-3xl font-mono text-[11px] overflow-x-auto h-72 border border-white/5 shadow-inner">
+                   {sqlSetup}
+               </pre>
+               <button onClick={handleCopySql} className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs">
+                 {copied ? 'Copiado!' : 'Copiar Script SQL'}
+               </button>
+            </div>
+          </div>
         </div>
       )}
-      {/* Abas Técnicas (CI/CD, Releases, Code) apresentam visualizações de infraestrutura governamental */}
     </div>
   );
 };

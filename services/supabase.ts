@@ -50,30 +50,55 @@ export const db = {
     }
   },
 
+  users: {
+    async getAll(tenantId: string) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('tenantId', tenantId)
+        .order('name', { ascending: true });
+      
+      if (error) {
+        if (error.code === 'PGRST104' || error.message.includes('public.users')) {
+          throw new Error('TABLE_MISSING');
+        }
+        throw error;
+      }
+      return data || [];
+    },
+    async upsert(user: any) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const tenantId = authUser?.user_metadata?.tenantId || user.tenantId || 'GOIAS';
+      
+      const payload = { 
+        id: user.id || generateUUID(),
+        tenantId,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        password: user.password,
+        department: user.department,
+        avatarUrl: user.avatarUrl,
+        lgpdAccepted: user.lgpdAccepted || false,
+        mfaEnabled: user.mfaEnabled || false,
+        createdAt: user.createdAt || new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase.from('users').upsert(payload).select();
+      if (error) throw error;
+      return data[0];
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('users').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
   profiles: {
     async get(id: string) {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
       if (error) throw error;
       return data;
-    },
-    async getAll(tenantId: string) {
-      // Nota: Em produção real, buscaríamos de uma tabela 'profiles' sincronizada.
-      // Para este protótipo robusto, simulamos a listagem de usuários baseada nos logs de acesso recentes.
-      const { data, error } = await supabase.from('audit_logs').select('actorId, actorName').eq('tenantId', tenantId);
-      if (error) return [];
-      
-      const uniqueUsers = Array.from(new Set(data.map(d => d.actorId))).map(id => {
-        const user = data.find(d => d.actorId === id);
-        return {
-          id,
-          name: user.actorName,
-          email: `${user.actorId.substring(0,5)}@goias.gov.br`,
-          role: 'Operador GESA',
-          lgpdAccepted: true,
-          department: 'SES/SUBIPEI'
-        };
-      });
-      return uniqueUsers;
     },
     async rotateApiKey(id: string) {
       const newKey = `gesa_live_${Math.random().toString(36).substring(2, 15)}`;
@@ -167,8 +192,18 @@ export const db = {
 
   amendments: {
     async getAll(tenantId: string) {
-      const { data, error } = await supabase.from('amendments').select('*').eq('tenantId', tenantId).order('createdAt', { ascending: false });
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from('amendments')
+        .select('*')
+        .eq('tenantId', tenantId)
+        .order('createdAt', { ascending: false });
+      
+      if (error) {
+        if (error.code === 'PGRST104' || error.message.includes('public.amendments')) {
+          throw new Error('TABLE_MISSING');
+        }
+        throw error;
+      }
       return data || [];
     },
     async upsert(amendment: any) {
@@ -201,8 +236,19 @@ export const db = {
       if (error) console.error("Audit log error:", error);
     },
     async getLogs(tenantId: string) {
-      const { data, error } = await supabase.from('audit_logs').select('*').eq('tenantId', tenantId).order('timestamp', { ascending: false }).limit(500);
-      if (error) return [];
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .eq('tenantId', tenantId)
+        .order('timestamp', { ascending: false })
+        .limit(500);
+      
+      if (error) {
+        if (error.code === 'PGRST104' || error.message.includes('public.audit_logs')) {
+          throw new Error('TABLE_MISSING');
+        }
+        throw error;
+      }
       return data || [];
     }
   }

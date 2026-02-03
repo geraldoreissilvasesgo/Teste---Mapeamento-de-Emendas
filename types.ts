@@ -17,6 +17,66 @@ export enum Role {
   VIEWER = 'Consultor Externo'
 }
 
+// Enum para os estados padronizados do ciclo de vida de um processo
+export enum Status {
+  DOCUMENT_ANALYSIS = 'Análise da Documentação',
+  TECHNICAL_FLOW = 'Em Tramitação Técnica',
+  DILIGENCE = 'Em Diligência',
+  LEGAL_OPINION = 'Aguardando Parecer Jurídico',
+  CONCLUDED = 'Liquidado / Pago',
+  ARCHIVED = 'Arquivado / Rejeitado',
+  DOCUMENT_ANALYSIS_TEXT = 'Análise da Documentação' // Fallback para compatibilidade com strings puras se necessário
+}
+
+// Metadados para exibição visual dos perfis
+export const ROLE_METADATA = {
+  [Role.SUPER_ADMIN]: {
+    label: 'Super Admin',
+    description: 'Acesso total irrestrito a todos os tenants e configurações globais do sistema.',
+    color: 'bg-red-500',
+    lightColor: 'bg-red-50',
+    borderColor: 'border-red-200',
+    textColor: 'text-red-700',
+    permissions: ['Gestão Global', 'Logs Críticos', 'MFA Management', 'Banco de Dados']
+  },
+  [Role.ADMIN]: {
+    label: 'Administrador',
+    description: 'Gestão completa da unidade (SES, SEDUC, etc), incluindo usuários e setores.',
+    color: 'bg-blue-600',
+    lightColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    textColor: 'text-blue-700',
+    permissions: ['Gestão de Usuários', 'Configuração SLA', 'Edição de Processos', 'Relatórios']
+  },
+  [Role.OPERATOR]: {
+    label: 'Operador',
+    description: 'Perfil operacional para tramitação diária e atualização de processos SEI.',
+    color: 'bg-emerald-500',
+    lightColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    textColor: 'text-emerald-700',
+    permissions: ['Tramitar Processos', 'Anexar Documentos', 'Atualizar Status', 'Visualizar Dashboard']
+  },
+  [Role.AUDITOR]: {
+    label: 'Auditor',
+    description: 'Acesso para órgãos de controle. Visualização total de trilhas de auditoria.',
+    color: 'bg-purple-500',
+    lightColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    textColor: 'text-purple-700',
+    permissions: ['Trilha de Auditoria', 'Exportação de Dados', 'Visualização de Logs', 'Relatórios Fiscais']
+  },
+  [Role.VIEWER]: {
+    label: 'Consultor',
+    description: 'Acesso apenas leitura para acompanhamento de processos externos.',
+    color: 'bg-slate-500',
+    lightColor: 'bg-slate-50',
+    borderColor: 'border-slate-200',
+    textColor: 'text-slate-700',
+    permissions: ['Consulta de Processos', 'Ver Detalhes', 'Acompanhar Trâmite']
+  }
+};
+
 export enum AmendmentType {
   IMPOSITIVA = 'Emenda Impositiva',
   GOIAS_CRESCIMENTO = 'Goiás em Crescimento',
@@ -31,10 +91,9 @@ export enum TransferMode {
 
 export enum GNDType {
   CUSTEIO = '3 - Custeio',
-  INVESTIMENTO = '4 - Investimento'
+  INVESTIMENTO = '4 - Investmento'
 }
 
-// Mantido apenas para compatibilidade de tipos, mas o sistema agora utiliza strings dinâmicas
 export enum AnalysisType {
   TECHNICAL = 'Análise Técnica',
   LEGAL = 'Parecer Jurídico',
@@ -48,7 +107,7 @@ export interface SectorConfig {
   id: string;
   name: string;
   defaultSlaDays: number;
-  analysisType: string; // Agora dinâmico vindo de StatusConfig
+  analysisType: string;
 }
 
 export interface StatusConfig {
@@ -57,23 +116,6 @@ export interface StatusConfig {
   name: string;
   color: string;
   isFinal?: boolean;
-}
-
-export enum Status {
-  DOCUMENT_ANALYSIS = 'Análise da Documentação',
-  IN_PROGRESS = 'Em Tramitação',
-  DILIGENCE = 'Em Diligência',
-  REJECTED = 'Rejeitado',
-  CONCLUDED = 'Liquidado / Pago',
-  ARCHIVED = 'Arquivado'
-}
-
-export interface DeadlineExtension {
-  originalDeadline: string;
-  newDeadline: string;
-  justification: string;
-  extendedAt: string;
-  extendedBy: string;
 }
 
 export interface AmendmentMovement {
@@ -88,7 +130,6 @@ export interface AmendmentMovement {
   handledBy: string;
   remarks?: string;
   analysisType?: string;
-  extension?: DeadlineExtension;
 }
 
 export interface Amendment {
@@ -102,19 +143,15 @@ export interface Amendment {
   municipality: string;
   object: string;
   value: number;
-  status: string;
+  status: string | Status;
   currentSector: string;
   movements: AmendmentMovement[];
+  createdAt: string;
+  entryDate?: string;
   suinfra?: boolean;
   sutis?: boolean;
   transferMode?: TransferMode;
   gnd?: GNDType;
-  createdAt: string;
-  aiInsights?: AIAnalysisResult;
-  entryDate?: string;
-  healthUnit?: string;
-  institutionName?: string;
-  notes?: string;
 }
 
 export interface User {
@@ -136,12 +173,10 @@ export enum AuditAction {
   UPDATE = 'Edição',
   DELETE = 'Arquivamento',
   MOVE = 'Tramitação',
-  AI_ANALYSIS = 'Análise IA',
-  TENANT_SWITCH = 'Troca de Tenant',
   SECURITY = 'Segurança',
   ERROR = 'Erro',
-  EXTEND_DEADLINE = 'Dilação de Prazo',
-  STATUS_CONFIG = 'Configuração de Status'
+  AI_ANALYSIS = 'Análise IA Preditiva',
+  TENANT_SWITCH = 'Troca de Tenant/Unidade'
 }
 
 export type AuditSeverity = 'INFO' | 'WARN' | 'CRITICAL';
@@ -157,6 +192,9 @@ export interface AuditLog {
   severity: AuditSeverity;
 }
 
+/**
+ * Interface para o resultado da análise técnica gerada pela IA Gemini.
+ */
 export interface AIAnalysisResult {
   summary: string;
   bottleneck: string;
