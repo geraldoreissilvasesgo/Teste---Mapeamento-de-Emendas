@@ -18,6 +18,8 @@ import { SystemManual } from './components/SystemManual';
 import { DebugConsole } from './components/DebugConsole';
 import { Login } from './components/Login';
 import { LGPDModal } from './components/LGPDModal';
+import { NotificationProvider, useNotification } from './context/NotificationContext';
+import { PlushNotificationContainer } from './components/PlushNotification';
 import { 
   User, Amendment, Role, Status, SectorConfig, StatusConfig,
   AmendmentMovement, SystemMode, AuditLog, AuditAction
@@ -26,7 +28,8 @@ import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS, APP_VERSION } from './constant
 import { db, supabase } from './services/supabase';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { notify } = useNotification();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTenantId, setActiveTenantId] = useState<string>('T-01'); 
   const [amendments, setAmendments] = useState<Amendment[]>([]);
@@ -81,13 +84,14 @@ const App: React.FC = () => {
         setCurrentUser(user);
         setActiveTenantId(user.tenantId);
         loadData(user.tenantId);
+        notify('info', 'Autenticação Bem-sucedida', `Bem-vindo, ${user.name}. Sessão governamental iniciada.`);
       } else {
         setCurrentUser(null);
         setIsLoading(false);
       }
     });
     return () => subscription.unsubscribe();
-  }, [loadData]);
+  }, [loadData, notify]);
 
   const handleCreateUser = async (userData: any) => {
     try {
@@ -105,9 +109,10 @@ const App: React.FC = () => {
         details: `Novo acesso provisionado: ${userData.name} (${userData.role}) em ${userData.department}` 
       });
       
+      notify('success', 'Usuário Provisionado', `Acesso criado com sucesso para ${userData.name}.`);
       loadData(activeTenantId);
     } catch (err: any) {
-      alert("Falha no registro: " + err.message);
+      notify('error', 'Falha no Registro', err.message);
     }
   };
 
@@ -119,10 +124,10 @@ const App: React.FC = () => {
         severity: 'CRITICAL'
       });
       
-      alert("Solicitação de revogação registrada.");
+      notify('warning', 'Revogação em Análise', 'A solicitação de revogação foi registrada para auditoria.');
       loadData(activeTenantId);
     } catch (err: any) {
-      alert("Erro ao processar revogação: " + err.message);
+      notify('error', 'Erro na Revogação', err.message);
     }
   };
 
@@ -134,8 +139,9 @@ const App: React.FC = () => {
         setSelectedAmendment(updated);
       }
       db.audit.log({ action: AuditAction.UPDATE, details: `Processo ${updated.seiNumber} atualizado.` });
+      notify('success', 'Dados Sincronizados', `Processo ${updated.seiNumber} atualizado na base.`);
     } catch (err) {
-      alert("Erro ao atualizar processo.");
+      notify('error', 'Erro de Sincronização', 'Não foi possível salvar as alterações no banco de dados.');
     }
   };
 
@@ -157,14 +163,16 @@ const App: React.FC = () => {
       setAmendments(prev => prev.map(a => a.id === saved.id ? saved : a));
       setSelectedAmendment(saved);
       db.audit.log({ action: AuditAction.MOVE, details: `Processo ${saved.seiNumber} tramitado para ${destinationNames}.` });
+      notify('success', 'Tramitação Concluída', `Processo enviado para ${destinationNames}.`);
     } catch (err) {
-      alert("Erro na tramitação.");
+      notify('error', 'Erro na Tramitação', 'Ocorreu uma falha ao registrar o movimento do processo.');
     }
   };
 
   const handleLogout = async () => {
     await db.auth.signOut();
     setCurrentUser(null);
+    notify('info', 'Sessão Encerrada', 'Você saiu do sistema com segurança.');
   };
 
   if (isLoading) {
@@ -203,7 +211,6 @@ const App: React.FC = () => {
       case 'reports': return <ReportModule amendments={amendments} />;
       case 'audit': return <AuditModule logs={auditLogs} currentUser={currentUser} activeTenantId={activeTenantId} />;
       case 'sectors': return <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert(s).then(() => loadData(activeTenantId))} onBatchAdd={(s) => db.sectors.insertMany(s).then(() => loadData(activeTenantId))} onUpdateSla={() => {}} error={dbError} />;
-      // Fix: Alterado 'tenantId' para 'activeTenantId' no handler onReset para corrigir erro de variável não definida
       case 'statuses': return <StatusManagement statuses={statuses} onAdd={(s) => db.statuses.upsert(s).then(() => loadData(activeTenantId))} onBatchAdd={(s) => db.statuses.insertMany(s).then(() => loadData(activeTenantId))} onReset={() => db.statuses.resetToEmpty(activeTenantId).then(() => loadData(activeTenantId))} error={dbError} />;
       case 'security': return <SecurityModule users={systemUsers} onAddUser={handleCreateUser} onDeleteUser={handleDeleteUser} currentUser={currentUser} isLoading={isLoading} />;
       case 'register-user': return <UserRegistration onAddUser={handleCreateUser} onBack={() => setCurrentView('security')} />;
@@ -227,6 +234,15 @@ const App: React.FC = () => {
     >
       {renderView()}
     </Layout>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <NotificationProvider>
+      <AppContent />
+      <PlushNotificationContainer />
+    </NotificationProvider>
   );
 };
 

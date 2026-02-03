@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
@@ -28,8 +28,20 @@ export const Layout: React.FC<LayoutProps> = ({
   children, currentUser, currentView, activeTenantId, 
   onNavigate, onLogout, onTenantChange 
 }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-  const activeDept = DEPARTMENTS.find(d => d.id === activeTenantId);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth > 1024;
+      setIsDesktop(desktop);
+      if (desktop) setIsSidebarOpen(true);
+      else setIsSidebarOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const isAdmin = currentUser.role === Role.ADMIN || currentUser.role === Role.SUPER_ADMIN;
 
@@ -51,40 +63,52 @@ export const Layout: React.FC<LayoutProps> = ({
       ]
     },
     {
-      label: 'Governança e Segurança',
+      label: 'Governança',
       items: [
-        { id: 'audit', label: 'Trilha de Auditoria', icon: History },
+        { id: 'audit', label: 'Auditoria', icon: History },
         { id: 'security', label: 'Segurança & LGPD', icon: Lock },
-        ...(isAdmin ? [{ id: 'register-user', label: 'Cadastrar Usuário', icon: UserPlus }] : []),
-        { id: 'docs', label: 'Base de Governança', icon: BookOpen },
-      ]
-    },
-    {
-      label: 'Suporte Técnico',
-      items: [
-        { id: 'api', label: 'Gateway de APIs', icon: Braces },
-        { id: 'debugger', label: 'Engine Telemetry', icon: Terminal },
-        { id: 'qa', label: 'Health Diagnosis', icon: Activity },
-        { id: 'manual', label: 'Manual do Sistema', icon: FileCode },
       ]
     }
   ];
 
+  const handleNavigate = (viewId: string) => {
+    onNavigate(viewId);
+    if (!isDesktop) setIsSidebarOpen(false);
+  };
+
+  const activeDept = DEPARTMENTS.find(d => d.id === activeTenantId);
+
   return (
     <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
+      {/* Mobile Sidebar Overlay */}
+      {!isDesktop && isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-[#0d457a]/40 backdrop-blur-sm z-[60] animate-in fade-in duration-300"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       <aside 
-        aria-label="Menu principal"
-        className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-50 shadow-2xl no-print border-r border-white/5 ${isSidebarOpen ? 'w-72' : 'w-20'}`}
+        className={`bg-[#0d457a] text-white transition-all duration-300 flex flex-col z-[70] shadow-2xl no-print border-r border-white/5 
+          ${isDesktop ? (isSidebarOpen ? 'w-72' : 'w-20') : (isSidebarOpen ? 'w-72 translate-x-0' : 'w-72 -translate-x-full')}
+          ${!isDesktop ? 'fixed inset-y-0 left-0' : 'relative'}`}
       >
-        <div className="p-6 flex items-center gap-3 border-b border-white/10">
-          <div className="bg-white text-[#0d457a] p-2.5 rounded-2xl shadow-lg shrink-0">
-            <ShieldCheck size={24} />
-          </div>
-          {isSidebarOpen && (
-            <div className="animate-in fade-in duration-300">
-              <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">GESA <span className="text-emerald-400">Cloud</span></h1>
-              <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">Sistemas Estruturantes</p>
+        <div className="p-6 flex items-center justify-between border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="bg-white text-[#0d457a] p-2 rounded-xl shrink-0">
+              <ShieldCheck size={20} />
             </div>
+            {(isSidebarOpen || !isDesktop) && (
+              <div className="animate-in fade-in duration-300">
+                <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">GESA <span className="text-emerald-400">Cloud</span></h1>
+                <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">v{APP_VERSION}</p>
+              </div>
+            )}
+          </div>
+          {!isDesktop && (
+            <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-lg">
+              <X size={20} />
+            </button>
           )}
         </div>
 
@@ -102,23 +126,15 @@ export const Layout: React.FC<LayoutProps> = ({
                 return (
                   <button
                     key={item.id}
-                    onClick={() => onNavigate(item.id)}
-                    className={`w-full flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all group ${
+                    onClick={() => handleNavigate(item.id)}
+                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group ${
                       isActive 
-                        ? 'bg-white text-[#0d457a] font-black shadow-xl shadow-blue-900/20' 
+                        ? 'bg-white text-[#0d457a] font-black shadow-lg' 
                         : 'hover:bg-white/10 text-blue-100/70 hover:text-white'
                     }`}
-                    title={!isSidebarOpen ? item.label : undefined}
                   >
-                    <Icon 
-                      size={18} 
-                      className={`shrink-0 transition-transform group-hover:scale-110 ${isActive ? 'text-[#0d457a]' : 'text-blue-200/50 group-hover:text-blue-100'}`} 
-                    />
-                    {isSidebarOpen && (
-                      <span className="text-[10px] uppercase tracking-widest truncate">
-                        {item.label}
-                      </span>
-                    )}
+                    <Icon size={18} className={isActive ? 'text-[#0d457a]' : 'text-blue-200/50'} />
+                    {isSidebarOpen && <span className="text-[10px] uppercase tracking-widest truncate">{item.label}</span>}
                   </button>
                 );
               })}
@@ -126,49 +142,39 @@ export const Layout: React.FC<LayoutProps> = ({
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/10 bg-black/10">
-          <button 
-            onClick={onLogout} 
-            className="w-full flex items-center gap-4 px-4 py-3 text-red-200 hover:bg-red-500/20 rounded-xl transition-all group"
-          >
-            <LogOut size={18} className="shrink-0 group-hover:-translate-x-1 transition-transform" />
-            {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Sair do Sistema</span>}
+        <div className="p-4 border-t border-white/10 bg-black/5">
+          <button onClick={onLogout} className="w-full flex items-center gap-4 px-4 py-3 text-red-200 hover:bg-red-500/20 rounded-xl transition-all">
+            <LogOut size={18} />
+            {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>}
           </button>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-40 no-print shadow-sm">
-          <div className="flex items-center gap-4">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 z-40 shadow-sm shrink-0">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors"
+              className="p-2 hover:bg-slate-50 rounded-xl text-[#0d457a]"
             >
-              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              <Menu size={24} />
             </button>
-            <div className="px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-tight">{activeDept?.name}</span>
+            <div className="px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2 max-w-[150px] lg:max-w-none">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span className="text-[9px] lg:text-[10px] font-black text-[#0d457a] uppercase truncate">{activeDept?.name}</span>
             </div>
           </div>
           
-          <div className="flex items-center gap-6">
-             <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
-               <div className="text-right hidden sm:block">
-                 <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
-                 <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
-               </div>
-               <img src={currentUser.avatarUrl} className="w-9 h-9 rounded-xl shadow-md border-2 border-white" alt="Avatar" />
+          <div className="flex items-center gap-3">
+             <div className="text-right hidden sm:block">
+               <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
+               <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
              </div>
-             
-             <button className="relative p-2 text-slate-400 hover:text-[#0d457a] transition-colors">
-                <Bell size={20} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-             </button>
+             <img src={currentUser.avatarUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 bg-[#f8fafc] print:p-0 print:bg-white print:overflow-visible custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-[#f8fafc] custom-scrollbar">
           <div className="max-w-[1600px] mx-auto">
             {children}
           </div>
