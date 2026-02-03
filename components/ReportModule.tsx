@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
@@ -36,10 +37,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
       const matchYear = yearFilter === 'all' || a.year === Number(yearFilter);
       const matchType = typeFilter === 'all' || a.type === typeFilter;
       
-      // Filtros de período refinados para a coluna "Data de Entrada"
       let matchDate = true;
       if (startDate || endDate) {
-        // Assume entryDate como data de entrada para fins de filtro temporal
         const entryDateToTest = a.entryDate || a.createdAt; 
         if (entryDateToTest) {
           const entry = new Date(entryDateToTest).getTime();
@@ -49,7 +48,6 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
           }
           if (endDate) {
             const end = new Date(endDate).getTime();
-            // Ajuste para final do dia no filtro de fim
             const endOfDay = Number(end) + (24 * 60 * 60 * 1000) - 1;
             if (entry > endOfDay) matchDate = false;
           }
@@ -163,25 +161,27 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
         {/* CABEÇALHO INSTITUCIONAL RÍGIDO (PRINT ONLY) - PADRONIZADO GESA/SUBIPEI */}
         <div className="hidden print:block p-12 border-b-8 border-[#0d457a] bg-white">
             <div className="flex justify-between items-start mb-10">
-                <div className="space-y-2">
-                    <h1 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">ESTADO DE GOIÁS</h1>
-                    <p className="text-[12px] font-black text-slate-700 uppercase leading-tight max-w-xl">
-                      SUBSECRETARIA DE INOVAÇÃO, PLANEJAMENTO, EDUCAÇÃO E INFRAESTRUTURA - SES/SUBIPEI-21286
-                    </p>
-                    <p className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest mt-1">
-                      GERÊNCIA DE SUPORTE ADMINISTRATIVO - GESA
-                    </p>
+                <div className="space-y-3">
+                    <h1 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">ESTADO DE GOIÁS</h1>
+                    <div className="space-y-1">
+                      <p className="text-[14px] font-black text-slate-900 uppercase leading-tight max-w-3xl">
+                        SUBSECRETARIA DE INOVAÇÃO, PLANEJAMENTO, EDUCAÇÃO E INFRAESTRUTURA - SES/SUBIPEI-21286
+                      </p>
+                      <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">
+                        GERÊNCIA DE SUPORTE ADMINISTRATIVO
+                      </p>
+                    </div>
                 </div>
                 <div className="text-right">
                   <div className="flex justify-end mb-4">
-                    <ShieldCheck size={40} className="text-[#0d457a]" />
+                    <ShieldCheck size={48} className="text-[#0d457a]" />
                   </div>
                   <p className="text-[11px] font-black text-[#0d457a] uppercase tracking-widest">RELATÓRIO ANALÍTICO</p>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Extraído em: {new Date().toLocaleString('pt-BR')}</p>
                 </div>
             </div>
             
-            <div className="grid grid-cols-3 gap-8">
+            <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-100">
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Processos Filtrados</p>
                 <p className="text-3xl font-black text-[#0d457a]">{totalCount}</p>
@@ -249,8 +249,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
             </div>
             
             <div className="hidden print:block pt-20 text-center text-slate-300">
-              <p className="text-[10px] font-black uppercase tracking-[0.4em]">Documento Gerado pelo Sistema de Gestão de Emendas - GESA Cloud</p>
-              <p className="text-[8px] font-bold mt-2 uppercase tracking-widest">VALIDADE JURÍDICA ASSEGURADA POR METADADOS DE SISTEMA</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em]">Documento Gerado pelo Sistema de Gestão de Emendas - GESA Cloud Native</p>
+              <p className="text-[8px] font-bold mt-2 uppercase tracking-widest">VALIDADE JURÍDICA ASSEGURADA POR METADADOS DE SISTEMA E RASTREABILIDADE SEI</p>
             </div>
         </div>
       </div>

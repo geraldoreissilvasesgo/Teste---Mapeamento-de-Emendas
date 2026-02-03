@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { useNotification } from '../context/NotificationContext.tsx';
 import { 
@@ -13,7 +12,9 @@ import {
   CalendarDays, Sparkles, Pencil, Save, DollarSign, 
   Tag, Info, ChevronRight, X, ShieldAlert,
   ChevronDown, Settings2, Download, Loader2, ChevronUp,
-  AlertTriangle, CheckCircle, Quote, PenTool, Search
+  AlertTriangle, CheckCircle, Quote, PenTool, Search, 
+  BookMarked, ClipboardList, Type as TypeIcon, ShieldCheck,
+  Timer, FileSearch
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -28,6 +29,14 @@ interface AmendmentDetailProps {
   onStatusChange: (amendmentId: string, status: string) => void;
   onDelete: (id: string, justification: string) => void;
 }
+
+const DISPATCH_TEMPLATES = [
+  { label: 'Análise Técnica', text: 'Encaminho o presente processo para análise técnica da documentação apensada, visando verificar a conformidade com as normas vigentes.' },
+  { label: 'Solicitar Diligência', text: 'Considerando a ausência de documentos obrigatórios, solicito diligência junto ao beneficiário para saneamento das pendências apontadas.' },
+  { label: 'Parecer Jurídico', text: 'Remeto os autos à Procuradoria Setorial para emissão de parecer jurídico acerca da viabilidade do repasse pretendido.' },
+  { label: 'Fins de Empenho', text: 'Após aprovação técnica e jurídica, encaminho para reserva orçamentária e posterior empenho da despesa.' },
+  { label: 'Pagamento/Liquidação', text: 'Processo devidamente instruído e auditado. Encaminho para fins de liquidação e pagamento conforme cronograma financeiro.' }
+];
 
 export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({ 
   amendment, 
@@ -49,6 +58,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   const [priority, setPriority] = useState<'NORMAL' | 'URGENTE' | 'URGENTISSIMO'>('NORMAL');
   const [remarks, setRemarks] = useState('');
   const [showDestList, setShowDestList] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [expandedMovementId, setExpandedMovementId] = useState<string | null>(null);
   
   const tramitacaoRef = useRef<HTMLDivElement>(null);
@@ -69,6 +79,11 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     });
   }, [sectors, sectorSearch, currentSectorsNames, selectedDestinations]);
 
+  const applyTemplate = (text: string) => {
+    setRemarks(text);
+    setShowTemplates(false);
+  };
+
   const generateAiDispatch = async () => {
     if (selectedDestinations.length === 0) {
       notify('info', 'Destino Necessário', 'Selecione a unidade de destino para que a IA gere o despacho adequado.');
@@ -77,14 +92,13 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     
     setIsAiLoading(true);
     try {
-      // Usando o serviço de análise existente para basear o despacho
       const result = await analyzeAmendment(amendment);
       const destNames = selectedDestinations.map(d => d.name).join(', ');
       
-      const suggestedText = `Encaminho o presente processo SEI ${amendment.seiNumber} à unidade ${destNames} para fins de ${selectedDestinations[0].analysisType || 'análise técnica'}. \n\nObservação Técnica: ${result.summary}\nSugestão de Conduta: ${result.recommendation}\n\nAtenciosamente,\n${currentUser.name}`;
+      const suggestedText = `DESPACHO INTERNO GESA\n\nEncaminho o presente processo SEI ${amendment.seiNumber} à unidade ${destNames} para fins de ${selectedDestinations[0].analysisType || 'análise técnica'}.\n\nContexto: ${result.summary}\n\nRecomendação: ${result.recommendation}\n\nAtenciosamente,\n${currentUser.name}\n${currentUser.department}`;
       
       setRemarks(suggestedText);
-      notify('success', 'Minuta Gerada', 'Despacho redigido pela IA com base no status do processo.');
+      notify('success', 'Minuta Gerada', 'Despacho redigido pela IA com base no histórico do processo.');
     } catch (err) {
       notify('error', 'Falha IA', 'Não foi possível gerar a minuta automática.');
     } finally {
@@ -154,7 +168,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     
     const opt = {
       margin: 10,
-      filename: `PROCESSO_SEI_${amendment.seiNumber}.pdf`,
+      filename: `DOSSIE_SEI_${amendment.seiNumber}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -235,6 +249,30 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
       )}
 
       <div id="amendment-detail-card" className="bg-white rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden">
+        {/* CABEÇALHO INSTITUCIONAL RÍGIDO (PRINT ONLY) */}
+        <div className="hidden print:block p-12 border-b-8 border-[#0d457a] bg-white">
+            <div className="flex justify-between items-start mb-10">
+                <div className="space-y-3">
+                    <h1 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">ESTADO DE GOIÁS</h1>
+                    <div className="space-y-1">
+                      <p className="text-[14px] font-black text-slate-900 uppercase leading-tight">
+                        SUBSECRETARIA DE INOVAÇÃO, PLANEJAMENTO, EDUCAÇÃO E INFRAESTRUTURA - SES/SUBIPEI-21286
+                      </p>
+                      <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">
+                        GERÊNCIA DE SUPORTE ADMINISTRATIVO
+                      </p>
+                    </div>
+                </div>
+                <div className="text-right">
+                  <div className="flex justify-end mb-4">
+                    <ShieldCheck size={48} className="text-[#0d457a]" />
+                  </div>
+                  <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">DOSSIÊ TÉCNICO DE PROCESSO</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Extraído em: {new Date().toLocaleString('pt-BR')}</p>
+                </div>
+            </div>
+        </div>
+
         <div className="p-8 lg:p-12 border-b-4 border-dashed" style={{ borderColor: `${statusColor}20` }}>
            <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
               <div className="space-y-4 flex-1">
@@ -324,7 +362,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                       <div className="relative">
                         <label className="text-[10px] font-black text-white/50 uppercase mb-3 block">Unidade(s) Técnica(s) de Destino</label>
                         <div className="relative">
-                            {/* FIX: Use Search from lucide-react */}
                             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30" size={18} />
                             <input 
                                 type="text" 
@@ -353,19 +390,47 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
                       <div className="relative">
                         <div className="flex justify-between items-center mb-3">
-                            <label className="text-[10px] font-black text-white/50 uppercase">Texto do Despacho / Minuta</label>
+                            <div className="flex items-center gap-3">
+                                <label className="text-[10px] font-black text-white/50 uppercase">Texto do Despacho / Minuta</label>
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setShowTemplates(!showTemplates)}
+                                        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-[8px] font-black uppercase transition-all"
+                                    >
+                                        <BookMarked size={12}/> Modelos Padrão
+                                    </button>
+                                    
+                                    {showTemplates && (
+                                        <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-[60] animate-in zoom-in-95 duration-200">
+                                            <p className="p-3 text-[9px] font-black text-slate-400 border-b border-slate-50 mb-1 uppercase tracking-widest">Textos Oficiais</p>
+                                            <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                                                {DISPATCH_TEMPLATES.map((t, i) => (
+                                                    <button 
+                                                        key={i} 
+                                                        onClick={() => applyTemplate(t.text)}
+                                                        className="w-full text-left p-3 hover:bg-slate-50 rounded-xl transition-all group"
+                                                    >
+                                                        <p className="text-[10px] font-black text-[#0d457a] uppercase mb-1">{t.label}</p>
+                                                        <p className="text-[9px] text-slate-400 line-clamp-2 leading-relaxed">{t.text}</p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             <button 
                                 onClick={generateAiDispatch}
                                 disabled={isAiLoading}
                                 className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase hover:scale-105 transition-all shadow-lg shadow-purple-900/20 disabled:opacity-50"
                             >
                                 {isAiLoading ? <Loader2 className="animate-spin" size={12}/> : <Sparkles size={12}/>}
-                                Sugerir Minuta via IA
+                                Redigir via IA
                             </button>
                         </div>
                         <textarea 
-                            className="w-full p-6 bg-white/10 border border-white/20 rounded-3xl text-[11px] font-medium text-white outline-none focus:ring-4 ring-emerald-500/30 h-32 resize-none leading-relaxed placeholder:text-white/10"
-                            placeholder="Descreva a finalidade do envio ou clique em 'Sugerir Minuta'..."
+                            className="w-full p-6 bg-white/10 border border-white/20 rounded-3xl text-[11px] font-medium text-white outline-none focus:ring-4 ring-emerald-500/30 h-40 resize-none leading-relaxed placeholder:text-white/10"
+                            placeholder="Descreva a finalidade do envio ou selecione um modelo padrão..."
                             value={remarks}
                             onChange={(e) => setRemarks(e.target.value)}
                         />
@@ -381,7 +446,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                      <div>
                         <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Assinatura Digital</p>
                         <p className="text-xs font-black text-white uppercase">{currentUser.name}</p>
-                        <p className="text-[8px] font-bold text-white/40 uppercase">{currentUser.department} • IP: 187.XX.XXX.XX</p>
+                        <p className="text-[8px] font-bold text-white/40 uppercase">{currentUser.department} • Autenticação GESA • GOIAS Cloud</p>
                      </div>
                   </div>
                   <button 
@@ -409,7 +474,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                         const slaInfo = getSlaStatus(m.deadline, m.dateOut);
                         const isExpanded = expandedMovementId === m.id || isGeneratingPdf;
                         
-                        // Detectar prioridade no texto
                         const isUrgent = m.remarks?.includes('[URGENTE]');
                         const isUrgentissimo = m.remarks?.includes('[URGENTISSIMO]');
                         
@@ -418,7 +482,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                               <div className={`absolute -left-[35px] top-1.5 w-6 h-6 rounded-full border-[6px] border-white shadow-md z-10 transition-all ${isCurrent ? 'bg-emerald-500 scale-125' : 'bg-slate-200'}`} />
                               <div 
                                 onClick={() => toggleMovementExpansion(m.id)}
-                                className={`bg-white p-6 lg:p-8 rounded-[36px] border shadow-sm cursor-pointer transition-all hover:shadow-xl ${
+                                className={`bg-white p-6 lg:p-8 rounded-[36px] border shadow-sm cursor-pointer transition-all hover:shadow-xl group/card ${
                                     isCurrent ? 'border-emerald-200 bg-emerald-50/10' : 
                                     isUrgentissimo ? 'border-red-200 bg-red-50/5' :
                                     isUrgent ? 'border-amber-200 bg-amber-50/5' :
@@ -433,41 +497,69 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                                 <AlertTriangle size={14} className={isUrgentissimo ? 'text-red-500' : 'text-amber-500'} />
                                             )}
                                         </div>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{m.analysisType || 'Análise Geral'}</p>
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{m.analysisType || 'Análise Geral'}</p>
+                                            {m.daysSpent > 0 && (
+                                                <span className="flex items-center gap-1 text-[8px] font-bold text-slate-300 uppercase">
+                                                    <Timer size={10}/> {m.daysSpent} {m.daysSpent === 1 ? 'dia' : 'dias'} permanência
+                                                </span>
+                                            )}
+                                        </div>
                                      </div>
-                                     <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border shrink-0 ${slaInfo.color}`}>
-                                        {slaInfo.label}
+                                     <div className="flex items-center gap-3">
+                                        <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border shrink-0 ${slaInfo.color}`}>
+                                            {slaInfo.label}
+                                        </div>
+                                        <ChevronDown size={18} className={`text-slate-300 transition-transform duration-300 no-print ${isExpanded ? 'rotate-180 text-blue-500' : ''}`} />
                                      </div>
                                   </div>
 
                                   <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-slate-50">
                                       <div>
                                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Data de Entrada</p>
-                                          <p className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1">
-                                            <Clock size={10}/> {new Date(m.dateIn).toLocaleDateString('pt-BR')}
+                                          <p className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1.5">
+                                            <Clock size={10} className="text-blue-500"/> {new Date(m.dateIn).toLocaleDateString('pt-BR')}
                                           </p>
                                       </div>
                                       <div>
                                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Responsável</p>
-                                          <p className="text-[10px] font-bold text-slate-400 uppercase truncate flex items-center gap-1">
-                                            <UserCheck size={10}/> {m.handledBy}
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase truncate flex items-center gap-1.5">
+                                            <UserCheck size={10} className="text-emerald-500"/> {m.handledBy}
                                           </p>
                                       </div>
                                   </div>
 
                                   {isExpanded && (
-                                    <div className="mt-6 p-6 bg-slate-50 rounded-[24px] border border-slate-100 animate-in slide-in-from-top-2 duration-300 relative">
-                                       <Quote size={20} className="absolute top-4 right-4 text-slate-200" />
-                                       <p className="text-[10px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
-                                          {m.remarks || "Sem despacho detalhado registrado neste trâmite."}
-                                       </p>
+                                    <div className="mt-6 animate-in slide-in-from-top-2 duration-300">
+                                       <div className="p-6 bg-slate-50 rounded-[28px] border border-slate-100 relative shadow-inner">
+                                          <Quote size={20} className="absolute top-4 right-4 text-slate-200" />
+                                          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200/50">
+                                             <FileSearch size={14} className="text-blue-400" />
+                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Conteúdo do Despacho Técnico</span>
+                                          </div>
+                                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
+                                             {m.remarks || "Sem observações detalhadas registradas neste trâmite setorial."}
+                                          </p>
+                                          {m.dateOut && (
+                                            <div className="mt-6 pt-4 border-t border-slate-200/50 flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Saída da Unidade</p>
+                                                    <p className="text-[9px] font-bold text-slate-500 uppercase">{new Date(m.dateOut).toLocaleString('pt-BR')}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Análise Finalizada por</p>
+                                                    <p className="text-[9px] font-bold text-[#0d457a] uppercase">{m.handledBy}</p>
+                                                </div>
+                                            </div>
+                                          )}
+                                       </div>
                                     </div>
                                   )}
                                   
                                   {!isExpanded && m.remarks && (
-                                    <div className="mt-4 flex items-center gap-2 text-blue-500">
+                                    <div className="mt-4 flex items-center gap-2 text-blue-500 no-print">
                                         <MessageSquare size={12}/>
-                                        <span className="text-[8px] font-black uppercase">Ver Despacho</span>
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Visualizar Despacho e Detalhes do Setor</span>
                                     </div>
                                   )}
                               </div>

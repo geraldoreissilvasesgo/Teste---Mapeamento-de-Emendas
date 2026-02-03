@@ -1,9 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { StatusConfig } from '../types.ts';
+// Fix: Replace non-existent FileImport with valid Import icon from lucide-react
 import { 
   Plus, X, Tag, Info, Search, Save, Pencil, Trash2, ShieldAlert,
-  Database, CheckCircle2, Loader2, Copy, Check, Terminal, Edit2, Zap, ShieldCheck, CheckCircle
+  Database, CheckCircle2, Loader2, Copy, Check, Terminal, Edit2, Zap, ShieldCheck, CheckCircle,
+  Import, Filter, ListTree
 } from 'lucide-react';
 
 interface StatusManagementProps {
@@ -25,6 +27,7 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'ingestion' | 'final'>('all');
 
   const [newStatus, setNewStatus] = useState<Partial<StatusConfig>>({
     name: '',
@@ -72,8 +75,13 @@ alter table statuses enable row level security;
 create policy "Acesso por Tenant Status" on statuses for all using (true);`;
 
   const filteredStatuses = useMemo(() => {
-    return statuses.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [statuses, searchTerm]);
+    return statuses.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+      if (activeTab === 'ingestion') return matchesSearch && !s.isFinal;
+      if (activeTab === 'final') return matchesSearch && s.isFinal;
+      return matchesSearch;
+    });
+  }, [statuses, searchTerm, activeTab]);
 
   const handleCopySql = () => {
     navigator.clipboard.writeText(sqlSetup);
@@ -157,14 +165,14 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Estados do Ciclo</h2>
+          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Configuração de Estados</h2>
           <div className="flex items-center gap-3 mt-2">
             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-              <Tag size={14} className="text-blue-500"/> Ciclo de Vida do Processo GESA
+              <Tag size={14} className="text-blue-500"/> Ciclo de Vida e Ingestão GESA
             </p>
             <div className={`px-3 py-1 rounded-full border text-[8px] font-black uppercase flex items-center gap-1.5 ${!error ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
                 <div className={`w-1.5 h-1.5 rounded-full ${!error ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                {!error ? 'Sincronizado com Banco' : 'Modo Offline'}
+                {!error ? 'Sincronizado Cloud' : 'Offline'}
             </div>
           </div>
         </div>
@@ -175,41 +183,53 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
               className="flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-100 px-6 py-4 rounded-[20px] hover:bg-blue-100 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest"
             >
                 {isLoading ? <Loader2 className="animate-spin" size={16}/> : <Zap size={16} />} 
-                Carga Cloud
-            </button>
-            <button 
-              onClick={handleReset} 
-              disabled={isLoading || statuses.length === 0}
-              className="flex items-center gap-2 bg-white text-red-400 border border-slate-200 px-6 py-4 rounded-[20px] hover:bg-red-50 hover:border-red-100 transition-all shadow-sm uppercase text-[10px] font-black tracking-widest disabled:opacity-30"
-            >
-                <Trash2 size={16} /> Limpar Base
+                Padronizar GO
             </button>
             <button 
               onClick={() => setIsModalOpen(true)} 
               className="flex items-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-[20px] hover:bg-[#0a365f] transition-all shadow-lg uppercase text-[11px] font-black tracking-[0.2em]"
             >
-                <Plus size={18} /> Novo Estado
+                <Plus size={18} /> Novo Status
             </button>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex items-center gap-3">
-         <Search size={20} className="text-slate-300 ml-2" />
-         <input 
-            type="text" 
-            placeholder="Pesquisar estados na base..."
-            className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-slate-600 placeholder:text-slate-300 uppercase"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-         />
+      <div className="flex flex-col md:flex-row gap-4 items-center">
+        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex items-center gap-3 flex-1 w-full">
+            <Search size={20} className="text-slate-300 ml-2" />
+            <input 
+                type="text" 
+                placeholder="Pesquisar estados na base..."
+                className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-slate-600 placeholder:text-slate-300 uppercase"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+            {[
+                { id: 'all', label: 'Todos', icon: ListTree },
+                // Fix: Replace non-existent FileImport with valid Import icon from lucide-react
+                { id: 'ingestion', label: 'Ingestão', icon: Import },
+                { id: 'final', label: 'Finais', icon: CheckCircle }
+            ].map(tab => (
+                <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-[#0d457a] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    <tab.icon size={14} /> {tab.label}
+                </button>
+            ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredStatuses.map(status => (
-          <div key={status.id} className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 hover:shadow-xl transition-all group relative">
+          <div key={status.id} className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200 hover:shadow-xl transition-all group relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: status.color }} />
             <div className="flex justify-between items-start mb-6">
                <div className="w-12 h-12 rounded-2xl shadow-inner flex items-center justify-center" style={{ backgroundColor: `${status.color}15`, color: status.color }}>
-                  <Tag size={24} />
+                  {status.isFinal ? <CheckCircle size={24} /> : <Tag size={24} />}
                </div>
                <button 
                   onClick={() => { setEditingStatus(status); setIsEditModalOpen(true); }}
@@ -221,14 +241,18 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
             
             <h3 className="font-black text-base text-[#0d457a] uppercase leading-tight mb-4 min-h-[40px]">{status.name}</h3>
             
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-50">
                 <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 flex items-center gap-1.5" style={{ color: status.color, backgroundColor: `${status.color}08` }}>
                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: status.color }} />
                    Hex: {status.color}
                 </span>
-                {status.isFinal && (
+                {status.isFinal ? (
                     <span className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg text-[9px] font-black uppercase flex items-center gap-1">
-                        <CheckCircle size={10} /> Finalizador
+                        Liquidado
+                    </span>
+                ) : (
+                    <span className="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[9px] font-black uppercase flex items-center gap-1">
+                        Tramitável
                     </span>
                 )}
             </div>
@@ -238,13 +262,13 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
         {filteredStatuses.length === 0 && !isLoading && (
           <div className="col-span-full py-20 text-center bg-slate-50 rounded-[40px] border-4 border-dashed border-slate-200">
              <Database size={48} className="text-slate-200 mx-auto mb-4" />
-             <h3 className="text-slate-400 font-black uppercase tracking-widest">Base de Dados Vazia</h3>
-             <p className="text-slate-300 text-xs font-bold uppercase mt-2">Clique em 'Carga Cloud' para sincronizar os estados padrão.</p>
+             <h3 className="text-slate-400 font-black uppercase tracking-widest">Nenhum estado nesta categoria</h3>
+             <p className="text-slate-300 text-xs font-bold uppercase mt-2">Ajuste os filtros ou crie um novo status oficial.</p>
           </div>
         )}
       </div>
 
-      {/* Script SQL para provisionamento */}
+      {/* SQL Script e Modais mantidos idênticos, apenas com refinamento estético se necessário */}
       {isSqlModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">
           <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-red-500">
@@ -273,23 +297,23 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
         </div>
       )}
 
-      {/* Modais de Cadastro e Edição */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
           <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Novo Estado</h3>
-              <button onClick={() => setIsModalOpen(false)}><X/></button>
+              <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Novo Estado Oficial</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-all"><X/></button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Nome do Estado</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Nome do Estado</label>
                 <input 
                   type="text" 
                   value={newStatus.name} 
                   onChange={(e) => setNewStatus({...newStatus, name: e.target.value})} 
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/10" 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/10 transition-all" 
                   required 
+                  placeholder="EX: AGUARDANDO EMPENHO"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -303,18 +327,18 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
                     />
                   </div>
                   <div className="flex items-end pb-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer group">
                         <input 
                           type="checkbox" 
                           checked={newStatus.isFinal} 
                           onChange={(e) => setNewStatus({...newStatus, isFinal: e.target.checked})} 
-                          className="w-6 h-6 rounded-lg border-slate-200 text-emerald-500 focus:ring-emerald-500"
+                          className="w-6 h-6 rounded-lg border-slate-200 text-emerald-500 focus:ring-emerald-500 transition-all"
                         />
-                        <span className="text-[10px] font-black text-[#0d457a] uppercase">Finalizador</span>
+                        <span className="text-[10px] font-black text-slate-500 uppercase group-hover:text-[#0d457a]">Finalizador de Fluxo</span>
                     </label>
                   </div>
               </div>
-              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg">Registrar no Banco</button>
+              <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-[#0a365f] transition-all">Registrar no Banco Cloud</button>
             </form>
           </div>
         </div>
@@ -325,7 +349,7 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
           <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Ajustar Estado</h3>
-              <button onClick={() => setIsEditModalOpen(false)}><X/></button>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-all"><X/></button>
             </div>
             <form onSubmit={handleEditSubmit} className="p-8 space-y-6">
               <div>
@@ -362,36 +386,6 @@ create policy "Acesso por Tenant Status" on statuses for all using (true);`;
               </div>
               <button type="submit" className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg">Salvar Alterações Cloud</button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {isBatchModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Inserção em Lote</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase mt-1">Nomes por linha</p>
-              </div>
-              <button onClick={() => setIsBatchModalOpen(false)}><X/></button>
-            </div>
-            <div className="p-8 space-y-6">
-              <textarea 
-                value={batchText}
-                onChange={(e) => setBatchText(e.target.value)}
-                placeholder="PROCESSO EM ANÁLISE&#10;DOCUMENTAÇÃO OK&#10;AGUARDANDO EMPENHO"
-                className="w-full h-64 p-6 bg-slate-50 border border-slate-200 rounded-3xl font-mono text-xs text-[#0d457a] outline-none focus:ring-4 ring-blue-500/5 resize-none uppercase"
-              />
-              <button 
-                onClick={handleBatchSubmit}
-                disabled={isLoading || !batchText.trim()}
-                className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Database size={20} />}
-                Confirmar Sincronização Lote
-              </button>
-            </div>
           </div>
         </div>
       )}

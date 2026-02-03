@@ -18,12 +18,6 @@ interface LayoutProps {
   onTenantChange: (id: string) => void;
 }
 
-const DEPARTMENTS = [
-  { id: 'T-01', name: 'Secretaria da Saúde (SES)' },
-  { id: 'T-02', name: 'Secretaria da Educação (SEDUC)' },
-  { id: 'T-03', name: 'Infraestrutura (GOINFRA)' }
-];
-
 export const Layout: React.FC<LayoutProps> = ({ 
   children, currentUser, currentView, activeTenantId, 
   onNavigate, onLogout, onTenantChange 
@@ -42,8 +36,6 @@ export const Layout: React.FC<LayoutProps> = ({
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  const isAdmin = currentUser.role === Role.ADMIN || currentUser.role === Role.SUPER_ADMIN;
 
   const menuSections = [
     {
@@ -76,8 +68,6 @@ export const Layout: React.FC<LayoutProps> = ({
     if (!isDesktop) setIsSidebarOpen(false);
   };
 
-  const activeDept = DEPARTMENTS.find(d => d.id === activeTenantId);
-
   return (
     <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
       {/* Mobile Sidebar Overlay */}
@@ -101,7 +91,7 @@ export const Layout: React.FC<LayoutProps> = ({
             {(isSidebarOpen || !isDesktop) && (
               <div className="animate-in fade-in duration-300">
                 <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">GESA <span className="text-emerald-400">Cloud</span></h1>
-                <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">v{APP_VERSION}</p>
+                <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">SISTEMA DE RASTREIO</p>
               </div>
             )}
           </div>
@@ -151,17 +141,21 @@ export const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 z-40 shadow-sm shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 z-40 shadow-sm shrink-0">
+          <div className="flex items-center gap-6">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
               className="p-2 hover:bg-slate-50 rounded-xl text-[#0d457a]"
             >
               <Menu size={24} />
             </button>
-            <div className="px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2 max-w-[150px] lg:max-w-none">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="text-[9px] lg:text-[10px] font-black text-[#0d457a] uppercase truncate">{activeDept?.name}</span>
+            <div className="hidden md:flex flex-col">
+                <h2 className="text-[11px] font-black text-[#0d457a] uppercase leading-tight tracking-tight">
+                  SUBSECRETARIA DE INOVAÇÃO, PLANEJAMENTO, EDUCAÇÃO E INFRAESTRUTURA - SES/SUBIPEI-21286
+                </h2>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                  GERÊNCIA DE SUPORTE ADMINISTRATIVO
+                </h3>
             </div>
           </div>
           
@@ -170,7 +164,7 @@ export const Layout: React.FC<LayoutProps> = ({
                <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
                <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
              </div>
-             <img src={currentUser.avatarUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
+             <img src={currentUser.avatarUrl} className="w-9 h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
           </div>
         </header>
 

@@ -5,7 +5,7 @@ import {
   Search, Download, Database, ChevronLeft, ChevronRight, Filter, 
   Layers, ArrowUpRight, Clock, Building2, Tag, FileText, Printer, 
   User, X, DollarSign, MapPin, Loader2, Landmark, ShieldCheck, Map as MapIcon,
-  BarChart3, PieChart, Users, LayoutGrid, ChevronDown, RotateCcw
+  BarChart3, PieChart, Users, LayoutGrid, ChevronDown, RotateCcw, MapPinIcon
 } from 'lucide-react';
 
 interface RepositoryModuleProps {
@@ -26,7 +26,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
   const [maxValue, setMaxValue] = useState<string>('');
   const [groupBy, setGroupBy] = useState<GroupByOption>('none');
 
-  // Extração dinâmica de opções baseada nos dados reais (Robustez)
   const dynamicDeputies = useMemo(() => {
     const names = amendments.map(a => a.deputyName).filter(Boolean) as string[];
     return Array.from(new Set(names)).sort();
@@ -58,22 +57,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
     });
   }, [amendments, searchTerm, typeFilter, deputyFilter, municipalityFilter, minValue, maxValue]);
 
-  const totalFilteredValue = useMemo(() => {
-    return filteredData.reduce((acc, curr) => acc + (curr.value || 0), 0);
-  }, [filteredData]);
-
-  const groupedData = useMemo(() => {
-    if (groupBy === 'none') return [];
-    const groups: Record<string, { count: number; value: number }> = {};
-    filteredData.forEach(item => {
-        const key = (item[groupBy as keyof Amendment] as string) || 'Não especificado';
-        if (!groups[key]) groups[key] = { count: 0, value: 0 };
-        groups[key].count++;
-        groups[key].value += item.value;
-    });
-    return Object.entries(groups).map(([name, stats]) => ({ name, ...stats })).sort((a, b) => b.value - a.value);
-  }, [filteredData, groupBy]);
-
   const paginatedData = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
 
@@ -98,11 +81,11 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
     }
 
     setIsGeneratingPdf(true);
-    const element = document.getElementById('repository-table-content');
+    const element = document.getElementById('repository-print-container');
     
     const opt = {
-      margin: 10,
-      filename: `Repositorio_GESA_${new Date().toISOString().split('T')[0]}.pdf`,
+      margin: 8,
+      filename: `Relatorio_Estruturado_GESA_${new Date().toISOString().split('T')[0]}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
@@ -116,15 +99,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
       window.print();
     } finally {
       setIsGeneratingPdf(false);
-    }
-  };
-
-  const getGroupIcon = () => {
-    switch (groupBy) {
-      case 'type': return <Landmark size={20} className="text-blue-500" />;
-      case 'deputyName': return <Users size={20} className="text-purple-500" />;
-      case 'municipality': return <MapIcon size={20} className="text-emerald-500" />;
-      default: return <LayoutGrid size={20} />;
     }
   };
 
@@ -149,12 +123,13 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                 disabled={isGeneratingPdf || filteredData.length === 0}
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-[#0d457a] text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-[#0a365f] transition-all disabled:opacity-50"
             >
-                {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
-                Relatório (PDF)
+                {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                Exportar Consulta
             </button>
         </div>
       </div>
 
+      {/* FILTROS (VISÍVEL APENAS NA TELA) */}
       <div className="bg-white p-6 lg:p-8 rounded-[32px] shadow-sm border border-slate-200 space-y-6 no-print">
         <div className="flex flex-col lg:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full">
@@ -166,19 +141,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                   className="w-full pl-16 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-slate-600 uppercase text-xs focus:ring-4 ring-blue-500/5 transition-all"
                   onChange={(e) => setSearchTerm(e.target.value)}
               />
-          </div>
-          <div className="w-full lg:w-72 relative">
-              <select 
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
-                className="w-full pl-6 pr-10 py-4 bg-[#0d457a] text-white rounded-2xl outline-none font-black text-[10px] uppercase tracking-widest shadow-lg appearance-none cursor-pointer"
-              >
-                <option value="none">NÃO AGRUPAR SALDOS</option>
-                <option value="type">POR TIPO DE EMENDA</option>
-                <option value="deputyName">POR PARLAMENTAR</option>
-                <option value="municipality">POR MUNICÍPIO</option>
-              </select>
-              <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
           </div>
         </div>
 
@@ -209,138 +171,111 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
               <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
             </div>
         </div>
-
-        <div className="flex justify-between items-center px-2 py-3 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-           <div className="flex items-center gap-4">
-              <div className="flex flex-col">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Encontrados</span>
-                <span className="text-xs font-black text-[#0d457a]">{filteredData.length} Processos</span>
-              </div>
-              <div className="w-px h-8 bg-blue-100" />
-              <div className="flex flex-col">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Soma Alocada</span>
-                <span className="text-xs font-black text-[#0d457a]">{formatBRL(totalFilteredValue)}</span>
-              </div>
-           </div>
-           {filteredData.length > 0 && (
-             <span className="text-[8px] font-black text-blue-400 uppercase tracking-[0.2em] animate-pulse">Base Sincronizada</span>
-           )}
-        </div>
       </div>
 
-      {groupBy !== 'none' && groupedData.length > 0 && (
-        <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center gap-3 ml-2">
-            <div className="p-2 bg-blue-50 text-[#0d457a] rounded-lg">
-              {getGroupIcon()}
-            </div>
-            <h3 className="text-[10px] font-black text-[#0d457a] uppercase tracking-[0.2em]">
-              Consolidação por {groupBy === 'type' ? 'Origem' : groupBy === 'deputyName' ? 'Parlamentar' : 'Município'}
-            </h3>
+      {/* CONTAINER DE IMPRESSÃO - RÉPLICA DO MODELO SOLICITADO */}
+      <div id="repository-print-container" className="bg-white rounded-[48px] shadow-sm border border-slate-200 overflow-hidden print:rounded-none print:border-none">
+        
+        {/* CABEÇALHO INSTITUCIONAL (PADRÃO PRINT) */}
+        <div className="p-12 pb-8 text-center space-y-3">
+          <div className="space-y-1 mb-8">
+            <h4 className="text-[11px] font-black text-[#0d457a] uppercase leading-tight tracking-tight">
+              SUBSECRETARIA DE INOVAÇÃO, PLANEJAMENTO, EDUCAÇÃO E INFRAESTRUTURA - SES/SUBIPEI-21286
+            </h4>
+            <h5 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest opacity-80">
+              GERÊNCIA DE SUPORTE ADMINISTRATIVO
+            </h5>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {groupedData.map((group, idx) => (
-              <div key={idx} className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:scale-125 transition-transform duration-700 pointer-events-none">
-                  {getGroupIcon()}
-                </div>
-                <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[80%]">
-                      {group.name}
-                    </span>
-                    <span className="px-2 py-0.5 bg-slate-50 text-[#0d457a] text-[8px] font-black rounded-full border border-slate-100">
-                      {group.count}
-                    </span>
-                  </div>
-                  <p className="text-xl font-black text-[#0d457a] tracking-tighter">
-                    {formatBRL(group.value)}
-                  </p>
-                </div>
-              </div>
-            ))}
+
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">CONSULTA ESTRUTURADA DE DADOS</h1>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              DOSSIÊ DE REPOSITÓRIO - GERADO EM: {new Date().toLocaleDateString('pt-BR')} ÀS {new Date().toLocaleTimeString('pt-BR')}
+            </p>
           </div>
         </div>
-      )}
 
-      <div id="repository-table-content" className="bg-white rounded-[40px] shadow-sm border border-slate-200 overflow-hidden">
-        <div className="hidden print:block p-12 border-b-8 border-[#0d457a] bg-white">
-            <div className="flex justify-between items-start mb-8">
-                <div className="space-y-2">
-                    <h1 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">ESTADO DE GOIÁS</h1>
-                    <div className="space-y-1">
-                      <p className="text-[12px] font-black text-slate-700 uppercase leading-tight max-w-2xl">
-                        SES/SUBIPEI-21286 - GERÊNCIA DE SUPORTE ADMINISTRATIVO
-                      </p>
+        {/* TABELA ESTRUTURADA */}
+        <div className="px-8 pb-12 overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-white border-y-2 border-[#0d457a]/20">
+              <tr>
+                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">PROCESSO / ANO</th>
+                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">AUTOR & MUNICÍPIO</th>
+                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">OBJETO</th>
+                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">VALOR CONSOLIDADO</th>
+                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">SETOR / STATUS</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {paginatedData.map(item => (
+                <tr key={item.id} className="hover:bg-slate-50/50 transition-all pdf-avoid-break">
+                  <td className="px-6 py-8">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                        <FileText size={20} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-[#0d457a] uppercase leading-none mb-1.5">{item.seiNumber}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{item.year} • {item.type}</p>
+                      </div>
                     </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[12px] font-black text-[#0d457a] uppercase tracking-widest">REPOSITÓRIO DE EMENDAS</p>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Data da Extração: {new Date().toLocaleString('pt-BR')}</p>
-                </div>
-            </div>
-            <div className="flex gap-10 border-t border-slate-100 pt-6">
-                <div>
-                   <p className="text-[8px] font-black text-slate-400 uppercase">Total Geral</p>
-                   <p className="text-lg font-black text-[#0d457a]">{formatBRL(totalFilteredValue)}</p>
-                </div>
-                <div>
-                   <p className="text-[8px] font-black text-slate-400 uppercase">Processos</p>
-                   <p className="text-lg font-black text-[#0d457a]">{filteredData.length}</p>
-                </div>
-            </div>
+                  </td>
+                  <td className="px-6 py-8">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Landmark size={14} className="text-emerald-500 shrink-0" />
+                        <span className="text-[11px] font-black text-[#0d457a] uppercase leading-none">{item.deputyName}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <MapPin size={12} className="shrink-0" />
+                        <span className="text-[9px] font-black uppercase tracking-tight">{item.municipality}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-8">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase leading-relaxed max-w-[280px]">
+                      {item.object}
+                    </p>
+                  </td>
+                  <td className="px-6 py-8">
+                    <p className="text-sm font-black text-[#0d457a] whitespace-nowrap">
+                      {formatBRL(item.value)}
+                    </p>
+                  </td>
+                  <td className="px-6 py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                        {item.currentSector || 'GESA/SUBIPEI'}
+                      </span>
+                      <span className="px-4 py-1.5 bg-slate-100 text-slate-600 text-[8px] font-black uppercase rounded-lg border border-slate-200 shadow-sm whitespace-nowrap">
+                        {item.status}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {paginatedData.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-24 text-center">
+                    <Database size={48} className="mx-auto text-slate-100 mb-4" />
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhum processo localizado com os parâmetros aplicados.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
-        <div className="overflow-x-auto">
-            <table className="w-full text-left">
-                <thead className="bg-slate-50/50">
-                    <tr>
-                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Processo SEI</th>
-                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Município</th>
-                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Parlamentar</th>
-                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Valor</th>
-                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Status</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                    {paginatedData.map(item => (
-                        <tr key={item.id} className="hover:bg-slate-50/50 transition-all pdf-avoid-break">
-                            <td className="px-8 py-6">
-                                <div className="text-[11px] font-black text-[#0d457a] uppercase mb-1">{item.seiNumber}</div>
-                                <div className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[320px]">{item.object}</div>
-                            </td>
-                            <td className="px-8 py-6">
-                                <div className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-2">
-                                  <MapPin size={12} className="text-emerald-500" /> {item.municipality}
-                                </div>
-                            </td>
-                            <td className="px-8 py-6">
-                                <div className="text-[10px] font-black text-slate-600 uppercase">{item.deputyName}</div>
-                            </td>
-                            <td className="px-8 py-6 text-right">
-                                <div className="text-[11px] font-black text-[#0d457a]">{formatBRL(item.value)}</div>
-                            </td>
-                            <td className="px-8 py-6 text-center">
-                                <span className="px-4 py-1.5 bg-blue-50 text-blue-700 text-[9px] font-black uppercase rounded-xl border border-blue-100 whitespace-nowrap shadow-sm">
-                                    {item.status}
-                                </span>
-                            </td>
-                        </tr>
-                    ))}
-                    {paginatedData.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="py-20 text-center">
-                          <Database size={48} className="mx-auto text-slate-100 mb-4" />
-                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhum processo localizado com os filtros aplicados</p>
-                        </td>
-                      </tr>
-                    )}
-                </tbody>
-            </table>
+        {/* RODAPÉ DO DOSSIÊ (PRINT ONLY) */}
+        <div className="hidden print:block p-12 border-t border-slate-100 text-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">
+            GERÊNCIA DE SUPORTE ADMINISTRATIVO • GESA / SUBIPEI
+          </p>
         </div>
       </div>
 
+      {/* PAGINAÇÃO (NO-PRINT) */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-4 no-print pb-10">
             <button 
