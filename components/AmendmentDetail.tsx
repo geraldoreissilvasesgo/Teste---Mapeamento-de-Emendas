@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { useNotification } from '../context/NotificationContext.tsx';
 import { 
@@ -14,7 +15,7 @@ import {
   ChevronDown, Settings2, Download, Loader2, ChevronUp,
   AlertTriangle, CheckCircle, Quote, PenTool, Search, 
   BookMarked, ClipboardList, Type as TypeIcon, ShieldCheck,
-  Timer, FileSearch
+  Timer, FileSearch, AlertCircle
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -191,8 +192,14 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     const end = dateOut ? new Date(dateOut) : new Date();
     const isDelayed = end > limit;
     
+    let delayDays = 0;
+    if (isDelayed) {
+      delayDays = Math.ceil((end.getTime() - limit.getTime()) / (1000 * 60 * 60 * 24));
+    }
+    
     return {
       isDelayed,
+      delayDays,
       label: isDelayed ? 'Atrasado' : 'No Prazo',
       color: isDelayed ? 'text-red-500 bg-red-50 border-red-100' : 'text-emerald-500 bg-emerald-50 border-emerald-100'
     };
@@ -249,7 +256,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
       )}
 
       <div id="amendment-detail-card" className="bg-white rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden">
-        {/* CABEÇALHO INSTITUCIONAL RÍGIDO (PRINT ONLY) */}
         <div className="hidden print:block p-12 border-b-8 border-[#0d457a] bg-white">
             <div className="flex justify-between items-start mb-10">
                 <div className="space-y-3">
@@ -479,11 +485,12 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                         
                         return (
                           <div key={m.id} className="relative pdf-avoid-break">
-                              <div className={`absolute -left-[35px] top-1.5 w-6 h-6 rounded-full border-[6px] border-white shadow-md z-10 transition-all ${isCurrent ? 'bg-emerald-500 scale-125' : 'bg-slate-200'}`} />
+                              <div className={`absolute -left-[35px] top-1.5 w-6 h-6 rounded-full border-[6px] border-white shadow-md z-10 transition-all ${isCurrent ? 'bg-emerald-500 scale-125' : slaInfo.isDelayed ? 'bg-red-500' : 'bg-slate-200'}`} />
                               <div 
                                 onClick={() => toggleMovementExpansion(m.id)}
                                 className={`bg-white p-6 lg:p-8 rounded-[36px] border shadow-sm cursor-pointer transition-all hover:shadow-xl group/card ${
                                     isCurrent ? 'border-emerald-200 bg-emerald-50/10' : 
+                                    slaInfo.isDelayed ? 'border-red-200 bg-red-50/10' :
                                     isUrgentissimo ? 'border-red-200 bg-red-50/5' :
                                     isUrgent ? 'border-amber-200 bg-amber-50/5' :
                                     'border-slate-100'
@@ -493,17 +500,15 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                      <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3 mb-1">
                                             <h4 className="text-base font-black text-[#0d457a] uppercase leading-tight truncate">{m.toSector}</h4>
-                                            {(isUrgent || isUrgentissimo) && (
-                                                <AlertTriangle size={14} className={isUrgentissimo ? 'text-red-500' : 'text-amber-500'} />
+                                            {(isUrgent || isUrgentissimo || slaInfo.isDelayed) && (
+                                                <AlertTriangle size={14} className={slaInfo.isDelayed || isUrgentissimo ? 'text-red-500' : 'text-amber-500'} />
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-1">
                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{m.analysisType || 'Análise Geral'}</p>
-                                            {m.daysSpent > 0 && (
-                                                <span className="flex items-center gap-1 text-[8px] font-bold text-slate-300 uppercase">
-                                                    <Timer size={10}/> {m.daysSpent} {m.daysSpent === 1 ? 'dia' : 'dias'} permanência
-                                                </span>
-                                            )}
+                                            <p className="text-[9px] font-black text-blue-600 uppercase flex items-center gap-1.5">
+                                                <Clock size={10} /> Prazo para Retorno: {new Date(m.deadline).toLocaleDateString('pt-BR')}
+                                            </p>
                                         </div>
                                      </div>
                                      <div className="flex items-center gap-3">
@@ -514,7 +519,16 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                      </div>
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-slate-50">
+                                  {slaInfo.isDelayed && (
+                                    <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 animate-pulse">
+                                        <AlertCircle size={16} className="text-red-600" />
+                                        <span className="text-[9px] font-black text-red-700 uppercase tracking-tight">
+                                            Dilação de Prazo Identificada: {slaInfo.delayDays} {slaInfo.delayDays === 1 ? 'dia' : 'dias'} de atraso acumulado.
+                                        </span>
+                                    </div>
+                                  )}
+
+                                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-6 pt-4 border-t border-slate-50">
                                       <div>
                                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Data de Entrada</p>
                                           <p className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1.5">
@@ -522,6 +536,12 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                           </p>
                                       </div>
                                       <div>
+                                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Permanência</p>
+                                          <p className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1.5">
+                                            <Timer size={10} className="text-slate-400"/> {m.daysSpent || 0} {m.daysSpent === 1 ? 'Dia' : 'Dias'}
+                                          </p>
+                                      </div>
+                                      <div className="hidden lg:block">
                                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Responsável</p>
                                           <p className="text-[10px] font-bold text-slate-400 uppercase truncate flex items-center gap-1.5">
                                             <UserCheck size={10} className="text-emerald-500"/> {m.handledBy}
@@ -537,7 +557,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                              <FileSearch size={14} className="text-blue-400" />
                                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Conteúdo do Despacho Técnico</span>
                                           </div>
-                                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
+                                          <p className="text-xs text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
                                              {m.remarks || "Sem observações detalhadas registradas neste trâmite setorial."}
                                           </p>
                                           {m.dateOut && (
@@ -556,10 +576,10 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                     </div>
                                   )}
                                   
-                                  {!isExpanded && m.remarks && (
+                                  {!isExpanded && (m.remarks || slaInfo.isDelayed) && (
                                     <div className="mt-4 flex items-center gap-2 text-blue-500 no-print">
                                         <MessageSquare size={12}/>
-                                        <span className="text-[8px] font-black uppercase tracking-widest">Visualizar Despacho e Detalhes do Setor</span>
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Visualizar Despacho e Detalhes da SLA</span>
                                     </div>
                                   )}
                               </div>
@@ -600,13 +620,13 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                  <div className="bg-gradient-to-br from-[#0d457a] to-[#1e5a94] p-10 rounded-[48px] text-white shadow-xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10"><ShieldAlert size={120} /></div>
                     <div className="relative z-10">
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-4">Atenção ao SLA</h4>
+                        <h4 className="text-xs font-black uppercase tracking-widest mb-4">Monitoramento Governamental</h4>
                         <p className="text-[10px] text-blue-100/60 leading-relaxed font-medium uppercase mb-6">
-                            Cada unidade técnica possui um tempo de resposta padrão. Tramitações atrasadas geram alertas automáticos para a Auditoria e Controladoria Geral do Estado.
+                            Cada unidade técnica possui um tempo de resposta padrão (SLA). Tramitações com dilação de prazo geram alertas automáticos para a Auditoria e Controladoria Geral do Estado (CGE).
                         </p>
                         <div className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-xl border border-white/5">
                             <CheckCircle size={14} className="text-emerald-400" />
-                            <span className="text-[9px] font-black uppercase">Monitoramento GESA Cloud Ativo</span>
+                            <span className="text-[9px] font-black uppercase">Protocolo de Auditoria GESA Cloud Ativo</span>
                         </div>
                     </div>
                  </div>

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
-  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode, Terminal, Tag, UserPlus
+  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode, Terminal, Tag, UserPlus, Workflow, UploadCloud
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -47,11 +47,12 @@ export const Layout: React.FC<LayoutProps> = ({
       ]
     },
     {
-      label: 'Gestão e Fluxo',
+      label: 'Ingestão e Fluxo',
       items: [
+        { id: 'import', label: 'Ingestão de Dados', icon: UploadCloud },
         { id: 'reports', label: 'Relatórios Analíticos', icon: BarChart3 },
         { id: 'sectors', label: 'Unidades Técnicas', icon: Layers },
-        { id: 'statuses', label: 'Estados do Ciclo', icon: Tag },
+        { id: 'statuses', label: 'Ciclo de Vida', icon: Workflow },
       ]
     },
     {
@@ -70,7 +71,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
-      {/* Mobile Sidebar Overlay */}
       {!isDesktop && isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-[#0d457a]/40 backdrop-blur-sm z-[60] animate-in fade-in duration-300"
@@ -91,15 +91,10 @@ export const Layout: React.FC<LayoutProps> = ({
             {(isSidebarOpen || !isDesktop) && (
               <div className="animate-in fade-in duration-300">
                 <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">GESA <span className="text-emerald-400">Cloud</span></h1>
-                <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">SISTEMA DE RASTREIO</p>
+                <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">ESTADO DE GOIÁS</p>
               </div>
             )}
           </div>
-          {!isDesktop && (
-            <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-lg">
-              <X size={20} />
-            </button>
-          )}
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-6 overflow-y-auto custom-scrollbar">

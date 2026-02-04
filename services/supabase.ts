@@ -17,6 +17,13 @@ export const generateUUID = () => {
   });
 };
 
+// Helper para obter o tenant atual de forma segura (Auth real ou Fallback demo)
+const getEffectiveTenant = async (providedTenantId?: string) => {
+  if (providedTenantId && providedTenantId !== 'temp-id') return providedTenantId;
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.user_metadata?.tenantId || 'GOIAS';
+};
+
 export const db = {
   auth: {
     async signIn(email: string, pass: string) {
@@ -67,11 +74,10 @@ export const db = {
       return data || [];
     },
     async upsert(user: any) {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const tenantId = authUser?.user_metadata?.tenantId || user.tenantId || 'GOIAS';
+      const tenantId = await getEffectiveTenant(user.tenantId);
       
       const payload = { 
-        id: user.id || generateUUID(),
+        id: (user.id && !user.id.startsWith('u-')) ? user.id : generateUUID(),
         tenantId,
         name: user.name,
         email: user.email,
@@ -120,22 +126,18 @@ export const db = {
       return data || [];
     },
     async upsert(sector: any) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      const tenantId = await getEffectiveTenant(sector.tenantId);
       const payload = { 
         ...sector, 
-        tenantId: user.user_metadata.tenantId || sector.tenantId || 'T-01' 
+        tenantId,
+        id: (sector.id && sector.id.length > 10) ? sector.id : generateUUID()
       };
-      if (!payload.id || typeof payload.id !== 'string' || payload.id.length < 10) {
-        payload.id = generateUUID();
-      }
       const { data, error } = await supabase.from('sectors').upsert(payload).select();
       if (error) throw error;
       return data[0];
     },
     async insertMany(sectors: any[]) {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = user?.user_metadata.tenantId || 'T-01';
+      const tenantId = await getEffectiveTenant();
       const payload = sectors.map(s => ({ 
         ...s, 
         id: generateUUID(), 
@@ -159,22 +161,18 @@ export const db = {
       return data || [];
     },
     async upsert(status: any) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      const tenantId = await getEffectiveTenant(status.tenantId);
       const payload = { 
         ...status, 
-        tenantId: user.user_metadata.tenantId || status.tenantId || 'T-01' 
+        tenantId,
+        id: (status.id && status.id.length > 10) ? status.id : generateUUID()
       };
-      if (!payload.id || typeof payload.id !== 'string' || payload.id.length < 10) {
-        payload.id = generateUUID();
-      }
       const { data, error } = await supabase.from('statuses').upsert(payload).select();
       if (error) throw error;
       return data[0];
     },
     async insertMany(statuses: any[]) {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = user?.user_metadata.tenantId || 'T-01';
+      const tenantId = await getEffectiveTenant();
       const payload = statuses.map(s => ({ 
         ...s, 
         id: generateUUID(), 
@@ -207,29 +205,56 @@ export const db = {
       return data || [];
     },
     async upsert(amendment: any) {
-      const { data: { user } } = await supabase.auth.getUser();
+      const tenantId = await getEffectiveTenant(amendment.tenantId);
+      // Se o ID for de mock (ex: a-01), tentamos encontrar se ele já existe pelo número SEI antes de gerar novo UUID
+      let finalId = amendment.id;
+      
+      if (!finalId || finalId.startsWith('a-') || finalId.startsWith('temp-')) {
+        const { data: existing } = await supabase
+          .from('amendments')
+          .select('id')
+          .eq('seiNumber', amendment.seiNumber)
+          .eq('tenantId', tenantId)
+          .maybeSingle();
+        
+        finalId = existing ? existing.id : generateUUID();
+      }
+
       const payload = { 
         ...amendment, 
-        tenantId: user?.user_metadata.tenantId || amendment.tenantId || 'T-01' 
+        id: finalId,
+        tenantId 
       };
-      if (!payload.id || typeof payload.id !== 'string' || payload.id.startsWith('temp-')) {
-        payload.id = generateUUID();
-      }
+
       const { data, error } = await supabase.from('amendments').upsert(payload).select();
       if (error) throw error;
       return data[0];
+    },
+    async insertMany(amendments: any[]) {
+      const tenantId = await getEffectiveTenant();
+      const payload = amendments.map(a => ({
+        ...a,
+        id: (a.id && !a.id.startsWith('imp-') && !a.id.startsWith('a-')) ? a.id : generateUUID(),
+        tenantId,
+        createdAt: a.createdAt || new Date().toISOString()
+      }));
+      const { data, error } = await supabase.from('amendments').insert(payload).select();
+      if (error) throw error;
+      return data;
     }
   },
 
   audit: {
     async log(log: any) {
+      const tenantId = await getEffectiveTenant(log.tenantId);
       const { data: { user } } = await supabase.auth.getUser();
+      
       const payload = {
         ...log,
         id: generateUUID(),
-        tenantId: user?.user_metadata.tenantId || log.tenantId || 'T-01',
-        actorId: user?.id || log.actorId || 'system',
-        actorName: user?.user_metadata.name || log.actorName || 'Sistema',
+        tenantId,
+        actorId: user?.id || log.actorId || 'demo-actor',
+        actorName: user?.user_metadata?.name || log.actorName || 'Servidor GESA',
         timestamp: new Date().toISOString()
       };
       const { error } = await supabase.from('audit_logs').insert(payload);

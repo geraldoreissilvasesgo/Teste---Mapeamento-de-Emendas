@@ -47,7 +47,6 @@ const AppContent: React.FC = () => {
     audit?: string;
   }>({});
 
-  // Helper para Registrar Auditoria e Recarregar Logs
   const logAction = useCallback(async (action: AuditAction, details: string, severity: 'INFO' | 'WARN' | 'CRITICAL' = 'INFO') => {
     if (!currentUser) return;
     try {
@@ -60,7 +59,6 @@ const AppContent: React.FC = () => {
         severity,
         timestamp: new Date().toISOString()
       });
-      // Recarrega logs para manter a aba de auditoria atualizada
       const freshLogs = await db.audit.getLogs(currentUser.tenantId);
       setLogs(freshLogs);
     } catch (err) {
@@ -73,6 +71,7 @@ const AppContent: React.FC = () => {
     const tenantId = currentUser.tenantId;
     setIsLoadingData(true);
 
+    // Amendments
     try {
       const data = await db.amendments.getAll(tenantId);
       setAmendments(data);
@@ -84,6 +83,7 @@ const AppContent: React.FC = () => {
       }
     }
 
+    // Users
     try {
       const data = await db.users.getAll(tenantId);
       setUsers(data);
@@ -95,6 +95,7 @@ const AppContent: React.FC = () => {
       }
     }
 
+    // Sectors
     try {
       const data = await db.sectors.getAll(tenantId);
       if (data.length > 0) {
@@ -107,6 +108,7 @@ const AppContent: React.FC = () => {
       }
     }
 
+    // Statuses
     try {
       const data = await db.statuses.getAll(tenantId);
       setStatuses(data);
@@ -117,6 +119,7 @@ const AppContent: React.FC = () => {
       }
     }
 
+    // Logs
     try {
       const auditData = await db.audit.getLogs(tenantId);
       setLogs(auditData);
@@ -142,15 +145,42 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser]);
 
+  const handleAddStatus = async (status: StatusConfig) => {
+    try {
+      const saved = await db.statuses.upsert(status);
+      const freshData = await db.statuses.getAll(currentUser?.tenantId || 'GOIAS');
+      setStatuses(freshData);
+      notify('success', 'Base Atualizada', `O estado "${saved.name}" foi persistido na nuvem.`);
+      return saved;
+    } catch (err) {
+      notify('error', 'Erro Cloud', 'Falha ao gravar no banco de dados.');
+      throw err;
+    }
+  };
+
+  const handleBatchAddStatuses = async (newStatuses: any[]) => {
+    try {
+      setIsLoadingData(true);
+      await db.statuses.insertMany(newStatuses);
+      const freshData = await db.statuses.getAll(currentUser?.tenantId || 'GOIAS');
+      setStatuses(freshData);
+      notify('success', 'Ingestão Concluída', `${newStatuses.length} novos estados injetados.`);
+    } catch (err) {
+      notify('error', 'Falha Ingestão', 'Erro ao processar lote.');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
       const saved = await db.amendments.upsert(amendment);
       setAmendments(prev => prev.map(a => a.id === saved.id ? saved : a));
       if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
-      notify('success', 'Atualizado', `Processo ${saved.seiNumber} salvo.`);
+      notify('success', 'Atualizado', `Processo ${saved.seiNumber} salvo na nuvem.`);
       logAction(AuditAction.UPDATE, `Editou o processo SEI ${saved.seiNumber}.`, 'INFO');
     } catch (err) {
-      notify('error', 'Erro', 'Falha ao persistir dados.');
+      notify('error', 'Erro', 'Falha ao persistir dados no Banco Cloud.');
     }
   };
 
@@ -165,17 +195,62 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleMoveAmendment = (movements: AmendmentMovement[], newStatus: string) => {
+  const handleBatchImportAmendments = async (data: Amendment[]) => {
+    try {
+      setIsLoadingData(true);
+      const saved = await db.amendments.insertMany(data);
+      setAmendments(prev => [...saved, ...prev]);
+      notify('success', 'Ingestão Concluída', `${saved.length} registros integrados.`);
+    } catch (err) {
+      notify('error', 'Falha na Ingestão', 'Erro ao processar lote no Banco.');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  const handleMoveAmendment = (newMovements: AmendmentMovement[], newStatus: string) => {
     if (!selectedAmendment) return;
-    const destName = movements.map(m => m.toSector).join(', ');
-    const updated = {
+
+    const now = new Date().toISOString();
+    
+    // 1. "Fechar" o trâmite anterior se ele existir
+    const updatedHistory = [...selectedAmendment.movements].map((m, idx, arr) => {
+      if (idx === arr.length - 1 && !m.dateOut) {
+        const dateOut = now;
+        const limit = new Date(m.deadline);
+        const exit = new Date(dateOut);
+        
+        // Calcular dilação
+        let dilaçãoMsg = '';
+        if (exit > limit) {
+          const delayDays = Math.ceil((exit.getTime() - limit.getTime()) / (1000 * 60 * 60 * 24));
+          dilaçãoMsg = `\n[AUDITORIA: DILAÇÃO DE PRAZO DE ${delayDays} DIAS IDENTIFICADA]`;
+        }
+
+        return {
+          ...m,
+          dateOut,
+          daysSpent: Math.ceil((exit.getTime() - new Date(m.dateIn).getTime()) / (1000 * 60 * 60 * 24)),
+          remarks: m.remarks ? `${m.remarks}${dilaçãoMsg}` : dilaçãoMsg.trim()
+        };
+      }
+      return m;
+    });
+
+    // 2. Adicionar os novos movimentos
+    const finalHistory = [...updatedHistory, ...newMovements];
+    const latestDest = newMovements[newMovements.length - 1].toSector;
+
+    // 3. Atualizar o registro ÚNICO (sem duplicar)
+    const updatedAmendment: Amendment = {
       ...selectedAmendment,
-      movements: [...selectedAmendment.movements, ...movements],
+      movements: finalHistory,
       status: newStatus,
-      currentSector: movements[movements.length - 1].toSector
+      currentSector: latestDest
     };
-    handleUpdateAmendment(updated);
-    logAction(AuditAction.MOVE, `Tramitou o processo ${selectedAmendment.seiNumber} para: ${destName}. Status: ${newStatus}`, 'INFO');
+
+    handleUpdateAmendment(updatedAmendment);
+    logAction(AuditAction.MOVE, `Tramitou o processo ${selectedAmendment.seiNumber} para: ${latestDest}. Status: ${newStatus}`, 'INFO');
   };
 
   const handleAddSector = async (sector: SectorConfig) => {
@@ -191,7 +266,6 @@ const AppContent: React.FC = () => {
         return [...prev, saved];
       });
       notify('success', 'Setor Salvo', 'Unidade técnica atualizada.');
-      logAction(AuditAction.UPDATE, `Configurou/Editou o setor: ${saved.name}. SLA: ${saved.defaultSlaDays}d.`, 'INFO');
     } catch (err) {
       notify('error', 'Erro DB', 'Falha ao salvar setor.');
     }
@@ -202,38 +276,6 @@ const AppContent: React.FC = () => {
       const saved = await db.sectors.insertMany(newSectors);
       setSectors(prev => [...prev, ...saved]);
       notify('success', 'Lote Importado', `${saved.length} setores adicionados.`);
-      logAction(AuditAction.CREATE, `Importou ${saved.length} setores via carga em lote.`, 'WARN');
-    } catch (err) {}
-  };
-
-  const handleAddStatus = async (status: StatusConfig) => {
-    try {
-      const saved = await db.statuses.upsert(status);
-      setStatuses(prev => {
-        const index = prev.findIndex(s => s.id === saved.id || s.name === saved.name);
-        if (index >= 0) {
-          const newStatuses = [...prev];
-          newStatuses[index] = saved;
-          return newStatuses;
-        }
-        return [...prev, saved];
-      });
-      notify('success', 'Estado Salvo', 'Ciclo de vida atualizado.');
-      logAction(AuditAction.UPDATE, `Adicionou/Alterou o estado do ciclo: ${saved.name}.`, 'INFO');
-      return saved; // Retorna para uso em cadastro rápido
-    } catch (err) {
-      notify('error', 'Erro DB', 'Falha ao salvar estado.');
-      throw err;
-    }
-  };
-
-  const handleBatchAddStatuses = async (newStatuses: any[]) => {
-    try {
-      const saved = await db.statuses.insertMany(newStatuses);
-      const freshData = await db.statuses.getAll(currentUser?.tenantId || 'GOIAS');
-      setStatuses(freshData);
-      notify('success', 'Sincronizado', `${saved.length} estados gravados.`);
-      logAction(AuditAction.CREATE, `Realizou carga em lote de ${saved.length} novos estados do ciclo.`, 'WARN');
     } catch (err) {}
   };
 
@@ -243,7 +285,6 @@ const AppContent: React.FC = () => {
       await db.statuses.resetToEmpty(currentUser.tenantId);
       setStatuses([]);
       notify('info', 'Base Limpa', 'Todos os estados foram removidos.');
-      logAction(AuditAction.DELETE, `LIMPEZA DE BASE: Removeu todos os estados do ciclo do banco de dados.`, 'CRITICAL');
     } catch (err) {}
   };
 
@@ -252,7 +293,7 @@ const AppContent: React.FC = () => {
       const savedUser = await db.users.upsert({ ...u, tenantId: currentUser?.tenantId || 'GOIAS', lgpdAccepted: true });
       setUsers(prev => [...prev, savedUser]);
       setCurrentView('security');
-      logAction(AuditAction.SECURITY, `Provisionou novo usuário: ${savedUser.name} (${savedUser.role}).`, 'WARN');
+      logAction(AuditAction.SECURITY, `Provisionou novo usuário: ${savedUser.name}.`, 'WARN');
     } catch (err) {}
   };
 
@@ -261,29 +302,17 @@ const AppContent: React.FC = () => {
     try {
       await db.users.delete(id);
       setUsers(prev => prev.filter(u => u.id !== id));
-      logAction(AuditAction.SECURITY, `REVOGAÇÃO DE ACESSO: Excluiu o usuário ${userToDelete?.name || id}.`, 'CRITICAL');
+      logAction(AuditAction.SECURITY, `Excluiu o usuário ${userToDelete?.name || id}.`, 'CRITICAL');
     } catch (err) {}
   };
 
   const handleLogout = () => {
-    logAction(AuditAction.LOGIN, `Sessão encerrada pelo usuário.`, 'INFO').then(() => {
-      setCurrentUser(null);
-      notify('info', 'Sessão Encerrada', 'Até breve.');
-    });
+    setCurrentUser(null);
+    notify('info', 'Sessão Encerrada', 'Até breve.');
   };
 
   if (!currentUser) return <Login onLogin={(user) => { 
     setCurrentUser(user);
-    // Log de login só pode ser feito após setar o user, ou via db.audit.log direto
-    db.audit.log({
-      tenantId: user.tenantId,
-      actorId: user.id,
-      actorName: user.name,
-      action: AuditAction.LOGIN,
-      details: `Acesso ao sistema realizado com sucesso.`,
-      severity: 'INFO',
-      timestamp: new Date().toISOString()
-    });
   }} />;
 
   const renderView = () => {
@@ -343,11 +372,7 @@ const AppContent: React.FC = () => {
           error={dbErrors.statuses}
         />;
       case 'import':
-        return <ImportModule onImport={(data) => { 
-          data.forEach(item => db.amendments.upsert(item));
-          setAmendments(prev => [...data, ...prev]); 
-          logAction(AuditAction.CREATE, `Realizou importação de ${data.length} registros via CSV.`, 'WARN');
-        }} sectors={sectors} tenantId={currentUser.tenantId} />;
+        return <ImportModule onImport={handleBatchImportAmendments} sectors={sectors} tenantId={currentUser.tenantId} />;
       case 'repository':
         return <RepositoryModule amendments={amendments} />;
       case 'reports': 
@@ -388,14 +413,13 @@ const AppContent: React.FC = () => {
       onTenantChange={(id) => {
         if (currentUser) {
           setCurrentUser({ ...currentUser, tenantId: id });
-          logAction(AuditAction.TENANT_SWITCH, `Alterou a unidade de trabalho para: ${id}`, 'INFO');
         }
       }}
     >
       {isLoadingData ? (
         <div className="flex flex-col items-center justify-center py-40 gap-4 animate-pulse">
            <div className="w-12 h-12 border-4 border-[#0d457a] border-t-transparent rounded-full animate-spin"></div>
-           <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Sincronizando Base GESA Cloud...</p>
+           <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Sincronizando Base Cloud...</p>
         </div>
       ) : renderView()}
     </Layout>

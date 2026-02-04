@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, PieChart, Pie, Cell 
@@ -9,7 +9,7 @@ import {
   Landmark, Clock, CheckCircle, AlertTriangle, 
   TrendingUp, Activity, Sparkles, Zap, ArrowRight,
   GanttChartSquare, Landmark as BankIcon, Wallet, PieChart as PieIcon,
-  AlertCircle, ChevronRight, TrendingDown, ShieldCheck
+  AlertCircle, ChevronRight, TrendingDown, ShieldCheck, Search, FileSearch, History, Timer
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -19,6 +19,8 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs, onSelectAmendment }) => {
+  const [seiSearch, setSeiSearch] = useState('');
+
   const stats = useMemo(() => {
     const total = amendments.length;
     const totalValue = amendments.reduce((acc, c) => acc + c.value, 0);
@@ -58,6 +60,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
     };
   }, [amendments, statusConfigs]);
 
+  const searchedAmendment = useMemo(() => {
+    if (!seiSearch || seiSearch.length < 4) return null;
+    return amendments.find(a => a.seiNumber.toLowerCase().includes(seiSearch.toLowerCase()));
+  }, [amendments, seiSearch]);
+
   const pieData = useMemo(() => {
     const statusPool = statusConfigs.length > 0 ? statusConfigs : Array.from(new Set(amendments.map(a => a.status))).map(name => ({ name, color: '#64748b' }));
     return statusPool.map(s => ({
@@ -69,14 +76,104 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
 
   const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(v);
 
+  const getSlaStatus = (deadline: string, dateOut: string | null) => {
+    const limit = new Date(deadline);
+    const end = dateOut ? new Date(dateOut) : new Date();
+    const isDelayed = end > limit;
+    let delayDays = 0;
+    if (isDelayed) {
+      delayDays = Math.ceil((end.getTime() - limit.getTime()) / (1000 * 60 * 60 * 24));
+    }
+    return { isDelayed, delayDays };
+  };
+
   return (
     <div className="space-y-6 lg:space-y-10 animate-in fade-in duration-500 pb-10">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl lg:text-4xl font-black text-[#0d457a] uppercase tracking-tighter leading-tight">Cockpit Gerencial</h2>
-        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">
-          <div className="w-10 h-1 bg-[#0d457a] rounded-full"></div> Consolidado Estratégico GESA Cloud
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl lg:text-4xl font-black text-[#0d457a] uppercase tracking-tighter leading-tight">Cockpit Gerencial</h2>
+          <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">
+            <div className="w-10 h-1 bg-[#0d457a] rounded-full"></div> Consolidado Estratégico GESA Cloud
+          </div>
+        </div>
+
+        {/* Módulo de Busca SEI Rápida */}
+        <div className="w-full md:w-96 relative group">
+           <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+              <Search size={18} className="text-slate-300 group-focus-within:text-[#0d457a] transition-colors" />
+           </div>
+           <input 
+              type="text" 
+              placeholder="PESQUISAR PROCESSO SEI..."
+              className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-3xl shadow-sm outline-none focus:ring-4 ring-blue-500/5 focus:border-[#0d457a] font-black text-[11px] uppercase tracking-widest text-[#0d457a] transition-all"
+              value={seiSearch}
+              onChange={(e) => setSeiSearch(e.target.value)}
+           />
         </div>
       </div>
+
+      {/* Resultado da Busca Instantânea */}
+      {searchedAmendment && (
+        <div className="animate-in slide-in-from-top-4 duration-500 bg-white p-8 lg:p-10 rounded-[48px] border-2 border-blue-100 shadow-2xl shadow-blue-900/10 space-y-8 relative overflow-hidden">
+           <div className="absolute top-0 right-0 p-8 opacity-5"><FileSearch size={120} /></div>
+           
+           <div className="flex flex-col lg:flex-row justify-between items-start gap-6 relative z-10">
+              <div className="space-y-2">
+                 <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100">Resultado Localizado</span>
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{searchedAmendment.status}</span>
+                 </div>
+                 <h3 className="text-3xl font-black text-[#0d457a] tracking-tighter uppercase">{searchedAmendment.seiNumber}</h3>
+                 <p className="text-sm font-bold text-slate-400 uppercase leading-tight max-w-2xl">{searchedAmendment.object}</p>
+              </div>
+              <button 
+                onClick={() => onSelectAmendment(searchedAmendment.id)}
+                className="flex items-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all"
+              >
+                Abrir Dossiê Completo <ArrowRight size={18} />
+              </button>
+           </div>
+
+           <div className="pt-6 border-t border-slate-50">
+              <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                 <History size={14} className="text-blue-500" /> Trâmite de Movimentação
+              </h4>
+              <div className="flex flex-col md:flex-row gap-6 overflow-x-auto pb-4 custom-scrollbar">
+                 {searchedAmendment.movements.length === 0 ? (
+                    <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-[10px] font-black text-slate-400 uppercase">Processo aguardando primeira tramitação oficial.</div>
+                 ) : [...searchedAmendment.movements].reverse().map((m, idx) => {
+                    const sla = getSlaStatus(m.deadline, m.dateOut);
+                    const isCurrent = idx === 0 && !m.dateOut;
+                    
+                    return (
+                      <div key={m.id} className="min-w-[280px] bg-slate-50/50 p-6 rounded-[32px] border border-slate-100 relative">
+                         <div className={`absolute -top-1.5 left-8 px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest ${isCurrent ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500'}`}>
+                            {isCurrent ? 'Unidade Atual' : `Etapa ${searchedAmendment.movements.length - idx}`}
+                         </div>
+                         <p className="text-xs font-black text-[#0d457a] uppercase mb-1 truncate">{m.toSector}</p>
+                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight mb-4">{m.analysisType || 'Análise Geral'}</p>
+                         
+                         <div className="space-y-3">
+                            <div className="flex justify-between items-center text-[8px] font-black uppercase text-slate-400">
+                               <span className="flex items-center gap-1"><Clock size={10} /> Prazo: {new Date(m.deadline).toLocaleDateString('pt-BR')}</span>
+                               {sla.isDelayed && (
+                                  <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-100 animate-bounce">Atrasado</span>
+                               )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${sla.isDelayed ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: sla.isDelayed ? '100%' : '60%' }} />
+                               </div>
+                               <span className="text-[9px] font-black text-slate-600">{m.daysSpent}D</span>
+                            </div>
+                         </div>
+                      </div>
+                    )
+                 })}
+              </div>
+           </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Card 01: Impositivas */}
