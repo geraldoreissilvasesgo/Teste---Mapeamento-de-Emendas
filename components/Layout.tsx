@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
-  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode, Terminal, Tag, UserPlus, Workflow, UploadCloud
+  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode, Terminal, Tag, UserPlus, Workflow, UploadCloud,
+  Scale
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -47,9 +47,9 @@ export const Layout: React.FC<LayoutProps> = ({
       ]
     },
     {
-      label: 'Ingestão e Fluxo',
+      label: 'Carga e Fluxo',
       items: [
-        { id: 'import', label: 'Ingestão de Dados', icon: UploadCloud },
+        { id: 'import', label: 'Carga de Dados', icon: UploadCloud },
         { id: 'reports', label: 'Relatórios Analíticos', icon: BarChart3 },
         { id: 'sectors', label: 'Unidades Técnicas', icon: Layers },
         { id: 'statuses', label: 'Ciclo de Vida', icon: Workflow },
@@ -60,6 +60,9 @@ export const Layout: React.FC<LayoutProps> = ({
       items: [
         { id: 'audit', label: 'Auditoria', icon: History },
         { id: 'security', label: 'Segurança & LGPD', icon: Lock },
+        { id: 'api', label: 'Portal de Integração', icon: Braces },
+        { id: 'governance', label: 'Governança Estratégica', icon: ShieldCheck },
+        { id: 'compliance_details', label: 'Compliance Details', icon: Scale },
       ]
     }
   ];

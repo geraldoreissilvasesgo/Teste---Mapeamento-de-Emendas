@@ -79,7 +79,7 @@ export const SystemManual: React.FC<SystemManualProps> = ({ onBack }) => {
   ];
 
   const lifecycleSteps = [
-    { step: "01", title: "Protocolo e Ingestão", desc: "Captura de dados via SEI ou CSV para o Buffer Digital.", icon: Search },
+    { step: "01", title: "Protocolo e Carga", desc: "Captura de dados via SEI ou CSV para o Buffer Digital.", icon: Search },
     { step: "02", title: "Análise Preditiva", desc: "IA Gemini identifica riscos e gargalos no trâmite.", icon: Sparkles },
     { step: "03", title: "Tramitação Técnica", desc: "Movimentação intersetorial com controle rigoroso de SLA.", icon: GitMerge },
     { step: "04", title: "Parecer e Validação", desc: "Checkpoints jurídicos e técnicos antes da liquidação.", icon: ShieldCheck },

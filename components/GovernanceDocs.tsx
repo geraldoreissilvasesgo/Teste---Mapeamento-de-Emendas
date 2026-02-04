@@ -6,14 +6,16 @@ import {
   FileText, Briefcase, HelpCircle, GraduationCap,
   HardDrive, Server, Award, CheckCircle2, AlertCircle, RefreshCw, GitBranch, Rocket,
   RotateCcw, Activity, ShieldAlert, FileSearch, ClipboardCheck, History, Eye, Cpu, CloudLightning,
-  Play, Lock // Added missing icons to fix "Cannot find name 'Play'" and "'Lock' cannot be used as a JSX component"
+  Play, Lock, Undo2, AlertTriangle, ShieldX
 } from 'lucide-react';
+import { useNotification } from '../context/NotificationContext.tsx';
 
 type GovernanceTab = 'cobit' | 'itil' | 'compliance' | 'iso' | 'drp' | 'release';
 
 export const GovernanceDocs: React.FC = () => {
+  const { notify } = useNotification();
   const [activeTab, setActiveTab] = useState<GovernanceTab>('cobit');
-  const [drpStatus, setDrpStatus] = useState<'idle' | 'running' | 'success'>('idle');
+  const [drpStatus, setDrpStatus] = useState<'idle' | 'running' | 'success' | 'rollback'>('idle');
   const [drpLogs, setDrpLogs] = useState<string[]>([]);
   const [isoChecks, setIsoChecks] = useState<Record<string, boolean>>({
     'c1': true, 'c2': true, 'c3': false, 'c4': true
@@ -21,6 +23,36 @@ export const GovernanceDocs: React.FC = () => {
 
   const toggleCheck = (id: string) => {
     setIsoChecks(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const addLog = (msg: string) => {
+    setDrpLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  };
+
+  const handleRollback = async () => {
+    if (!window.confirm("⚠️ ALERTA CRÍTICO: Você está prestes a reverter o software para o último Snapshot íntegro. Todas as transações pendentes no buffer de rede serão perdidas. Deseja prosseguir com o Rollback de Emergência?")) return;
+    
+    setDrpStatus('rollback');
+    setDrpLogs([]);
+    addLog("INICIANDO PROTOCOLO DE REVERSÃO DE ESTADO (ROLLBACK)...");
+    
+    const steps = [
+      "Congelando escrita no Banco de Dados (Read-only mode)...",
+      "Localizando último Snapshot estável (24h atrás)...",
+      "Validando Checksum de integridade do Snapshot...",
+      "Substituindo ponteiros de memória de estado...",
+      "Purgando cache de IA e buffers de trâmite...",
+      "Reiniciando serviços de mensageria governamental...",
+      "SISTEMA REVERTIDO PARA O ESTADO ESTÁVEL COM SUCESSO."
+    ];
+
+    for (const step of steps) {
+      addLog(step);
+      await new Promise(r => setTimeout(r, 600));
+    }
+    
+    notify('warning', 'Rollback Concluído', 'O sistema foi restaurado para um ponto de controle anterior.');
+    setDrpStatus('success');
   };
 
   const runDRPSimulation = async () => {
@@ -37,7 +69,7 @@ export const GovernanceDocs: React.FC = () => {
     ];
 
     for (const step of steps) {
-      setDrpLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${step}`]);
+      addLog(step);
       await new Promise(r => setTimeout(r, 800));
     }
     setDrpStatus('success');
@@ -175,7 +207,7 @@ export const GovernanceDocs: React.FC = () => {
                                 <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">{check.detail}</p>
                              </div>
                              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isoChecks[check.id] ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 text-transparent'}`}>
-                                <Check size={14} />
+                                <CheckCircle size={14} />
                              </div>
                           </div>
                         ))}
@@ -192,21 +224,31 @@ export const GovernanceDocs: React.FC = () => {
                        <div className="max-w-md">
                           <h3 className="text-2xl font-black uppercase tracking-tighter">Plano de Recuperação de Desastres</h3>
                           <p className="text-blue-200/60 text-xs font-bold uppercase mt-2 leading-relaxed">
-                             Este simulador valida a resiliência do sistema GESA Cloud contra falhas catastróficas em datacenters.
+                             Protocolos de alta disponibilidade e reversão de estado para garantir a continuidade do serviço público.
                           </p>
-                          <button 
-                            onClick={runDRPSimulation}
-                            disabled={drpStatus === 'running'}
-                            className="mt-8 bg-white text-[#0d457a] px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-3 disabled:opacity-50"
-                          >
-                            {drpStatus === 'running' ? <RefreshCw className="animate-spin" size={16}/> : <Play size={16}/>}
-                            Iniciar Teste de Stress/Failover
-                          </button>
+                          <div className="flex flex-wrap gap-4 mt-8">
+                            <button 
+                                onClick={runDRPSimulation}
+                                disabled={drpStatus === 'running' || drpStatus === 'rollback'}
+                                className="bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-3 disabled:opacity-50"
+                            >
+                                {drpStatus === 'running' ? <RefreshCw className="animate-spin" size={16}/> : <Play size={16}/>}
+                                Failover Simulado
+                            </button>
+                            <button 
+                                onClick={handleRollback}
+                                disabled={drpStatus === 'running' || drpStatus === 'rollback'}
+                                className="bg-amber-500 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-3 disabled:opacity-50"
+                            >
+                                {drpStatus === 'rollback' ? <RefreshCw className="animate-spin" size={16}/> : <Undo2 size={16}/>}
+                                Rollback de Estado
+                            </button>
+                          </div>
                        </div>
                        
-                       <div className="w-full md:w-80 bg-black/20 rounded-[32px] p-6 font-mono text-[10px] h-64 overflow-y-auto custom-scrollbar border border-white/5">
+                       <div className="w-full md:w-80 bg-black/20 rounded-[32px] p-6 font-mono text-[10px] h-64 overflow-y-auto custom-scrollbar border border-white/5 shadow-inner">
                           {drpLogs.length > 0 ? drpLogs.map((log, i) => (
-                             <p key={i} className="text-emerald-400 mb-2 leading-relaxed">
+                             <p key={i} className="text-emerald-400 mb-2 leading-relaxed animate-in fade-in slide-in-from-left-2">
                                 <span className="text-white/30 mr-2">{i+1}.</span> {log}
                              </p>
                           )) : (
@@ -215,12 +257,29 @@ export const GovernanceDocs: React.FC = () => {
                                 Aguardando Comando
                              </div>
                           )}
-                          {drpStatus === 'success' && (
-                            <div className="mt-4 p-4 bg-emerald-500/20 rounded-xl border border-emerald-500/50 text-emerald-400 animate-pulse">
-                               TESTE FINALIZADO: SISTEMA RESILIENTE
-                            </div>
-                          )}
+                          <div ref={(el) => el?.scrollIntoView({ behavior: 'smooth' })} />
                        </div>
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="p-8 bg-amber-50 border border-amber-200 rounded-[32px] flex items-center gap-6 group">
+                        <div className="p-4 bg-amber-100 text-amber-600 rounded-2xl group-hover:scale-110 transition-transform">
+                            <AlertTriangle size={32} />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-amber-900 uppercase">Modo de Segurança</h4>
+                            <p className="text-[10px] text-amber-700 font-bold uppercase mt-1">O Rollback reverte o software para o último ponto de restauração verificado pela SEAD/GESA.</p>
+                        </div>
+                    </div>
+                    <div className="p-8 bg-blue-50 border border-blue-200 rounded-[32px] flex items-center gap-6 group">
+                        <div className="p-4 bg-blue-100 text-blue-600 rounded-2xl group-hover:scale-110 transition-transform">
+                            <ShieldX size={32} />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-blue-900 uppercase">Snapshot Imutável</h4>
+                            <p className="text-[10px] text-blue-700 font-bold uppercase mt-1">Garantia de que os dados revertidos mantenham a integridade jurídica de cada processo.</p>
+                        </div>
                     </div>
                  </div>
               </div>
@@ -345,7 +404,7 @@ export const GovernanceDocs: React.FC = () => {
   );
 };
 
-const Check = ({ size }: { size: number }) => (
+const CheckCircle = ({ size }: { size: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12"></polyline>
   </svg>

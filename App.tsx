@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
@@ -12,6 +11,9 @@ import { AuditModule } from './components/AuditModule.tsx';
 import { UserRegistration } from './components/UserRegistration.tsx';
 import { SectorManagement } from './components/SectorManagement.tsx';
 import { StatusManagement } from './components/StatusManagement.tsx';
+import { GovernanceDocs } from './components/GovernanceDocs.tsx';
+import { ComplianceDetails } from './components/ComplianceDetails.tsx';
+import { ApiPortal } from './components/ApiPortal.tsx';
 import { Login } from './components/Login.tsx';
 import { SystemManual } from './components/SystemManual.tsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.tsx';
@@ -164,9 +166,9 @@ const AppContent: React.FC = () => {
       await db.statuses.insertMany(newStatuses);
       const freshData = await db.statuses.getAll(currentUser?.tenantId || 'GOIAS');
       setStatuses(freshData);
-      notify('success', 'Ingestão Concluída', `${newStatuses.length} novos estados injetados.`);
+      notify('success', 'Carga Concluída', `${newStatuses.length} novos estados injetados.`);
     } catch (err) {
-      notify('error', 'Falha Ingestão', 'Erro ao processar lote.');
+      notify('error', 'Falha na Carga', 'Erro ao processar lote.');
     } finally {
       setIsLoadingData(false);
     }
@@ -200,9 +202,9 @@ const AppContent: React.FC = () => {
       setIsLoadingData(true);
       const saved = await db.amendments.insertMany(data);
       setAmendments(prev => [...saved, ...prev]);
-      notify('success', 'Ingestão Concluída', `${saved.length} registros integrados.`);
+      notify('success', 'Carga Concluída', `${saved.length} registros integrados.`);
     } catch (err) {
-      notify('error', 'Falha na Ingestão', 'Erro ao processar lote no Banco.');
+      notify('error', 'Falha na Carga', 'Erro ao processar lote no Banco.');
     } finally {
       setIsLoadingData(false);
     }
@@ -396,6 +398,12 @@ const AppContent: React.FC = () => {
           error={dbErrors.audit}
           onRefresh={() => fetchData()}
         />;
+      case 'api':
+        return <ApiPortal currentUser={currentUser} amendments={amendments} />;
+      case 'governance':
+        return <GovernanceDocs />;
+      case 'compliance_details':
+        return <ComplianceDetails />;
       case 'manual':
         return <SystemManual onBack={() => setCurrentView('dashboard')} />;
       default: 

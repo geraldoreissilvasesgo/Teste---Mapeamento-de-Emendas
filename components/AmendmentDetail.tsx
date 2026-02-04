@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { useNotification } from '../context/NotificationContext.tsx';
 import { 
@@ -84,6 +83,13 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     setRemarks(text);
     setShowTemplates(false);
   };
+
+  const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(v);
 
   const generateAiDispatch = async () => {
     if (selectedDestinations.length === 0) {
@@ -302,7 +308,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
               </div>
               <div className="w-full lg:w-auto text-center lg:text-right bg-slate-50 p-8 rounded-[32px] border border-slate-100 shadow-inner">
                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Dotação Orçamentária</p>
-                 <p className="text-3xl lg:text-4xl font-black text-[#0d457a] tracking-tighter">R$ {amendment.value.toLocaleString('pt-BR')}</p>
+                 <p className="text-3xl lg:text-4xl font-black text-[#0d457a] tracking-tighter">{formatBRL(amendment.value)}</p>
               </div>
            </div>
         </div>
@@ -615,20 +621,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                     <button className="w-full mt-6 py-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-[9px] font-black text-slate-400 uppercase tracking-widest hover:bg-blue-50 hover:text-blue-500 hover:border-blue-200 transition-all">
                         + Anexar Novo Documento
                     </button>
-                 </div>
-
-                 <div className="bg-gradient-to-br from-[#0d457a] to-[#1e5a94] p-10 rounded-[48px] text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-10"><ShieldAlert size={120} /></div>
-                    <div className="relative z-10">
-                        <h4 className="text-xs font-black uppercase tracking-widest mb-4">Monitoramento Governamental</h4>
-                        <p className="text-[10px] text-blue-100/60 leading-relaxed font-medium uppercase mb-6">
-                            Cada unidade técnica possui um tempo de resposta padrão (SLA). Tramitações com dilação de prazo geram alertas automáticos para a Auditoria e Controladoria Geral do Estado (CGE).
-                        </p>
-                        <div className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-xl border border-white/5">
-                            <CheckCircle size={14} className="text-emerald-400" />
-                            <span className="text-[9px] font-black uppercase">Protocolo de Auditoria GESA Cloud Ativo</span>
-                        </div>
-                    </div>
                  </div>
              </div>
           </div>

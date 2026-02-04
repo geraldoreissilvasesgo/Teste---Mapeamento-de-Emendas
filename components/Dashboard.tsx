@@ -1,15 +1,15 @@
-
 import React, { useMemo, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, PieChart, Pie, Cell 
+  ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { Amendment, StatusConfig, AmendmentType } from '../types.ts';
 import { 
   Landmark, Clock, CheckCircle, AlertTriangle, 
   TrendingUp, Activity, Sparkles, Zap, ArrowRight,
   GanttChartSquare, Landmark as BankIcon, Wallet, PieChart as PieIcon,
-  AlertCircle, ChevronRight, TrendingDown, ShieldCheck, Search, FileSearch, History, Timer
+  AlertCircle, ChevronRight, TrendingDown, ShieldCheck, Search, FileSearch, History, Timer, MapPin,
+  ClipboardList, BarChart3, Briefcase, DollarSign, Target, ArrowUpRight
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -24,8 +24,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
   const stats = useMemo(() => {
     const total = amendments.length;
     const totalValue = amendments.reduce((acc, c) => acc + c.value, 0);
-    const valueImpositiva = amendments.filter(a => a.type === AmendmentType.IMPOSITIVA).reduce((acc, c) => acc + c.value, 0);
-    const valueCrescimento = amendments.filter(a => a.type === AmendmentType.GOIAS_CRESCIMENTO).reduce((acc, c) => acc + c.value, 0);
+    
+    const impositivas = amendments.filter(a => a.type === AmendmentType.IMPOSITIVA);
+    const countImpositiva = impositivas.length;
+    const valueImpositiva = impositivas.reduce((acc, c) => acc + c.value, 0);
+    
+    const crescimento = amendments.filter(a => a.type === AmendmentType.GOIAS_CRESCIMENTO);
+    const countCrescimento = crescimento.length;
+    const valueCrescimento = crescimento.reduce((acc, c) => acc + c.value, 0);
+
+    const especiais = amendments.filter(a => a.type === AmendmentType.ESPECIAL);
+    const countEspecial = especiais.length;
+    const valueEspecial = especiais.reduce((acc, c) => acc + c.value, 0);
     
     const finalStatuses = statusConfigs.filter(s => s.isFinal).map(s => s.name);
     const concludedCount = amendments.filter(a => finalStatuses.includes(a.status)).length;
@@ -51,8 +61,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
     return { 
       total, 
       totalValue, 
+      countImpositiva,
       valueImpositiva, 
+      countCrescimento,
       valueCrescimento, 
+      countEspecial,
+      valueEspecial,
       avgCompletion,
       criticalCount: criticalProcesses.filter(p => p.slaStatus === 'critical').length,
       delayedCount: criticalProcesses.filter(p => p.slaStatus === 'delayed').length,
@@ -60,10 +74,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
     };
   }, [amendments, statusConfigs]);
 
+  const typeComparisonData = useMemo(() => [
+    { name: 'Impositivas', "Valor R$": stats.valueImpositiva, "Qtd": stats.countImpositiva, color: '#0d457a' },
+    { name: 'Goiás Crescimento', "Valor R$": stats.valueCrescimento, "Qtd": stats.countCrescimento, color: '#059669' },
+    { name: 'Especiais', "Valor R$": stats.valueEspecial, "Qtd": stats.countEspecial, color: '#8b5cf6' }
+  ], [stats]);
+
   const searchedAmendment = useMemo(() => {
     if (!seiSearch || seiSearch.length < 4) return null;
     return amendments.find(a => a.seiNumber.toLowerCase().includes(seiSearch.toLowerCase()));
   }, [amendments, seiSearch]);
+
+  const currentMovement = useMemo(() => {
+    if (!searchedAmendment || searchedAmendment.movements.length === 0) return null;
+    return searchedAmendment.movements[searchedAmendment.movements.length - 1];
+  }, [searchedAmendment]);
 
   const pieData = useMemo(() => {
     const statusPool = statusConfigs.length > 0 ? statusConfigs : Array.from(new Set(amendments.map(a => a.status))).map(name => ({ name, color: '#64748b' }));
@@ -74,7 +99,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
     })).filter(d => d.value > 0);
   }, [amendments, statusConfigs]);
 
-  const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(v);
+  const barChartData = useMemo(() => {
+    return amendments.slice(0, 10).map(a => ({
+      municipality: a.municipality,
+      "Valores R$": a.value
+    }));
+  }, [amendments]);
+
+  const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(v);
+
+  const formatNumericOnly = (v: number) => new Intl.NumberFormat('pt-BR', { 
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(v);
 
   const getSlaStatus = (deadline: string, dateOut: string | null) => {
     const limit = new Date(deadline);
@@ -97,7 +139,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
           </div>
         </div>
 
-        {/* Módulo de Busca SEI Rápida */}
         <div className="w-full md:w-96 relative group">
            <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
               <Search size={18} className="text-slate-300 group-focus-within:text-[#0d457a] transition-colors" />
@@ -112,15 +153,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
         </div>
       </div>
 
-      {/* Resultado da Busca Instantânea */}
       {searchedAmendment && (
         <div className="animate-in slide-in-from-top-4 duration-500 bg-white p-8 lg:p-10 rounded-[48px] border-2 border-blue-100 shadow-2xl shadow-blue-900/10 space-y-8 relative overflow-hidden">
-           <div className="absolute top-0 right-0 p-8 opacity-5"><FileSearch size={120} /></div>
+           <div className="absolute top-0 right-0 p-8 opacity-5"><MapPin size={120} /></div>
            
            <div className="flex flex-col lg:flex-row justify-between items-start gap-6 relative z-10">
               <div className="space-y-2">
                  <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100">Resultado Localizado</span>
+                    <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100">Localização Identificada</span>
                     <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{searchedAmendment.status}</span>
                  </div>
                  <h3 className="text-3xl font-black text-[#0d457a] tracking-tighter uppercase">{searchedAmendment.seiNumber}</h3>
@@ -130,79 +170,117 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
                 onClick={() => onSelectAmendment(searchedAmendment.id)}
                 className="flex items-center gap-3 bg-[#0d457a] text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all"
               >
-                Abrir Dossiê Completo <ArrowRight size={18} />
+                Abrir Dossiê Completo <ArrowUpRight size={18} />
               </button>
            </div>
 
-           <div className="pt-6 border-t border-slate-50">
+           <div className="pt-6 border-t border-slate-50 relative z-10">
               <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                 <History size={14} className="text-blue-500" /> Trâmite de Movimentação
+                 <MapPin size={14} className="text-blue-500" /> Custódia Atual do Processo
               </h4>
-              <div className="flex flex-col md:flex-row gap-6 overflow-x-auto pb-4 custom-scrollbar">
-                 {searchedAmendment.movements.length === 0 ? (
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-[10px] font-black text-slate-400 uppercase">Processo aguardando primeira tramitação oficial.</div>
-                 ) : [...searchedAmendment.movements].reverse().map((m, idx) => {
-                    const sla = getSlaStatus(m.deadline, m.dateOut);
-                    const isCurrent = idx === 0 && !m.dateOut;
-                    
-                    return (
-                      <div key={m.id} className="min-w-[280px] bg-slate-50/50 p-6 rounded-[32px] border border-slate-100 relative">
-                         <div className={`absolute -top-1.5 left-8 px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest ${isCurrent ? 'bg-emerald-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500'}`}>
-                            {isCurrent ? 'Unidade Atual' : `Etapa ${searchedAmendment.movements.length - idx}`}
+              
+              {currentMovement ? (
+                <div className="max-w-md bg-slate-50 p-8 rounded-[40px] border border-slate-100 relative group/card transition-all hover:shadow-lg">
+                   <div className="absolute -top-1.5 left-8 px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-500 text-white animate-pulse shadow-lg shadow-emerald-200">
+                      Unidade Técnica Atual
+                   </div>
+                   
+                   <div className="space-y-6">
+                      <div>
+                        <p className="text-lg font-black text-[#0d457a] uppercase mb-1">{currentMovement.toSector}</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{currentMovement.analysisType || 'Análise Geral'}</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                         <div className="p-4 bg-white rounded-2xl border border-slate-100">
+                            <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Entrada</p>
+                            <p className="text-[10px] font-black text-slate-600 uppercase">{new Date(currentMovement.dateIn).toLocaleDateString('pt-BR')}</p>
                          </div>
-                         <p className="text-xs font-black text-[#0d457a] uppercase mb-1 truncate">{m.toSector}</p>
-                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight mb-4">{m.analysisType || 'Análise Geral'}</p>
-                         
-                         <div className="space-y-3">
-                            <div className="flex justify-between items-center text-[8px] font-black uppercase text-slate-400">
-                               <span className="flex items-center gap-1"><Clock size={10} /> Prazo: {new Date(m.deadline).toLocaleDateString('pt-BR')}</span>
-                               {sla.isDelayed && (
-                                  <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-100 animate-bounce">Atrasado</span>
-                               )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full ${sla.isDelayed ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: sla.isDelayed ? '100%' : '60%' }} />
-                               </div>
-                               <span className="text-[9px] font-black text-slate-600">{m.daysSpent}D</span>
-                            </div>
+                         <div className="p-4 bg-white rounded-2xl border border-slate-100">
+                            <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Permanência</p>
+                            <p className="text-[10px] font-black text-slate-600 uppercase">{currentMovement.daysSpent} Dias</p>
                          </div>
                       </div>
-                    )
-                 })}
-              </div>
+
+                      {(() => {
+                         const sla = getSlaStatus(currentMovement.deadline, currentMovement.dateOut);
+                         return (
+                           <div className={`p-5 rounded-3xl border flex items-center justify-between ${sla.isDelayed ? 'bg-red-50 border-red-100' : 'bg-blue-50 border-blue-100'}`}>
+                              <div className="flex items-center gap-3">
+                                 <Clock size={18} className={sla.isDelayed ? 'text-red-500' : 'text-blue-500'} />
+                                 <div>
+                                    <p className={`text-[8px] font-black uppercase ${sla.isDelayed ? 'text-red-400' : 'text-blue-400'}`}>Prazo Limite</p>
+                                    <p className={`text-[11px] font-black uppercase ${sla.isDelayed ? 'text-red-600' : 'text-blue-600'}`}>
+                                       {new Date(currentMovement.deadline).toLocaleDateString('pt-BR')}
+                                    </p>
+                                 </div>
+                              </div>
+                              {sla.isDelayed && (
+                                 <span className="px-3 py-1 bg-red-600 text-white rounded-lg text-[8px] font-black uppercase animate-bounce">Atrasado</span>
+                              )}
+                           </div>
+                         );
+                      })()}
+                   </div>
+                </div>
+              ) : (
+                <div className="p-10 bg-slate-50 rounded-[40px] border border-dashed border-slate-200 text-center">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Processo recém-criado. Aguardando primeira movimentação oficial.</p>
+                </div>
+              )}
            </div>
         </div>
       )}
 
+      {/* PAINEL DE INDICADORES POR TIPO DE RECURSO */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white p-8 lg:p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8">
+            <h3 className="text-[11px] font-black text-[#0d457a] uppercase tracking-[0.3em] flex items-center gap-3">
+              <ClipboardList size={18} className="text-blue-500" /> Panorama de Emendas Impositivas
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="p-6 bg-blue-50 rounded-[32px] border border-blue-100 relative overflow-hidden group">
+                   <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><Landmark size={64}/></div>
+                   <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">Montante Financeiro</p>
+                   <p className="text-2xl font-black text-[#0d457a]">{formatBRL(stats.valueImpositiva)}</p>
+                </div>
+                <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 relative overflow-hidden group">
+                   <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><Activity size={64}/></div>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume de Processos</p>
+                   <p className="text-2xl font-black text-[#0d457a]">{stats.countImpositiva} <span className="text-[10px] text-slate-400">UN</span></p>
+                </div>
+            </div>
+            <div className="pt-4 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-50">
+               <span>Participação no Portfólio</span>
+               <span className="text-[#0d457a] font-black">{((stats.valueImpositiva / (stats.totalValue || 1)) * 100).toFixed(1)}%</span>
+            </div>
+        </div>
+
+        <div className="bg-white p-8 lg:p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8">
+            <h3 className="text-[11px] font-black text-[#0d457a] uppercase tracking-[0.3em] flex items-center gap-3">
+              <ShieldCheck size={18} className="text-emerald-500" /> Panorama Goiás em Crescimento
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="p-6 bg-emerald-50 rounded-[32px] border border-emerald-100 relative overflow-hidden group">
+                   <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><TrendingUp size={64}/></div>
+                   <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Montante Financeiro</p>
+                   <p className="text-2xl font-black text-emerald-700">{formatBRL(stats.valueCrescimento)}</p>
+                </div>
+                <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 relative overflow-hidden group">
+                   <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform"><Activity size={64}/></div>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume de Processos</p>
+                   <p className="text-2xl font-black text-[#0d457a]">{stats.countCrescimento} <span className="text-[10px] text-slate-400">UN</span></p>
+                </div>
+            </div>
+            <div className="pt-4 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-50">
+               <span>Participação no Portfólio</span>
+               <span className="text-emerald-600 font-black">{((stats.valueCrescimento / (stats.totalValue || 1)) * 100).toFixed(1)}%</span>
+            </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Card 01: Impositivas */}
-        <div className="group relative bg-gradient-to-br from-[#0d457a] to-[#1e5a94] p-8 rounded-[40px] shadow-2xl shadow-blue-900/20 text-white overflow-hidden transition-all hover:scale-[1.02]">
-           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-700">
-             <Landmark size={80} />
-           </div>
-           <p className="text-[10px] font-black text-blue-200/60 uppercase tracking-[0.2em] mb-4">Emendas Impositivas</p>
-           <h3 className="text-3xl font-black tracking-tighter mb-6">{formatBRL(stats.valueImpositiva)}</h3>
-           <div className="flex items-center gap-2 bg-white/10 w-fit px-3 py-1 rounded-full border border-white/5">
-             <TrendingUp size={12} className="text-emerald-400" />
-             <span className="text-[9px] font-black uppercase">Consolidado Geral</span>
-           </div>
-        </div>
-
-        {/* Card 02: Goiás em Crescimento */}
-        <div className="group relative bg-gradient-to-br from-emerald-600 to-teal-700 p-8 rounded-[40px] shadow-2xl shadow-emerald-900/20 text-white overflow-hidden transition-all hover:scale-[1.02]">
-           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-700">
-             <ShieldCheck size={80} />
-           </div>
-           <p className="text-[10px] font-black text-emerald-100/60 uppercase tracking-[0.2em] mb-4">Goiás em Crescimento</p>
-           <h3 className="text-3xl font-black tracking-tighter mb-6">{formatBRL(stats.valueCrescimento)}</h3>
-           <div className="flex items-center gap-2 bg-white/10 w-fit px-3 py-1 rounded-full border border-white/5">
-             <Activity size={12} className="text-emerald-300" />
-             <span className="text-[9px] font-black uppercase">Fluxo Operacional</span>
-           </div>
-        </div>
-
-        {/* Card 03: Conclusão */}
+        {/* Card Eficiência (Aggregate) */}
         <div className="group relative bg-white p-8 rounded-[40px] border border-slate-200 shadow-xl overflow-hidden transition-all hover:shadow-2xl">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Eficiência de Ciclo</p>
@@ -215,7 +293,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
             </div>
         </div>
 
-        {/* Card 04: Monitor de SLA */}
+        {/* Card SLA (Aggregate) */}
         <div className={`group relative p-8 rounded-[40px] shadow-2xl transition-all hover:scale-[1.02] overflow-hidden ${
           stats.delayedCount > 0 
           ? 'bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-red-900/30' 
@@ -238,11 +316,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
               {stats.delayedCount > 0 ? 'Processos Fora do Prazo' : 'Tudo em Conformidade'}
             </p>
         </div>
+
+        {/* Card Geral (Count) */}
+        <div className="group relative bg-white p-8 rounded-[40px] border border-slate-200 shadow-xl overflow-hidden transition-all hover:shadow-2xl">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Total de Processos</p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-4xl font-black text-[#0d457a] tracking-tighter">{stats.total}</h3>
+              <div className="p-3 bg-slate-50 rounded-2xl"><Briefcase size={24} className="text-[#0d457a]"/></div>
+            </div>
+            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-4">Gestão Unificada GESA</p>
+        </div>
+
+        {/* Card Orçamentário (Total) */}
+        <div className="group relative bg-white p-8 rounded-[40px] border border-slate-200 shadow-xl overflow-hidden transition-all hover:shadow-2xl">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Volume Orçamentário</p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black text-[#0d457a] tracking-tighter">{formatBRL(stats.totalValue)}</h3>
+              <div className="p-3 bg-blue-50 rounded-2xl"><DollarSign size={24} className="text-blue-500"/></div>
+            </div>
+            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-4">Consolidado Geral</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-          {/* Seção de Processos Críticos */}
+          
+          {/* GRÁFICO DE COMPARAÇÃO POR TIPO */}
+          <div className="bg-white p-8 lg:p-12 rounded-[48px] border border-slate-200 shadow-sm relative overflow-hidden">
+             <div className="flex items-center gap-4 mb-10">
+                <div className="p-3 bg-blue-50 rounded-2xl"><BarChart3 size={20} className="text-blue-600" /></div>
+                <h3 className="text-[11px] font-black text-[#0d457a] uppercase tracking-[0.3em]">Composição por Tipo de Recurso</h3>
+             </div>
+             <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                   <BarChart data={typeComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{fontSize: 9, fontWeight: '800', fill: '#0d457a'}} axisLine={false} tickLine={false} />
+                      <YAxis tick={{fontSize: 9, fill: '#0d457a'}} axisLine={false} tickLine={false} tickFormatter={(v) => formatNumericOnly(v)} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
+                        cursor={{ fill: '#f8fafc' }}
+                        formatter={(v: number) => formatNumericOnly(v)}
+                      />
+                      <Bar dataKey="Valor R$" radius={[12, 12, 0, 0]} barSize={48}>
+                        {typeComparisonData.map((entry, index) => (
+                           <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                   </BarChart>
+                </ResponsiveContainer>
+             </div>
+          </div>
+
           {stats.criticalList.length > 0 && (
             <div className="bg-white p-6 lg:p-12 rounded-[48px] border border-slate-200 shadow-xl animate-in slide-in-from-top-4 duration-700">
               <div className="flex justify-between items-center mb-10">
@@ -290,20 +415,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
 
           <div className="bg-white p-8 lg:p-12 rounded-[48px] border border-slate-200 shadow-sm relative overflow-hidden">
             <div className="flex items-center gap-4 mb-10">
-              <div className="p-3 bg-blue-50 rounded-2xl"><TrendingUp size={20} className="text-blue-600" /></div>
+              <div className="p-3 bg-blue-50 rounded-2xl"><MapPin size={20} className="text-blue-600" /></div>
               <h3 className="text-[11px] font-black text-[#0d457a] uppercase tracking-[0.3em]">Concentração por Município</h3>
             </div>
             <div className="h-72 lg:h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={amendments.slice(0, 10)}>
+                <BarChart data={barChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="municipality" tick={{fontSize: 8, fontWeight: '800', fill: '#0d457a'}} axisLine={false} tickLine={false} />
-                  <YAxis tick={{fontSize: 8, fill: '#0d457a'}} axisLine={false} tickLine={false} />
+                  <YAxis 
+                    tick={{fontSize: 8, fill: '#0d457a'}} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tickFormatter={(value: number) => formatNumericOnly(value)} 
+                  />
                   <Tooltip 
                     contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
                     cursor={{ fill: '#f8fafc' }}
+                    formatter={(value: number) => formatNumericOnly(value)}
                   />
-                  <Bar dataKey="value" fill="#0d457a" radius={[10, 10, 0, 0]} barSize={32} />
+                  <Bar dataKey="Valores R$" fill="#0d457a" radius={[10, 10, 0, 0]} barSize={32} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

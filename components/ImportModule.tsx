@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { UploadCloud, FileText, AlertCircle, Check, X, Send, Download, FileSpreadsheet, Info } from 'lucide-react';
 import { Amendment, AmendmentType, Status, AmendmentMovement } from '../types.ts';
@@ -139,7 +138,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
         dateOut: null,
         deadline: deadline.toISOString(),
         daysSpent: 0,
-        handledBy: 'Ingestão GESA Lote',
+        handledBy: 'Carga GESA Lote',
         analysisType: destSectorConfig?.analysisType,
       };
 
@@ -161,7 +160,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "modelo_ingestao_gesa.csv");
+    link.setAttribute("download", "modelo_carga_gesa.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -171,7 +170,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Ingestão de Dados</h2>
+          <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Carga de Dados</h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 flex items-center gap-2">
             <UploadCloud size={14} className="text-blue-500" /> Carga Massiva para Repositório GESA
           </p>
@@ -192,7 +191,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
           <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8 shadow-sm">
             <UploadCloud size={40} className="text-slate-300" />
           </div>
-          <h3 className="text-xl font-black text-[#0d457a] uppercase mb-2">Preparar Ingestão GESA</h3>
+          <h3 className="text-xl font-black text-[#0d457a] uppercase mb-2">Importar para base de dados</h3>
           <p className="text-slate-400 font-bold text-sm mb-10 uppercase tracking-tight">Arraste o arquivo ou clique para selecionar</p>
           <button onClick={() => fileInputRef.current?.click()} className="bg-[#0d457a] text-white px-10 py-4 rounded-2xl font-black uppercase text-xs hover:bg-[#0a365f] transition-all shadow-xl">
             Procurar Arquivo
@@ -280,7 +279,7 @@ export const ImportModule: React.FC<ImportModuleProps> = ({ onImport, sectors, t
                disabled={parsedData.length === 0}
                className="flex items-center gap-3 bg-[#0d457a] text-white px-12 py-5 rounded-[24px] hover:bg-[#0a365f] transition-all shadow-2xl disabled:opacity-50 font-black uppercase text-xs tracking-[0.2em]"
              >
-               <Send size={20} /> Efetivar Ingestão
+               <Send size={20} /> Efetivar Carga
              </button>
           </div>
         </div>

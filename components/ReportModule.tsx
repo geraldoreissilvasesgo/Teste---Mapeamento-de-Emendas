@@ -64,7 +64,7 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
         acc[curr.type] = (Number(acc[curr.type]) || 0) + Number(curr.value);
         return acc;
     }, {} as Record<string, number>);
-    return Object.entries(data).map(([name, value]) => ({ name, value }));
+    return Object.entries(data).map(([name, value]) => ({ name, "Valores R$": value }));
   }, [filteredData]);
 
   const topMunicipalities = useMemo(() => {
@@ -73,8 +73,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
         return acc;
     }, {} as Record<string, number>);
     return Object.entries(data)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => Number(b.value) - Number(a.value))
+      .map(([name, value]) => ({ name, "Valores R$": value }))
+      .sort((a, b) => Number(b["Valores R$"]) - Number(a["Valores R$"]))
       .slice(0, 5);
   }, [filteredData]);
 
@@ -149,11 +149,11 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Início (Ingestão)</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Início (Carga)</label>
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 outline-none focus:ring-2 ring-[#0d457a]" />
           </div>
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Fim (Ingestão)</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Fim (Carga)</label>
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 outline-none focus:ring-2 ring-[#0d457a]" />
           </div>
       </div>
@@ -214,7 +214,7 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                                   cy="50%" 
                                   innerRadius={70} 
                                   outerRadius={100} 
-                                  dataKey="value" 
+                                  dataKey="Valores R$" 
                                   paddingAngle={5}
                                   animationDuration={0}
                                 >
@@ -237,7 +237,7 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" tick={{fontSize: 9, fontWeight: '800', fill: '#0d457a'}} axisLine={false} tickLine={false} width={120} />
                                 <Tooltip formatter={(v: number) => formatBRL(v)} />
-                                <Bar dataKey="value" fill="#0d457a" radius={[0, 10, 10, 0]} barSize={24} animationDuration={0} />
+                                <Bar dataKey="Valores R$" fill="#0d457a" radius={[0, 10, 10, 0]} barSize={24} animationDuration={0} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -267,10 +267,10 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
-                           {typeDistribution.map((item, i) => (
+                           {typeDistribution.map((item: any, i) => (
                              <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 text-[10px] font-black text-[#0d457a] uppercase">{item.name}</td>
-                                <td className="px-6 py-4 text-[11px] font-bold text-slate-600 text-right">{formatBRL(item.value)}</td>
+                                <td className="px-6 py-4 text-left text-[10px] font-black text-[#0d457a] uppercase">{item.name}</td>
+                                <td className="px-6 py-4 text-[11px] font-bold text-slate-600 text-right">{formatBRL(item["Valores R$"])}</td>
                              </tr>
                            ))}
                            <tr className="bg-[#0d457a]/5">
@@ -291,10 +291,10 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
-                           {topMunicipalities.map((item, i) => (
+                           {topMunicipalities.map((item: any, i) => (
                              <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 text-[10px] font-black text-[#0d457a] uppercase">{item.name}</td>
-                                <td className="px-6 py-4 text-[11px] font-bold text-slate-600 text-right">{formatBRL(item.value)}</td>
+                                <td className="px-6 py-4 text-left text-[10px] font-black text-[#0d457a] uppercase">{item.name}</td>
+                                <td className="px-6 py-4 text-[11px] font-bold text-slate-600 text-right">{formatBRL(item["Valores R$"])}</td>
                              </tr>
                            ))}
                         </tbody>

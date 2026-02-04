@@ -141,6 +141,7 @@ export interface Amendment {
   type: AmendmentType;
   deputyName?: string;
   municipality: string;
+  beneficiaryUnit?: string;
   object: string;
   value: number;
   status: string | Status;

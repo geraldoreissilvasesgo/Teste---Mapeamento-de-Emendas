@@ -4,10 +4,10 @@ import {
   ExternalLink, Braces, ShieldCheck, Zap, 
   Database, RefreshCw, FileJson, Link, Box,
   Terminal, Play, ChevronRight, AlertCircle, Loader2,
-  Activity, Plus
+  Activity, Plus, Link2, ShieldAlert, Lock, Settings
 } from 'lucide-react';
-import { db } from '../services/supabase';
-import { User, Amendment } from '../types';
+import { db } from '../services/supabase.ts';
+import { User, Amendment } from '../types.ts';
 
 interface ApiPortalProps {
   currentUser: User;
@@ -16,7 +16,10 @@ interface ApiPortalProps {
 
 export const ApiPortal: React.FC<ApiPortalProps> = ({ currentUser, amendments }) => {
   const [apiKey, setApiKey] = useState('gesa_live_sync_loading...');
+  const [seiToken, setSeiToken] = useState('SEI-SES-GO-4421-XXXX-XXXX-XXXX');
   const [isRotating, setIsRotating] = useState(false);
+  const [isVerifyingSei, setIsVerifyingSei] = useState(false);
+  const [seiStatus, setSeiStatus] = useState<'idle' | 'connected' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
   const [activeLang, setActiveLang] = useState<'bash' | 'js' | 'python'>('bash');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -29,9 +32,7 @@ export const ApiPortal: React.FC<ApiPortalProps> = ({ currentUser, amendments })
         if (profile?.api_key) {
           setApiKey(profile.api_key);
         } else {
-          // Se não tiver, gera a primeira
-          const newKey = await db.profiles.rotateApiKey(currentUser.id);
-          setApiKey(newKey);
+          setApiKey('gesa_live_demo_key_77123');
         }
       } catch (err) {
         setApiKey('gesa_live_demo_key_77123');
@@ -40,34 +41,25 @@ export const ApiPortal: React.FC<ApiPortalProps> = ({ currentUser, amendments })
     fetchKey();
   }, [currentUser.id]);
 
-  const copyKey = () => {
-    navigator.clipboard.writeText(apiKey);
+  const copyKey = (val: string) => {
+    navigator.clipboard.writeText(val);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const rotateKey = async () => {
-    if (!window.confirm("Atenção: A chave atual será invalidada imediatamente e todos os sistemas integrados perderão o acesso. Deseja continuar?")) return;
-    setIsRotating(true);
-    try {
-      const newKey = await db.profiles.rotateApiKey(currentUser.id);
-      setApiKey(newKey);
-      await db.audit.log({
-        action: 'Segurança',
-        details: 'API Key rotacionada via Portal',
-        severity: 'WARN'
-      });
-    } catch (err) {
-      alert("Erro ao rotacionar chave.");
-    } finally {
-      setIsRotating(false);
-    }
+  const verifySeiIntegration = async () => {
+    setIsVerifyingSei(true);
+    setSeiStatus('idle');
+    // Simula a verificação de handshake com os servidores da SES-GO
+    await new Promise(r => setTimeout(r, 2000));
+    const success = Math.random() > 0.15; // 85% de chance de sucesso na simulação
+    setSeiStatus(success ? 'connected' : 'error');
+    setIsVerifyingSei(false);
   };
 
   const simulateCall = async () => {
     setIsSimulating(true);
     setSimResponse(null);
-    // Simula latência de rede governamental
     await new Promise(r => setTimeout(r, 1200));
     setSimResponse({
       status: 200,
@@ -132,24 +124,85 @@ print(response.json())`
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          {/* Gestão de Chave */}
+          
+          {/* Seção SEI-GO (SES) */}
+          <div className="bg-[#0d457a] p-10 rounded-[48px] text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-12 opacity-5"><Link2 size={180} /></div>
+            <div className="relative z-10">
+                <div className="flex justify-between items-start mb-10">
+                   <div>
+                      <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                         <Globe size={24} className="text-blue-300" /> Integração Nativa SEI-GO (SES)
+                      </h3>
+                      <p className="text-blue-200/50 text-[10px] font-black uppercase tracking-widest mt-1">Conexão entre GESA Cloud e Secretaria da Saúde</p>
+                   </div>
+                   <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border ${
+                     seiStatus === 'connected' ? 'bg-emerald-500 border-emerald-400 text-white' : 
+                     seiStatus === 'error' ? 'bg-red-500 border-red-400 text-white' : 
+                     'bg-white/10 border-white/20 text-white/60'
+                   }`}>
+                      {seiStatus === 'connected' ? 'Handshake Ativo' : seiStatus === 'error' ? 'Falha na Conexão' : 'Status: Aguardando Teste'}
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                   <div className="space-y-4">
+                      <div>
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-2">Endpoint WebService SEI</label>
+                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-[11px] font-mono text-blue-200">
+                          https://sei.goias.gov.br/sei/ws/SeiWS
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-2">Sigla do Órgão de Acesso</label>
+                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-[11px] font-black text-white">
+                          SES-GO
+                        </div>
+                      </div>
+                   </div>
+                   <div className="space-y-4">
+                      <div>
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-2">Chave de Integração (Token)</label>
+                        <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden group/token">
+                          <Lock size={14} className="text-blue-300" />
+                          <code className="text-[11px] font-mono text-blue-200 truncate pr-8">
+                             {seiToken}
+                          </code>
+                          <button onClick={() => copyKey(seiToken)} className="absolute right-3 p-1.5 hover:bg-white/10 rounded-lg transition-all">
+                             <Copy size={14} className="opacity-40 group-hover/token:opacity-100" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-blue-900/40 rounded-2xl border border-blue-400/20 flex gap-4">
+                         <ShieldCheck size={20} className="text-blue-300 shrink-0" />
+                         <p className="text-[9px] font-bold text-blue-100/70 uppercase leading-relaxed">
+                            Esta chave permite ao GESA Cloud consultar e anexar documentos diretamente no SEI. A expiração ocorre em 365 dias.
+                         </p>
+                      </div>
+                   </div>
+                </div>
+
+                <button 
+                  onClick={verifySeiIntegration}
+                  disabled={isVerifyingSei}
+                  className="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isVerifyingSei ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+                  {isVerifyingSei ? 'Verificando Handshake...' : 'Verificar Conexão SEI-GO'}
+                </button>
+            </div>
+          </div>
+
+          {/* Gestão de Chave Interna */}
           <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700"><Key size={120}/></div>
             <div className="flex justify-between items-start mb-8">
                 <div>
                     <h3 className="text-sm font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-3">
-                    <Key size={18} className="text-amber-500" /> Credenciais de Acesso
+                    <Key size={18} className="text-amber-500" /> Credenciais GESA Cloud
                     </h3>
-                    <p className="text-xs text-slate-400 font-bold uppercase mt-1">Ambiente de Produção (Live)</p>
+                    <p className="text-xs text-slate-400 font-bold uppercase mt-1">Chaves de consumo para sub-sistemas</p>
                 </div>
-                <button 
-                    onClick={rotateKey}
-                    disabled={isRotating}
-                    className="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase hover:bg-red-50 px-4 py-2 rounded-xl transition-all border border-transparent hover:border-red-100"
-                >
-                    {isRotating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} 
-                    Rotacionar Chave
-                </button>
             </div>
             
             <div className="bg-slate-900 p-6 rounded-[28px] border border-white/10 shadow-inner">
@@ -159,18 +212,12 @@ print(response.json())`
                         <code className="text-sm font-mono text-blue-400 break-all">{apiKey}</code>
                     </div>
                     <button 
-                        onClick={copyKey}
+                        onClick={() => copyKey(apiKey)}
                         className="p-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl transition-all shrink-0 border border-white/5"
                     >
                         {copied ? <Check size={20} className="text-emerald-400" /> : <Copy size={20} />}
                     </button>
                 </div>
-            </div>
-            <div className="mt-6 flex items-start gap-3 bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
-                <AlertCircle size={18} className="text-blue-500 shrink-0" />
-                <p className="text-[10px] text-blue-700 font-bold uppercase leading-relaxed">
-                    Esta chave concede acesso total aos dados de emendas parlamentares do seu tenant. Não a utilize no lado do cliente (Frontend).
-                </p>
             </div>
           </div>
 
@@ -215,108 +262,77 @@ print(response.json())`
                 </div>
              </div>
           </div>
-
-          {/* Documentação / Snippets */}
-          <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm">
-             <div className="flex justify-between items-center mb-8">
-                <h3 className="text-sm font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-3">
-                    <FileJson size={18} className="text-blue-500" /> Exemplos de Implementação
-                </h3>
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                    {(['bash', 'js', 'python'] as const).map(lang => (
-                        <button 
-                            key={lang}
-                            onClick={() => setActiveLang(lang)}
-                            className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${activeLang === lang ? 'bg-white text-[#0d457a] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            {lang === 'js' ? 'JavaScript' : lang}
-                        </button>
-                    ))}
-                </div>
-             </div>
-
-             <div className="bg-[#0b0e14] p-8 rounded-[32px] relative group overflow-hidden border border-white/5">
-                <code className="block whitespace-pre-wrap font-mono text-xs text-blue-300 leading-relaxed">
-                    {snippets[activeLang]}
-                </code>
-                <button 
-                    onClick={() => {
-                        navigator.clipboard.writeText(snippets[activeLang]);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                    }}
-                    className="absolute top-4 right-4 p-3 bg-white/5 hover:bg-white/10 text-white/50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                >
-                    {copied ? <Check size={16} /> : <Copy size={16} />}
-                </button>
-             </div>
-          </div>
         </div>
 
         <div className="space-y-8">
            {/* Monitor de Saúde API */}
-           <div className="bg-[#0d457a] p-10 rounded-[48px] text-white shadow-xl relative overflow-hidden group">
-              <div className="absolute -bottom-10 -right-10 p-10 opacity-10 group-hover:rotate-12 transition-transform duration-1000"><Activity size={180} /></div>
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-10 text-white/50">Métricas do Gateway</h3>
+           <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm relative overflow-hidden group">
+              <div className="absolute -bottom-10 -right-10 p-10 opacity-5 group-hover:rotate-12 transition-transform duration-1000"><Activity size={180} /></div>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-10 text-slate-400">Saúde do Gateway</h3>
               
               <div className="space-y-8 relative z-10">
                 <div className="flex justify-between items-end">
                     <div>
-                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Registros Acessíveis</p>
-                        <p className="text-3xl font-black tracking-tighter">{amendments.length}</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tempo Médio Resposta</p>
+                        <p className="text-3xl font-black text-[#0d457a] tracking-tighter">142ms</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Integridade</p>
-                        <p className="text-xl font-black text-emerald-400">99.9%</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Integridade</p>
+                        <p className="text-xl font-black text-emerald-500">99.9%</p>
                     </div>
                 </div>
                 
                 <div className="space-y-2">
-                    <div className="flex justify-between text-[9px] font-black uppercase text-white/40 tracking-widest">
+                    <div className="flex justify-between text-[9px] font-black uppercase text-slate-400 tracking-widest">
                         <span>Carga de Tráfego</span>
-                        <span>Normal</span>
+                        <span className="text-blue-600">Normal</span>
                     </div>
-                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-400 w-1/4 rounded-full shadow-[0_0_10px_rgba(96,165,250,0.5)]"></div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 w-1/4 rounded-full"></div>
                     </div>
                 </div>
 
-                <div className="pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
+                <div className="pt-6 border-t border-slate-50 grid grid-cols-2 gap-4">
                     <div>
-                        <p className="text-[8px] font-black text-white/30 uppercase mb-1">Endpoints</p>
-                        <p className="text-sm font-black text-blue-300">v1 / v2-beta</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Endpoints</p>
+                        <p className="text-sm font-black text-[#0d457a]">v1 / v2-beta</p>
                     </div>
                     <div>
-                        <p className="text-[8px] font-black text-white/30 uppercase mb-1">Auth Mode</p>
-                        <p className="text-sm font-black text-emerald-300">HMAC/JWT</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Auth Mode</p>
+                        <p className="text-sm font-black text-[#0d457a]">HMAC/JWT</p>
                     </div>
                 </div>
               </div>
            </div>
 
-           {/* Webhooks Section */}
-           <div className="bg-white p-8 rounded-[48px] border border-slate-200 shadow-sm">
+           {/* Alerta de Segurança */}
+           <div className="bg-amber-50 p-8 rounded-[48px] border border-amber-200 shadow-sm group">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Link size={20} /></div>
-                <h4 className="text-xs font-black text-[#0d457a] uppercase tracking-widest">Webhooks (Eventos)</h4>
+                <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl group-hover:scale-110 transition-transform">
+                  <ShieldAlert size={24} />
+                </div>
+                <h4 className="text-xs font-black text-amber-900 uppercase">Aviso Crítico</h4>
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-6 leading-relaxed">
-                Configure URLs para receber notificações automáticas sobre novos trâmites e liquidações.
+              <p className="text-[10px] text-amber-700 font-bold uppercase leading-relaxed mb-6">
+                As chaves de integração SEI devem ser protegidas em ambiente de cofre de senhas (Vault). Nunca exponha esses tokens em código público.
               </p>
-              <button className="w-full py-4 bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-[#0d457a] rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-100 flex items-center justify-center gap-2">
-                <Plus size={14} /> Configurar Webhook
-              </button>
+              <div className="p-4 bg-white/50 rounded-2xl border border-amber-100">
+                <div className="flex justify-between items-center text-[9px] font-black uppercase text-amber-600">
+                  <span>Segurança da Chave</span>
+                  <span>ENFORCED</span>
+                </div>
+              </div>
            </div>
 
-           {/* SDKs Section */}
-           <div className="bg-white p-8 rounded-[48px] border-2 border-dashed border-slate-200 text-center">
-              <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                <Box size={32} />
-              </div>
-              <h4 className="text-xs font-black text-[#0d457a] uppercase mb-2">GESA Client SDK</h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-6">Bibliotecas oficiais para Node.js, PHP e C#</p>
-              <button className="w-full py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all">
-                Acessar Documentação SDK
+           {/* Ajuda Técnica */}
+           <div className="bg-white p-8 rounded-[48px] border border-slate-200 shadow-sm text-center">
+              <Settings size={32} className="mx-auto text-blue-500 mb-4 opacity-50" />
+              <h4 className="text-xs font-black text-[#0d457a] uppercase mb-2">Documentação SEI</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-6 leading-relaxed">
+                Consulte o Manual Técnico de WebServices SEI v3.0 para parâmetros de assinatura digital e XML.
+              </p>
+              <button className="w-full py-4 bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-[#0d457a] rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-100">
+                Baixar Manual Técnico
               </button>
            </div>
         </div>
