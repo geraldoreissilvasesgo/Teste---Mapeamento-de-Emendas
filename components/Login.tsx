@@ -57,6 +57,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       } catch (err: any) {
         console.warn("Auth error, checking bypass:", err);
         
+        // Bypass para Anderson Alves
+        if (email === 'anderson.alves@goias.gov.br' && password === '123456') {
+          onLogin(MOCK_USERS[1]);
+          return;
+        }
+
         // Bypass para modo demonstração com Geraldo Silva
         if (email === 'geraldo.rsilva@goias.gov.br' && password === 'Goias@2024') {
           onLogin(MOCK_USERS[0]);
@@ -83,9 +89,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   const handleProvision = () => {
-    setEmail('geraldo.rsilva@goias.gov.br');
-    setPassword('Goias@2024');
-    setSuccess('Credenciais de Geraldo Silva (Administrador) inseridas. Clique em Entrar.');
+    setEmail('anderson.alves@goias.gov.br');
+    setPassword('123456');
+    setSuccess('Credenciais de Anderson Alves (Administrador) inseridas. Clique em Entrar.');
     setError({ message: '' });
   };
 
@@ -179,7 +185,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
              onClick={handleProvision}
              className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-white/50 px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-white transition-all shadow-sm group"
            >
-             <Sparkles size={14} className="group-hover:text-blue-500 transition-colors" /> Modo Homologação: Usar Geraldo Silva
+             <Sparkles size={14} className="group-hover:text-blue-500 transition-colors" /> Modo Homologação: Usar Anderson Alves
            </button>
         </div>
       </div>

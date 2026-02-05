@@ -1,4 +1,3 @@
-
 import { 
   Amendment, AmendmentType, TransferMode, GNDType, 
   SectorConfig, Role, User, Status 
@@ -114,6 +113,16 @@ export const MOCK_USERS: User[] = [
     lgpdAccepted: true,
     department: 'SES/SUBIPEI',
     avatarUrl: 'https://ui-avatars.com/api/?name=Geraldo+Silva&background=0d457a&color=fff'
+  },
+  {
+    id: 'u-anderson-01',
+    tenantId: 'GOIAS',
+    name: 'Anderson Alves',
+    email: 'anderson.alves@goias.gov.br',
+    role: Role.ADMIN,
+    lgpdAccepted: true,
+    department: 'SES/SUBIPEI',
+    avatarUrl: 'https://ui-avatars.com/api/?name=Anderson+Alves&background=10b981&color=fff'
   },
   {
     id: 'u-admin-01',

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Amendment, StatusConfig, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types.ts';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants.ts';
@@ -6,8 +7,9 @@ import {
   Landmark, XCircle, ChevronLeft, ChevronRight, FileText, 
   X, ArrowRightLeft, Building2, Edit3, Tag, DollarSign, Calendar, Info, Layers, Zap, HardDrive, Settings2,
   ArrowRight, Lock, Check, ListFilter, ShieldAlert, Terminal, Copy, Settings, Sparkles, AlertCircle,
-  Briefcase
+  Briefcase, AlertTriangle
 } from 'lucide-react';
+import { useNotification } from '../context/NotificationContext.tsx';
 
 interface AmendmentListProps {
   amendments: Amendment[];
@@ -38,6 +40,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   onAddStatus,
   error
 }) => {
+  const { notify } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [deputyFilter, setDeputyFilter] = useState<string>('all');
@@ -48,6 +51,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const initialFormState: Partial<Amendment> = {
     code: '',
@@ -122,11 +126,68 @@ create policy "Acesso por Tenant Emendas" on amendments for all using (true);`;
   const handleOpenCreateModal = () => {
     setEditingId(null);
     setFormData(initialFormState);
+    setFormErrors({});
     setIsModalOpen(true);
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Validação SEI (Padrão sugerido: Mínimo 10 dígitos numéricos)
+    if (!formData.seiNumber) {
+      errors.seiNumber = 'Número SEI é obrigatório.';
+    } else if (!/^\d{8,25}$/.test(formData.seiNumber.replace(/\D/g, ''))) {
+      errors.seiNumber = 'Formato SEI inválido (Mínimo 8 dígitos numéricos).';
+    }
+
+    // Validação de Ano
+    const currentYear = new Date().getFullYear();
+    if (!formData.year || formData.year < 2000 || formData.year > currentYear + 2) {
+      errors.year = `Ano inválido (2000 a ${currentYear + 2}).`;
+    }
+
+    // Validação de Valor
+    if (!formData.value || formData.value <= 0) {
+      errors.value = 'O valor deve ser maior que zero.';
+    }
+
+    // Validação de Município
+    if (!formData.municipality) {
+      errors.municipality = 'Selecione um município.';
+    }
+
+    // Validação de Objeto
+    if (!formData.object || formData.object.trim().length < 10) {
+      errors.object = 'O objeto deve conter ao menos 10 caracteres.';
+    }
+
+    // Validação de Data de Entrada (Não permitir futuro)
+    if (formData.entryDate) {
+      const selectedDate = new Date(formData.entryDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (selectedDate > today) {
+        errors.entryDate = 'A data de entrada não pode ser futura.';
+      }
+    }
+
+    // Validação de Unidade Beneficiada para Goiás em Crescimento
+    if (formData.type === AmendmentType.GOIAS_CRESCIMENTO && !formData.beneficiaryUnit) {
+      errors.beneficiaryUnit = 'Unidade beneficiada é obrigatória para este tipo.';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      notify('error', 'Falha na Validação', 'Existem campos inconsistentes no formulário.');
+      return;
+    }
+
     if (editingId) {
       onUpdate({ ...formData, id: editingId } as Amendment);
     } else {
@@ -322,29 +383,30 @@ create policy "Acesso por Tenant Emendas" on amendments for all using (true);`;
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Número do Processo SEI *</label>
                         <div className="relative">
-                          <Settings size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                          <Settings size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${formErrors.seiNumber ? 'text-red-400' : 'text-slate-300'}`} />
                           <input 
                               type="text" 
                               value={formData.seiNumber}
                               onChange={(e) => setFormData({...formData, seiNumber: e.target.value})}
-                              className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] outline-none uppercase text-xs focus:ring-4 ring-blue-500/5 transition-all"
+                              className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border ${formErrors.seiNumber ? 'border-red-300 ring-red-500/10' : 'border-slate-200 ring-blue-500/5'} rounded-2xl font-bold text-[#0d457a] outline-none uppercase text-xs focus:ring-4 transition-all`}
                               placeholder="EX: 20240001000..."
-                              required
                           />
                         </div>
+                        {formErrors.seiNumber && <p className="text-[9px] font-black text-red-500 uppercase ml-1 flex items-center gap-1"><AlertTriangle size={10}/> {formErrors.seiNumber}</p>}
                     </div>
                     
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Data de Entrada</label>
                         <div className="relative">
-                          <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                          <Calendar size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${formErrors.entryDate ? 'text-red-400' : 'text-slate-300'}`} />
                           <input 
                               type="date" 
                               value={formData.entryDate || ''}
                               onChange={(e) => setFormData({...formData, entryDate: e.target.value})}
-                              className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] outline-none text-xs focus:ring-4 ring-blue-500/5 transition-all"
+                              className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border ${formErrors.entryDate ? 'border-red-300 ring-red-500/10' : 'border-slate-200 ring-blue-500/5'} rounded-2xl font-bold text-[#0d457a] outline-none text-xs focus:ring-4 transition-all`}
                           />
                         </div>
+                        {formErrors.entryDate && <p className="text-[9px] font-black text-red-500 uppercase ml-1 flex items-center gap-1"><AlertTriangle size={10}/> {formErrors.entryDate}</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -354,8 +416,9 @@ create policy "Acesso por Tenant Emendas" on amendments for all using (true);`;
                                 type="number" 
                                 value={formData.year}
                                 onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
-                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] outline-none text-xs"
+                                className={`w-full px-5 py-3.5 bg-slate-50 border ${formErrors.year ? 'border-red-300' : 'border-slate-200'} rounded-2xl font-bold text-[#0d457a] outline-none text-xs`}
                             />
+                            {formErrors.year && <p className="text-[9px] font-black text-red-500 uppercase ml-1">{formErrors.year}</p>}
                         </div>
                         <div className="space-y-2">
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor Previsto (R$)</label>
@@ -364,9 +427,9 @@ create policy "Acesso por Tenant Emendas" on amendments for all using (true);`;
                                 step="0.01"
                                 value={formData.value}
                                 onChange={(e) => setFormData({...formData, value: parseFloat(e.target.value)})}
-                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] outline-none text-xs"
-                                required
+                                className={`w-full px-5 py-3.5 bg-slate-50 border ${formErrors.value ? 'border-red-300' : 'border-slate-200'} rounded-2xl font-bold text-[#0d457a] outline-none text-xs`}
                             />
+                            {formErrors.value && <p className="text-[9px] font-black text-red-500 uppercase ml-1">{formErrors.value}</p>}
                         </div>
                     </div>
                   </div>
@@ -390,12 +453,12 @@ create policy "Acesso por Tenant Emendas" on amendments for all using (true);`;
                         <select 
                             value={formData.municipality}
                             onChange={(e) => setFormData({...formData, municipality: e.target.value})}
-                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none text-xs"
-                            required
+                            className={`w-full px-5 py-3.5 bg-slate-50 border ${formErrors.municipality ? 'border-red-300' : 'border-slate-200'} rounded-2xl font-bold text-[#0d457a] uppercase outline-none text-xs`}
                         >
                             <option value="">SELECIONE UM MUNICÍPIO</option>
                             {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
+                        {formErrors.municipality && <p className="text-[9px] font-black text-red-500 uppercase ml-1">{formErrors.municipality}</p>}
                     </div>
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Recurso</label>
@@ -413,16 +476,16 @@ create policy "Acesso por Tenant Emendas" on amendments for all using (true);`;
                            <Building2 size={10} /> Unidade Beneficiada (Goiás em Crescimento) *
                         </label>
                         <div className="relative">
-                           <Briefcase size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300" />
+                           <Briefcase size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${formErrors.beneficiaryUnit ? 'text-red-400' : 'text-blue-300'}`} />
                            <input 
                                type="text" 
                                value={formData.beneficiaryUnit || ''}
                                onChange={(e) => setFormData({...formData, beneficiaryUnit: e.target.value})}
-                               className="w-full pl-11 pr-4 py-3.5 bg-blue-50/50 border border-blue-200 rounded-2xl font-bold text-[#0d457a] uppercase outline-none text-xs focus:ring-4 ring-blue-500/10 transition-all placeholder:text-blue-200"
+                               className={`w-full pl-11 pr-4 py-3.5 bg-blue-50/50 border ${formErrors.beneficiaryUnit ? 'border-red-300' : 'border-blue-200'} rounded-2xl font-bold text-[#0d457a] uppercase outline-none text-xs focus:ring-4 ring-blue-500/10 transition-all placeholder:text-blue-200`}
                                placeholder="EX: UNIDADE DE SAÚDE NORTE"
-                               required={formData.type === AmendmentType.GOIAS_CRESCIMENTO}
                            />
                         </div>
+                        {formErrors.beneficiaryUnit && <p className="text-[9px] font-black text-red-500 uppercase ml-1">{formErrors.beneficiaryUnit}</p>}
                       </div>
                     )}
                   </div>
@@ -436,10 +499,10 @@ create policy "Acesso por Tenant Emendas" on amendments for all using (true);`;
                         <textarea 
                             value={formData.object}
                             onChange={(e) => setFormData({...formData, object: e.target.value})}
-                            className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-600 outline-none h-40 uppercase text-xs resize-none placeholder:text-slate-200"
+                            className={`w-full p-5 bg-slate-50 border ${formErrors.object ? 'border-red-300' : 'border-slate-200'} rounded-2xl font-bold text-slate-600 outline-none h-40 uppercase text-xs resize-none placeholder:text-slate-200`}
                             placeholder="EX: AQUISIÇÃO DE EQUIPAMENTOS PARA UNIDADE DE SAÚDE..."
-                            required
                         />
+                        {formErrors.object && <p className="text-[9px] font-black text-red-500 uppercase ml-1">{formErrors.object}</p>}
                     </div>
                     
                     <div className="flex gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">

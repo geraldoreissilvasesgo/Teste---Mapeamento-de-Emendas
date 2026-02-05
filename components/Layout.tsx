@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode, Terminal, Tag, UserPlus, Workflow, UploadCloud,
-  Scale
+  Scale, Zap
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -43,6 +43,7 @@ export const Layout: React.FC<LayoutProps> = ({
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'amendments', label: 'Processos SEI', icon: FileText },
+        { id: 'fast_analysis', label: 'Análise OneDrive', icon: Zap },
         { id: 'repository', label: 'Repositório Central', icon: Database },
       ]
     },
