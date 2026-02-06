@@ -5,7 +5,8 @@ import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { 
   Plus, Search, MapPin, ChevronLeft, ChevronRight, FileText, 
   X, User, DollarSign, Calendar, Info, ArrowRight, Save, Loader2,
-  Table as TableIcon, Briefcase, FileSignature
+  LayoutGrid, Briefcase, FileSignature, Landmark, TrendingUp,
+  Filter, AlertCircle, Clock
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 
@@ -23,7 +24,7 @@ interface AmendmentListProps {
   error?: string | null;
 }
 
-const ITEMS_PER_PAGE = 15;
+const ITEMS_PER_PAGE = 12;
 
 export const AmendmentList: React.FC<AmendmentListProps> = ({ 
   amendments, 
@@ -60,7 +61,8 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
       !searchTerm || 
       a.seiNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.object.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.deputyName?.toLowerCase().includes(searchTerm.toLowerCase())
+      a.deputyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.municipality.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [amendments, searchTerm]);
 
@@ -136,7 +138,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         <div>
           <h2 className="text-4xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Emendas Impositivas</h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-3 flex items-center gap-2">
-            <TableIcon size={16} className="text-blue-500" /> Grid Tabular SES-GO: Colunas B a F
+            <LayoutGrid size={16} className="text-blue-500" /> Visualização em Cards: Exercício {new Date().getFullYear()}
           </p>
         </div>
         <div className="flex gap-4 w-full md:w-auto">
@@ -144,10 +146,10 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             <input 
               type="text" 
-              placeholder="PESQUISAR..."
-              className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-xs uppercase text-[#0d457a] shadow-sm focus:ring-4 ring-blue-500/5 transition-all"
+              placeholder="PESQUISAR SEI, AUTOR OU CIDADE..."
+              className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-[10px] uppercase text-[#0d457a] shadow-sm focus:ring-4 ring-blue-500/5 transition-all"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
           <button 
@@ -159,76 +161,81 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-[56px] border border-slate-200 shadow-xl shadow-[#0d457a]/5 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/80 border-b border-slate-100">
-              <tr>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">COLUNA B: SEI</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">COLUNA C: PARLAMENTAR</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">COLUNA D: OBJETO</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">COLUNA E: VALOR</th>
-                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase">COLUNA F: MUNICÍPIO</th>
-                <th className="px-8 py-6"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-inter">
-              {paginatedData.map((amendment) => (
-                <tr 
-                  key={amendment.id} 
-                  onClick={() => onSelect(amendment)}
-                  className="group hover:bg-blue-50/60 transition-all cursor-pointer relative active:scale-[0.995]"
-                >
-                  <td className="px-10 py-8">
-                    <span className="text-xs font-black text-[#0d457a] uppercase tracking-tighter group-hover:text-blue-700 transition-colors">{amendment.seiNumber}</span>
-                  </td>
-                  <td className="px-10 py-8">
-                    <div className="flex items-center gap-3">
-                       <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm">
-                          <User size={16} />
-                       </div>
-                       <span className="text-[11px] font-bold text-slate-600 uppercase">{amendment.deputyName}</span>
-                    </div>
-                  </td>
-                  <td className="px-10 py-8">
-                    <p className="text-[11px] font-medium text-slate-500 uppercase leading-relaxed max-w-sm line-clamp-2">
-                      {amendment.object}
-                    </p>
-                  </td>
-                  <td className="px-10 py-8 text-right">
-                    <span className="text-xs font-black text-blue-600 group-hover:text-blue-700">{formatBRL(amendment.value)}</span>
-                  </td>
-                  <td className="px-10 py-8">
-                    <div className="flex items-center gap-2">
-                       <MapPin size={14} className="text-emerald-500" />
-                       <span className="text-[11px] font-black text-slate-500 uppercase">{amendment.municipality}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-8 text-right">
-                     <button className="p-4 bg-white border border-slate-200 text-slate-300 group-hover:text-blue-600 group-hover:border-blue-100 group-hover:shadow-lg rounded-[18px] transition-all">
-                        <ArrowRight size={20} />
-                     </button>
-                  </td>
-                </tr>
-              ))}
-              {paginatedData.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-32 text-center opacity-30">
-                    <Search size={64} className="mx-auto text-slate-300 mb-6" />
-                    <p className="text-slate-300 font-black uppercase text-sm tracking-[0.4em]">Nenhum registro localizado no exercício.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {paginatedData.map((amendment) => (
+          <div 
+            key={amendment.id} 
+            onClick={() => onSelect(amendment)}
+            className="group bg-white rounded-[40px] border border-slate-200 shadow-sm hover:shadow-2xl hover:border-blue-100 transition-all cursor-pointer flex flex-col p-8 overflow-hidden relative active:scale-[0.98]"
+          >
+            {/* Header do Card */}
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">{amendment.type}</span>
+                <h3 className="text-lg font-black text-[#0d457a] uppercase tracking-tighter group-hover:text-blue-600 transition-colors">
+                  {amendment.seiNumber}
+                </h3>
+              </div>
+              <div className="p-3 bg-slate-50 text-slate-300 group-hover:bg-blue-50 group-hover:text-blue-500 rounded-2xl transition-all">
+                <ArrowRight size={20} />
+              </div>
+            </div>
+
+            {/* Objeto */}
+            <div className="flex-1 space-y-4">
+              <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group-hover:bg-white transition-all">
+                <p className="text-[11px] font-bold text-slate-500 uppercase leading-relaxed line-clamp-3">
+                  {amendment.object}
+                </p>
+              </div>
+
+              {/* Autor e Município */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <User size={14} />
+                  </div>
+                  <span className="text-[10px] font-black text-[#0d457a] uppercase truncate">{amendment.deputyName}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <MapPin size={14} />
+                  </div>
+                  <span className="text-[10px] font-black text-slate-500 uppercase truncate">{amendment.municipality}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Card */}
+            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Valor do Repasse</span>
+                <span className="text-base font-black text-emerald-600 tracking-tight">{formatBRL(amendment.value)}</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Unidade Atual</span>
+                <span className="text-[9px] font-black text-[#0d457a] uppercase bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">{amendment.currentSector}</span>
+              </div>
+            </div>
+
+            {/* Indicador de Status Lateral (Hover) */}
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500/10 group-hover:bg-blue-500 transition-colors" />
+          </div>
+        ))}
+
+        {paginatedData.length === 0 && (
+          <div className="col-span-full py-32 flex flex-col items-center justify-center text-center opacity-30">
+            <Search size={64} className="text-slate-300 mb-6" />
+            <p className="text-slate-400 font-black uppercase text-sm tracking-[0.4em]">Nenhum registro localizado no sistema.</p>
+          </div>
+        )}
       </div>
 
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-4 pt-8">
-           <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-5 bg-white border border-slate-200 rounded-[24px] text-[#0d457a] disabled:opacity-30 shadow-sm"><ChevronLeft size={24} /></button>
+           <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-5 bg-white border border-slate-200 rounded-[24px] text-[#0d457a] disabled:opacity-30 shadow-sm hover:bg-blue-50 transition-all"><ChevronLeft size={24} /></button>
            <span className="text-[11px] font-black uppercase tracking-widest bg-white px-8 py-5 rounded-[24px] shadow-sm border border-slate-200">Página {currentPage} de {totalPages}</span>
-           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-5 bg-white border border-slate-200 rounded-[24px] text-[#0d457a] disabled:opacity-30 shadow-sm"><ChevronRight size={24} /></button>
+           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-5 bg-white border border-slate-200 rounded-[24px] text-[#0d457a] disabled:opacity-30 shadow-sm hover:bg-blue-50 transition-all"><ChevronRight size={24} /></button>
         </div>
       )}
 
