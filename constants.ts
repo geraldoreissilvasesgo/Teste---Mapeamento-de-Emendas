@@ -1,7 +1,8 @@
+
 import { 
   Amendment, AmendmentType, TransferMode, GNDType, 
   SectorConfig, Role, User, Status 
-} from './types.ts';
+} from './types';
 
 export const APP_VERSION = '2.9.7-stable';
 
@@ -52,7 +53,7 @@ export const GOIAS_DEPUTIES = [
 export const GOIAS_CITIES = [
   'Abadia de Goiás', 'Abadiânia', 'Acreúna', 'Adelândia', 'Águas Lindas de Goiás', 
   'Alexânia', 'Aloândia', 'Alto Paraíso de Goiás', 'Alvorada do Norte', 'Amaralina', 
-  'Anápolis', 'Aparecida de Goiânia', 'Aparecida do Rio Doce', 'Aporé', 'Araçu', 
+  'Anápolis', 'Aparecida de Goiânia', 'Aparecida do Rio Doces', 'Aporé', 'Araçu', 
   'Aragarças', 'Aragoiânia', 'Araguapaz', 'Arenópolis', 'Aruanã', 'Aurilândia', 
   'Avelinópolis', 'Baliza', 'Barro Alto', 'Bela Vista de Goiás', 'Bom Jardim de Goiás', 
   'Bom Jesus de Goiás', 'Bonfinópolis', 'Bonópolis', 'Brazabrantes', 'Britânia', 

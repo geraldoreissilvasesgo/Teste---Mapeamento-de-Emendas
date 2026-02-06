@@ -105,6 +105,8 @@ export enum AnalysisType {
 
 export interface SectorConfig {
   id: string;
+  // Fix: Added optional tenantId to support multi-tenancy logic in App.tsx
+  tenantId?: string;
   name: string;
   defaultSlaDays: number;
   analysisType: string;

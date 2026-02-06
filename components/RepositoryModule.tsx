@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Amendment, Status, AmendmentType } from '../types.ts';
+import { Amendment, Status, AmendmentType } from '../types';
 import { 
   Search, Download, Database, ChevronLeft, ChevronRight, Filter, 
   Layers, ArrowUpRight, Clock, Building2, Tag, FileText, Printer, 
@@ -55,7 +56,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
     });
   }, [amendments, searchTerm, parlamentarSearch, typeFilter, municipalityFilter, minValue, maxValue]);
 
-  // Lógica de Agrupamento de Saldos
   const groupedBalances = useMemo(() => {
     if (groupBy === 'none') return null;
 
@@ -160,7 +160,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
         </div>
       </div>
 
-      {/* FILTROS E AGRUPAMENTOS */}
       <div className="bg-white p-6 lg:p-8 rounded-[32px] shadow-sm border border-slate-200 space-y-6 no-print">
         <div className="flex flex-col lg:flex-row gap-6 items-center">
           <div className="relative flex-1 w-full">
@@ -232,7 +231,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
         </div>
       </div>
 
-      {/* PAINEL DE SALDOS AGRUPADOS (VISÍVEL SE HOUVER AGRUPAMENTO) */}
       {groupedBalances && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 no-print animate-in slide-in-from-top-4 duration-500">
            {groupedBalances.map((g, i) => (
@@ -252,10 +250,8 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
         </div>
       )}
 
-      {/* CONTAINER DE IMPRESSÃO */}
       <div id="repository-print-container" className="bg-white rounded-[48px] shadow-sm border border-slate-200 overflow-hidden print:rounded-none print:border-none">
         
-        {/* CABEÇALHO INSTITUCIONAL */}
         <div id="repository-institutional-header" className="p-12 pb-8 text-center space-y-3 hidden print:block">
           <div className="space-y-1 mb-8">
             <h4 className="text-[11px] font-black text-[#0d457a] uppercase leading-tight tracking-tight">
@@ -274,7 +270,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
           </div>
         </div>
 
-        {/* TABELA ESTRUTURADA */}
         <div className="px-8 pb-12 overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-white border-y-2 border-[#0d457a]/20">
@@ -360,7 +355,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
           </table>
         </div>
 
-        {/* RODAPÉ DO DOSSIÊ */}
         <div className="hidden print:block p-12 border-t border-slate-100 text-center">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">
             GERÊNCIA DE SUPORTE ADMINISTRATIVO • GESA / SUBIPEI
@@ -368,7 +362,6 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
         </div>
       </div>
 
-      {/* PAGINAÇÃO */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-4 no-print pb-10">
             <button 

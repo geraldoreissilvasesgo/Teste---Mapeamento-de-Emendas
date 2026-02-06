@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { User, Role } from '../types.ts';
+import { User, Role } from '../types';
 import { 
   Trash2, UserPlus, Shield, Mail, Lock, Eye, EyeOff, Info, 
   UserCheck, Fingerprint, X, ShieldCheck, Search, Loader2,

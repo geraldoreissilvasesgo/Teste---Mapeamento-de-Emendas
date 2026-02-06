@@ -1,9 +1,10 @@
+
 import React, { useMemo, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { Amendment, AmendmentType } from '../types.ts';
+import { Amendment, AmendmentType } from '../types';
 import { 
   Printer, PieChart as PieIcon, 
   BarChart3, MapPin, Loader2, ClipboardList, FileSpreadsheet,
@@ -132,7 +133,6 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
         </button>
       </div>
 
-      {/* FILTROS DE TELA (NO-PRINT) */}
       <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-6 no-print">
           <div className="space-y-2">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Exercício Fiscal</label>
@@ -158,10 +158,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
           </div>
       </div>
 
-      {/* CONTAINER DO RELATÓRIO (CANVAS DE EXPORTAÇÃO) */}
       <div id="report-content-canvas" className="bg-white rounded-[48px] shadow-sm border border-slate-200 overflow-hidden print:rounded-none print:border-none">
         
-        {/* CABEÇALHO INSTITUCIONAL RÍGIDO (RÉPLICA MODELO) */}
         <div className="p-12 text-center space-y-4 border-b-2 border-[#0d457a]/10">
           <div className="space-y-1 mb-10">
             <h4 className="text-[11px] font-black text-[#0d457a] uppercase leading-tight tracking-tight">
@@ -199,7 +197,6 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
         </div>
 
         <div className="p-12 space-y-20">
-            {/* SEÇÃO VISUAL: GRÁFICOS (PRESERVADOS) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 pdf-avoid-break">
                 <div className="space-y-8 bg-white p-6 rounded-[40px] border border-slate-100 shadow-sm">
                     <h4 className="text-[11px] font-black text-[#0d457a] uppercase tracking-[0.2em] flex items-center gap-3 justify-center">
@@ -244,7 +241,6 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                 </div>
             </div>
 
-            {/* SEÇÃO ANALÍTICA: DADOS COMPILADOS (DADOS TABULARES PARA AUDITORIA) */}
             <div className="pt-12 border-t-2 border-dashed border-slate-100 pdf-avoid-break">
                 <div className="flex justify-between items-center mb-10">
                    <div>
@@ -257,7 +253,6 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                   {/* Tabela por Origem */}
                    <div className="overflow-hidden rounded-[32px] border border-slate-200 shadow-inner">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 border-b border-slate-200">
@@ -281,7 +276,6 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                       </table>
                    </div>
 
-                   {/* Tabela por Município */}
                    <div className="overflow-hidden rounded-[32px] border border-slate-200 shadow-inner">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 border-b border-slate-200">
@@ -303,7 +297,6 @@ export const ReportModule: React.FC<ReportModuleProps> = ({ amendments }) => {
                 </div>
             </div>
 
-            {/* RODAPÉ DO DOSSIÊ (PRINT ONLY) */}
             <div className="hidden print:block pt-16 border-t border-slate-100 text-center">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">
                 GERÊNCIA DE SUPORTE ADMINISTRATIVO • GESA / SUBIPEI

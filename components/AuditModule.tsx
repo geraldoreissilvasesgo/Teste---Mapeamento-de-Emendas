@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, Copy, Check, RefreshCw, Loader2,
   Filter as FilterIcon, Zap, ShieldX
 } from 'lucide-react';
-import { AuditLog, AuditAction, User as AppUser } from '../types.ts';
+import { AuditLog, AuditAction, User as AppUser } from '../types';
 
 interface AuditModuleProps {
   logs: AuditLog[];
@@ -64,7 +64,6 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      // Filtro de Rastreio Crítico (Criação/Tramitação + WARN/CRITICAL)
       if (showCriticalPathOnly) {
         const isActionMatch = log.action === AuditAction.CREATE || log.action === AuditAction.MOVE;
         const isSeverityMatch = log.severity === 'WARN' || log.severity === 'CRITICAL';
@@ -154,7 +153,6 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
                 ? 'bg-red-600 text-white animate-pulse' 
                 : 'bg-white border border-slate-200 text-slate-400 hover:text-red-500'
               }`}
-              title="Filtrar por Criação/Tramitação com Atraso ou Erro"
             >
               <Zap size={16} />
               {showCriticalPathOnly ? 'Modo Risco Ativo' : 'Filtro de Risco'}
@@ -193,41 +191,6 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
             <p className="text-2xl font-black text-red-600">{stats.critical}</p>
         </div>
       </div>
-
-      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 flex flex-col lg:flex-row gap-5 items-center no-print">
-          <div className="relative flex-1 w-full">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-              <input 
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Filtrar por servidor ou detalhe da ação..."
-                className="w-full pl-16 pr-8 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-xs uppercase text-[#0d457a]"
-              />
-          </div>
-          <div className="w-full lg:w-48">
-             <select 
-                value={severityFilter}
-                onChange={(e) => setSeverityFilter(e.target.value)}
-                className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none"
-             >
-                <option value="all">Todas Severidades</option>
-                <option value="INFO">INFO</option>
-                <option value="WARN">AVISO</option>
-                <option value="CRITICAL">CRÍTICO</option>
-             </select>
-          </div>
-      </div>
-
-      {showCriticalPathOnly && (
-        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
-          <ShieldX className="text-red-500" size={18} />
-          <span className="text-[10px] font-black text-red-900 uppercase tracking-widest">
-            Filtro de Risco Ativo: Exibindo apenas Criações e Tramitações com Avisos ou Falhas Críticas.
-          </span>
-          <button onClick={() => setShowCriticalPathOnly(false)} className="ml-auto text-[9px] font-black text-red-600 uppercase underline">Remover Filtro</button>
-        </div>
-      )}
 
       <div className="bg-white rounded-[40px] shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -279,46 +242,10 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
                           </tr>
                       );
                   })}
-                  {paginatedLogs.length === 0 && (
-                     <tr>
-                       <td colSpan={4} className="py-20 text-center">
-                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhuma atividade registrada que coincida com os filtros.</p>
-                       </td>
-                     </tr>
-                  )}
               </tbody>
           </table>
         </div>
       </div>
-
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 pt-8">
-           <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] disabled:opacity-30 shadow-sm"><ChevronLeft size={20} /></button>
-           <span className="text-[10px] font-black uppercase tracking-widest bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200">Página {currentPage} de {totalPages}</span>
-           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] disabled:opacity-30 shadow-sm"><ChevronRight size={20} /></button>
-        </div>
-      )}
-
-      {isSqlModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">
-          <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-amber-500">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-               <div>
-                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Esquema do Banco (audit_logs)</h3>
-               </div>
-               <button onClick={() => setIsSqlModalOpen(false)}><X/></button>
-            </div>
-            <div className="p-10 space-y-6">
-               <pre className="bg-slate-900 text-blue-400 p-6 rounded-3xl font-mono text-[11px] overflow-x-auto h-72 border border-white/5 shadow-inner">
-                   {sqlSetup}
-               </pre>
-               <button onClick={handleCopySql} className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs">
-                 {copied ? 'Copiado!' : 'Copiar Script SQL'}
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -1,4 +1,5 @@
-import { User, Role } from '../types.ts';
+
+import { User, Role } from '../types';
 
 /**
  * SERVIÇO DE INFRAESTRUTURA (API MOCK)

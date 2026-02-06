@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Amendment, AIAnalysisResult } from "../types.ts";
+import { Amendment, AIAnalysisResult } from "../types";
 
 /**
  * SERVIÇO DE INTELIGÊNCIA ARTIFICIAL (IA)

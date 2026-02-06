@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Terminal, Cpu, Database, Activity, Code2, Globe, 
@@ -6,7 +7,7 @@ import {
   Network, Play, Pause, Trash2, Maximize2, Monitor,
   Wifi, Signal, Clock, Box
 } from 'lucide-react';
-import { Amendment, User, AuditLog } from '../types.ts';
+import { Amendment, User, AuditLog } from '../types';
 
 interface DebugConsoleProps {
   amendments: Amendment[];
@@ -76,7 +77,7 @@ export const DebugConsole: React.FC<DebugConsoleProps> = ({ amendments, currentU
         <div className="flex gap-3">
           <button 
             onClick={() => setIsPaused(!isPaused)} 
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isPaused ? 'bg-emerald-500 text-white shadow-emerald-200 shadow-lg' : 'bg-amber-500 text-white shadow-amber-200 shadow-lg'}`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isPaused ? 'bg-emerald-50 text-white shadow-emerald-200 shadow-lg' : 'bg-amber-50 text-white shadow-amber-200 shadow-lg'}`}
           >
             {isPaused ? <Play size={14} /> : <Pause size={14} />}
             {isPaused ? 'Retomar Trace' : 'Pausar Trace'}

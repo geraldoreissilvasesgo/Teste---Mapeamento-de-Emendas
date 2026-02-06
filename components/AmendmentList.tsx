@@ -1,13 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
-import { Amendment, StatusConfig, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types.ts';
-import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants.ts';
+import { Amendment, StatusConfig, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType } from '../types';
+import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { 
   Plus, Search, MapPin, ChevronLeft, ChevronRight, FileText, 
   X, User, DollarSign, Calendar, Info, ArrowRight, Save, Loader2,
   Table as TableIcon, Briefcase, FileSignature
 } from 'lucide-react';
-import { useNotification } from '../context/NotificationContext.tsx';
+import { useNotification } from '../context/NotificationContext';
 
 interface AmendmentListProps {
   amendments: Amendment[];
@@ -38,7 +38,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Estado para o formulário de nova emenda
   const [formData, setFormData] = useState({
     seiNumber: '',
     year: new Date().getFullYear(),
@@ -80,7 +79,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
       const cleanValue = parseFloat(formData.value.replace(/[^\d,]/g, '').replace(',', '.'));
       
       const newAmendment: Amendment = {
-        id: '', // Gerado pelo backend/supabase service
+        id: '', 
         tenantId: 'GOIAS',
         code: `EM-${formData.year}-${Math.floor(1000 + Math.random() * 9000)}`,
         seiNumber: formData.seiNumber,

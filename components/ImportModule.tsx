@@ -4,9 +4,9 @@ import {
   Link2, Loader2, Globe, Wifi, CloudDownload, 
   Table as TableIcon, DollarSign, MapPin, User, Activity, Info
 } from 'lucide-react';
-import { Amendment, AmendmentType } from '../types.ts';
-import { useNotification } from '../context/NotificationContext.tsx';
-import { generateUUID, db } from '../services/supabase.ts';
+import { Amendment, AmendmentType } from '../types';
+import { useNotification } from '../context/NotificationContext';
+import { generateUUID, db } from '../services/supabase';
 
 interface SpreadsheetConnectorProps {
   onImport: (data: Amendment[]) => void;
@@ -63,7 +63,6 @@ export const ImportModule: React.FC<SpreadsheetConnectorProps> = ({ onImport, se
         createdAt: new Date().toISOString()
       }));
 
-      // A função onImport no App.tsx já está preparada para persistir no DB
       await onImport(payload);
       setConnectedData(null);
     } catch (err: any) {

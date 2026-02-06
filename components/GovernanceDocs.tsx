@@ -8,7 +8,7 @@ import {
   RotateCcw, Activity, ShieldAlert, FileSearch, ClipboardCheck, History, Eye, Cpu, CloudLightning,
   Play, Lock, Undo2, AlertTriangle, ShieldX
 } from 'lucide-react';
-import { useNotification } from '../context/NotificationContext.tsx';
+import { useNotification } from '../context/NotificationContext';
 
 type GovernanceTab = 'cobit' | 'itil' | 'compliance' | 'iso' | 'drp' | 'release';
 
@@ -127,7 +127,6 @@ export const GovernanceDocs: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-10 items-start">
         <div className="lg:col-span-3 space-y-8">
           
-          {/* Dashboard de Maturidade Superior */}
           <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm overflow-hidden relative">
             <div className="absolute top-0 right-0 p-12 opacity-5"><Activity size={180} /></div>
             <div className="flex justify-between items-center mb-10">
@@ -143,7 +142,6 @@ export const GovernanceDocs: React.FC = () => {
                </div>
             </div>
 
-            {/* CONTEÚDO DINÂMICO POR ABA */}
             {activeTab === 'cobit' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-500">
                 <div className="space-y-6">
@@ -354,7 +352,6 @@ export const GovernanceDocs: React.FC = () => {
           </div>
         </div>
 
-        {/* Sidebar de Ações de Governança */}
         <div className="space-y-6">
           <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
              <h4 className="text-[10px] font-black text-[#0d457a] uppercase tracking-[0.2em] mb-8 flex items-center gap-2">

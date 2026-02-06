@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Amendment, Status } from '../types.ts';
+import { Amendment, Status } from '../types';
 import { 
   AlertCircle, Clock, CheckCircle2, Search, Timer, 
   ArrowRight, Calendar, AlertTriangle, ShieldCheck, 
@@ -49,21 +49,6 @@ export const DeadlinePanel: React.FC<DeadlinePanelProps> = ({ amendments, onSele
             <Timer size={16} className="text-blue-500" /> Controle de Temporalidade SES-GO
           </p>
         </div>
-        
-        <div className="grid grid-cols-3 gap-3">
-          <div className="px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-center">
-            <p className="text-[8px] font-black text-red-400 uppercase">Atrasados</p>
-            <p className="text-lg font-black text-red-600">{stats.overdue}</p>
-          </div>
-          <div className="px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl text-center">
-            <p className="text-[8px] font-black text-amber-400 uppercase">Críticos</p>
-            <p className="text-lg font-black text-amber-600">{stats.critical}</p>
-          </div>
-          <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
-            <p className="text-[8px] font-black text-emerald-400 uppercase">No Prazo</p>
-            <p className="text-lg font-black text-emerald-600">{stats.ontime}</p>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -79,50 +64,15 @@ export const DeadlinePanel: React.FC<DeadlinePanelProps> = ({ amendments, onSele
               onClick={() => onSelect(a)}
               className="bg-white rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all cursor-pointer group flex flex-col p-6 overflow-hidden relative"
             >
-              <div className={`absolute top-0 right-0 w-32 h-32 opacity-[0.03] -mr-8 -mt-8 rotate-12 group-hover:scale-110 transition-transform`}>
-                 <Activity size={120} />
-              </div>
-
               <div className="flex justify-between items-start mb-6 relative z-10">
                 <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border flex items-center gap-1.5 ${sla.bg} ${sla.color} ${sla.border}`}>
                   <SlaIcon size={10} /> {sla.label}
                 </span>
                 <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{a.code}</span>
               </div>
-
               <div className="flex-1 space-y-2 mb-6">
                 <h3 className="text-sm font-black text-[#0d457a] uppercase group-hover:text-blue-600 transition-colors">{a.seiNumber}</h3>
                 <p className="text-[10px] font-bold text-slate-400 uppercase line-clamp-2 leading-relaxed">{a.object}</p>
-              </div>
-
-              <div className="pt-6 border-t border-slate-50 space-y-4">
-                 <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                       <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                          <Calendar size={14} />
-                       </div>
-                       <div>
-                          <p className="text-[8px] font-black text-slate-300 uppercase">Vencimento</p>
-                          <p className="text-[10px] font-black text-slate-600 uppercase">
-                            {new Date(lastMov?.deadline || "").toLocaleDateString('pt-BR')}
-                          </p>
-                       </div>
-                    </div>
-                    <div className="text-right">
-                       <p className="text-[8px] font-black text-slate-300 uppercase">Restante</p>
-                       <p className={`text-[10px] font-black uppercase ${sla.color}`}>
-                          {diffDays < 0 ? `${Math.abs(diffDays)}d Atraso` : `${diffDays} Dias`}
-                       </p>
-                    </div>
-                 </div>
-
-                 <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl">
-                    <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                       <span className="text-[9px] font-black text-[#0d457a] uppercase">{a.currentSector}</span>
-                    </div>
-                    <ArrowRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-                 </div>
               </div>
             </div>
           );

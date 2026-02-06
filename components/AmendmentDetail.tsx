@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { useNotification } from '../context/NotificationContext.tsx';
+import { useNotification } from '../context/NotificationContext';
 import { 
   Amendment, StatusConfig, User, Role, SectorConfig, 
   AmendmentMovement, SystemMode, AIAnalysisResult, Status
-} from '../types.ts';
-import { analyzeAmendment } from '../services/geminiService.ts';
+} from '../types';
+import { analyzeAmendment } from '../services/geminiService';
 import { 
   ArrowLeft, Send, MapPin, Calendar, Clock, 
   FileText, ArrowRightLeft, History, Lock, UserCheck, 
@@ -377,7 +377,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                   onClick={handleFinalMove}
                   className="w-full py-6 bg-emerald-500 hover:bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3"
                 >
-                  <Send size={18} /> Efetivar Trâmite
+                  <span className="flex items-center gap-3"><Send size={18} /> Efetivar Trâmite</span>
                 </button>
               </div>
             </div>

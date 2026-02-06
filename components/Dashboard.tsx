@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { Amendment, StatusConfig, AmendmentType } from '../types.ts';
+import { Amendment, StatusConfig, AmendmentType } from '../types';
 import { 
   Landmark, CheckCircle, AlertTriangle, 
   TrendingUp, Activity, Search, FileSearch, 
@@ -47,7 +47,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
       return acc;
     }, {} as Record<string, number>);
 
-    // FIX: Explicitly cast valor to number to resolve TypeScript arithmetic error in sort
     const barData = Object.entries(cityData)
       .map(([name, valor]) => ({ name, valor: Number(valor) }))
       .sort((a, b) => b.valor - a.valor)

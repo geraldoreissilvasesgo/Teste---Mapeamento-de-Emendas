@@ -4,17 +4,17 @@ import {
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays, Link2,
-  Scale, Zap, CloudSync, Wifi, WifiOff
+  Scale, Zap, RefreshCw, Wifi, WifiOff
 } from 'lucide-react';
-import { User, Role } from '../types.ts';
-import { APP_VERSION } from '../constants.ts';
+import { User, Role } from '../types';
+import { APP_VERSION } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User;
   currentView: string;
   activeTenantId: string;
-  isLive: boolean; // Nova prop para monitorar conexão
+  isLive: boolean; 
   onNavigate: (view: string) => void;
   onLogout: () => void;
   onTenantChange: (id: string) => void;
@@ -163,7 +163,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="flex items-center gap-4">
              {/* INDICADOR DE STATUS DA BASE DE DADOS */}
              <div className={`hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-500 ${isLive ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
-                {isLive ? <CloudSync size={16} className="animate-pulse" /> : <WifiOff size={16} />}
+                {isLive ? <RefreshCw size={16} className="animate-pulse" /> : <WifiOff size={16} />}
                 <div className="flex flex-col">
                   <span className="text-[9px] font-black uppercase leading-none">{isLive ? 'Banco Cloud Conectado' : 'Modo Simulação'}</span>
                   <span className="text-[7px] font-bold opacity-60 uppercase mt-0.5">{isLive ? 'Sincronização em Tempo Real' : 'Local Mock Data Active'}</span>

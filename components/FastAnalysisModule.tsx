@@ -13,9 +13,9 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie, Legend 
 } from 'recharts';
 import { GoogleGenAI } from "@google/genai";
-import { Amendment } from '../types.ts';
-import { useNotification } from '../context/NotificationContext.tsx';
-import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants.ts';
+import { Amendment } from '../types';
+import { useNotification } from '../context/NotificationContext';
+import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 
 interface FastAnalysisModuleProps {
   localAmendments: Amendment[];
@@ -25,16 +25,16 @@ interface FastAnalysisModuleProps {
  * MAPEAMENTO ESTRUTURAL: Emendas 2026.xlsx
  */
 interface SharePointFullRow {
-  colA_id: string;        // ID GESA
-  colB_sei: string;       // Processo SEI
-  colC_autor: string;     // Parlamentar
-  colD_objeto: string;    // Objeto
-  colE_valor: number;     // Valor (R$)
-  colF_municipio: string;  // Município
-  colG_gnd: string;       // GND
-  colH_modalidade: string; // Modalidade
-  colI_status: string;    // Status
-  colJ_unidade: string;   // Unidade
+  colA_id: string;        
+  colB_sei: string;       
+  colC_autor: string;     
+  colD_objeto: string;    
+  colE_valor: number;     
+  colF_municipio: string;  
+  colG_gnd: string;       
+  colH_modalidade: string; 
+  colI_status: string;    
+  colJ_unidade: string;   
 }
 
 const COLORS = ['#0d457a', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#6366f1', '#ec4899', '#14b8a6'];
@@ -167,7 +167,6 @@ export const FastAnalysisModule: React.FC<FastAnalysisModuleProps> = ({ localAme
       ) : (
         <div className="animate-in zoom-in-95 duration-500 space-y-8">
            
-           {/* Painel de Filtros em Conexão */}
            <div className="bg-white p-8 rounded-[48px] border border-slate-200 shadow-sm space-y-8">
               <div className="flex flex-col lg:flex-row gap-6 items-center">
                  <div className="relative flex-1 w-full">
@@ -209,7 +208,6 @@ export const FastAnalysisModule: React.FC<FastAnalysisModuleProps> = ({ localAme
                  </button>
               </div>
 
-              {/* Resumo da Filtragem em Conexão */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
                   <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-center justify-between">
                      <div>
@@ -235,7 +233,6 @@ export const FastAnalysisModule: React.FC<FastAnalysisModuleProps> = ({ localAme
               </div>
            </div>
 
-           {/* Listagem Tabular: Colunas B a F em destaque */}
            <div className="bg-white rounded-[56px] border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-10 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
                  <h4 className="text-sm font-black text-[#0d457a] uppercase tracking-widest">Informações em Conexão (Buffer SharePoint)</h4>

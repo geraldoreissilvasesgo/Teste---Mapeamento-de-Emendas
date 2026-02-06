@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, BarChart3, 
@@ -5,8 +6,8 @@ import {
   UploadCloud, ShieldAlert, TestTube2, 
   Braces, BookOpen, Bug, Landmark
 } from 'lucide-react';
-import { User, Role } from '../types.ts';
-import { APP_VERSION } from '../constants.ts';
+import { User, Role } from '../types';
+import { APP_VERSION } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
