@@ -16,6 +16,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    chunkSizeWarningLimit: 1600
+    minify: 'esbuild',
+    chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'recharts', 'lucide-react'],
+          supabase: ['@supabase/supabase-js'],
+          genai: ['@google/genai']
+        }
+      }
+    }
   }
 });
