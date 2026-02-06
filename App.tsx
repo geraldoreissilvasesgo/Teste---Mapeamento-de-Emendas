@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
@@ -15,21 +16,27 @@ import { GovernanceDocs } from './components/GovernanceDocs.tsx';
 import { ComplianceDetails } from './components/ComplianceDetails.tsx';
 import { ApiPortal } from './components/ApiPortal.tsx';
 import { Login } from './components/Login.tsx';
-import { SystemManual } from './components/SystemManual.tsx';
+import { DatabaseStatusAlert } from './components/DatabaseStatusAlert.tsx';
+import { CalendarView } from './components/CalendarView.tsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.tsx';
 import { PlushNotificationContainer } from './components/PlushNotification.tsx';
 import { 
-  User, Amendment, AmendmentMovement, SystemMode, StatusConfig, AuditLog, AuditAction, SectorConfig
+  User, Amendment, SystemMode, StatusConfig, AuditLog, SectorConfig, AuditAction
 } from './types.ts';
 import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS, MOCK_USERS } from './constants.ts';
 import { db } from './services/supabase.ts';
+import { Activity, CloudSync } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { notify } = useNotification();
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('gesa_current_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('gesa_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
   });
 
   const [amendments, setAmendments] = useState<Amendment[]>([]);
@@ -40,6 +47,7 @@ const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isLiveSync, setIsLiveSync] = useState(false);
   
   const [dbErrors, setDbErrors] = useState<{
     users?: string;
@@ -49,88 +57,34 @@ const AppContent: React.FC = () => {
     audit?: string;
   }>({});
 
-  const logAction = useCallback(async (action: AuditAction, details: string, severity: 'INFO' | 'WARN' | 'CRITICAL' = 'INFO') => {
-    if (!currentUser) return;
-    try {
-      await db.audit.log({
-        tenantId: currentUser.tenantId,
-        actorId: currentUser.id,
-        actorName: currentUser.name,
-        action,
-        details,
-        severity,
-        timestamp: new Date().toISOString()
-      });
-      const freshLogs = await db.audit.getLogs(currentUser.tenantId);
-      setLogs(freshLogs);
-    } catch (err) {
-      console.error("Erro ao registrar log de auditoria:", err);
-    }
-  }, [currentUser]);
-
   const fetchData = useCallback(async () => {
     if (!currentUser) return;
-    const tenantId = currentUser.tenantId;
+    const tId = currentUser.tenantId;
     setIsLoadingData(true);
 
-    // Amendments
-    try {
-      const data = await db.amendments.getAll(tenantId);
-      setAmendments(data);
-      setDbErrors(prev => ({ ...prev, amendments: undefined }));
-    } catch (err: any) {
-      if (err.message === 'TABLE_MISSING') {
-        setDbErrors(prev => ({ ...prev, amendments: 'DATABASE_SETUP_REQUIRED' }));
-        setAmendments(MOCK_AMENDMENTS);
+    const loadTable = async (key: keyof typeof dbErrors, promise: Promise<any>, fallback: any, setter: (d: any) => void) => {
+      try {
+        const data = await promise;
+        setter(data);
+        setDbErrors(prev => ({ ...prev, [key]: undefined }));
+        setIsLiveSync(true);
+      } catch (err: any) {
+        if (err.message === 'TABLE_MISSING') {
+          setDbErrors(prev => ({ ...prev, [key]: 'DATABASE_SETUP_REQUIRED' }));
+          setter(fallback);
+        } else {
+          console.error(`Read error on ${String(key)}:`, err.message);
+        }
       }
-    }
+    };
 
-    // Users
-    try {
-      const data = await db.users.getAll(tenantId);
-      setUsers(data);
-      setDbErrors(prev => ({ ...prev, users: undefined }));
-    } catch (err: any) {
-      if (err.message === 'TABLE_MISSING') {
-        setDbErrors(prev => ({ ...prev, users: 'DATABASE_SETUP_REQUIRED' }));
-        setUsers(MOCK_USERS);
-      }
-    }
-
-    // Sectors
-    try {
-      const data = await db.sectors.getAll(tenantId);
-      if (data.length > 0) {
-        setSectors(data);
-        setDbErrors(prev => ({ ...prev, sectors: undefined }));
-      }
-    } catch (err: any) {
-      if (err.message === 'TABLE_MISSING') {
-        setDbErrors(prev => ({ ...prev, sectors: 'DATABASE_SETUP_REQUIRED' }));
-      }
-    }
-
-    // Statuses
-    try {
-      const data = await db.statuses.getAll(tenantId);
-      setStatuses(data);
-      setDbErrors(prev => ({ ...prev, statuses: undefined }));
-    } catch (err: any) {
-      if (err.message === 'TABLE_MISSING') {
-        setDbErrors(prev => ({ ...prev, statuses: 'DATABASE_SETUP_REQUIRED' }));
-      }
-    }
-
-    // Logs
-    try {
-      const auditData = await db.audit.getLogs(tenantId);
-      setLogs(auditData);
-      setDbErrors(prev => ({ ...prev, audit: undefined }));
-    } catch (err: any) {
-      if (err.message === 'TABLE_MISSING') {
-        setDbErrors(prev => ({ ...prev, audit: 'DATABASE_SETUP_REQUIRED' }));
-      }
-    }
+    await Promise.all([
+      loadTable('amendments', db.amendments.getAll(tId), MOCK_AMENDMENTS, setAmendments),
+      loadTable('users', db.users.getAll(tId), MOCK_USERS, setUsers),
+      loadTable('sectors', db.sectors.getAll(tId), DEFAULT_SECTOR_CONFIGS, (d) => d.length > 0 && setSectors(d)),
+      loadTable('statuses', db.statuses.getAll(tId), [], setStatuses),
+      loadTable('audit', db.audit.getAll(tId), [], setLogs)
+    ]);
 
     setIsLoadingData(false);
   }, [currentUser]);
@@ -139,187 +93,96 @@ const AppContent: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('gesa_current_user', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('gesa_current_user');
-    }
-  }, [currentUser]);
-
-  const handleAddStatus = async (status: StatusConfig) => {
-    try {
-      const saved = await db.statuses.upsert(status);
-      const freshData = await db.statuses.getAll(currentUser?.tenantId || 'GOIAS');
-      setStatuses(freshData);
-      notify('success', 'Base Atualizada', `O estado "${saved.name}" foi persistido na nuvem.`);
-      return saved;
-    } catch (err) {
-      notify('error', 'Erro Cloud', 'Falha ao gravar no banco de dados.');
-      throw err;
-    }
-  };
-
-  const handleBatchAddStatuses = async (newStatuses: any[]) => {
-    try {
-      setIsLoadingData(true);
-      await db.statuses.insertMany(newStatuses);
-      const freshData = await db.statuses.getAll(currentUser?.tenantId || 'GOIAS');
-      setStatuses(freshData);
-      notify('success', 'Carga Concluída', `${newStatuses.length} novos estados injetados.`);
-    } catch (err) {
-      notify('error', 'Falha na Carga', 'Erro ao processar lote.');
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
-
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
-      const saved = await db.amendments.upsert(amendment);
-      setAmendments(prev => prev.map(a => a.id === saved.id ? saved : a));
+      const saved = await db.amendments.upsert({ ...amendment, tenantId: currentUser?.tenantId });
+      
+      await db.audit.log({
+        tenantId: currentUser?.tenantId,
+        actorId: currentUser?.id,
+        actorName: currentUser?.name,
+        action: AuditAction.UPDATE,
+        details: `Sucesso: Gravação do processo SEI ${amendment.seiNumber}`,
+        severity: 'INFO'
+      });
+
+      // Atualização imediata do estado local para refletir no Grid e Dashboard
+      setAmendments(prev => {
+        const exists = prev.some(a => a.id === saved.id);
+        if (exists) {
+          return prev.map(a => a.id === saved.id ? saved : a);
+        }
+        return [saved, ...prev]; // Novo registro entra no topo
+      });
+
       if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
-      notify('success', 'Atualizado', `Processo ${saved.seiNumber} salvo na nuvem.`);
-      logAction(AuditAction.UPDATE, `Editou o processo SEI ${saved.seiNumber}.`, 'INFO');
-    } catch (err) {
-      notify('error', 'Erro', 'Falha ao persistir dados no Banco Cloud.');
+      notify('success', 'Base Cloud Atualizada', `O processo ${amendment.seiNumber} foi sincronizado com sucesso.`);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro desconhecido';
+      console.error("Save failure:", errorMsg);
+      notify('error', 'Falha na Gravação', `O banco rejeitou a operação. Motivo: ${errorMsg}`);
+      
+      if (errorMsg.includes('42501') || errorMsg.includes('permission denied')) {
+        setDbErrors(prev => ({ ...prev, amendments: 'DATABASE_SETUP_REQUIRED' }));
+      }
     }
   };
 
-  const handleCreateAmendment = async (a: Amendment) => {
+  const handleBatchImport = async (newAmendments: Amendment[]) => {
+    setIsLoadingData(true);
     try {
-      const saved = await db.amendments.upsert({ ...a, tenantId: currentUser?.tenantId || 'GOIAS' });
-      setAmendments(prev => [saved, ...prev]);
-      notify('success', 'Criado', `Novo processo ${saved.seiNumber} registrado.`);
-      logAction(AuditAction.CREATE, `Criou um novo registro de processo SEI: ${saved.seiNumber}.`, 'INFO');
-    } catch (err) {
-      notify('error', 'Erro', 'Falha ao registrar processo.');
-    }
-  };
+      await db.amendments.insertMany(newAmendments.map(a => ({ ...a, tenantId: currentUser?.tenantId })));
+      
+      await db.audit.log({
+        tenantId: currentUser?.tenantId,
+        actorId: currentUser?.id,
+        actorName: currentUser?.name,
+        action: AuditAction.CREATE,
+        details: `Importação em lote: ${newAmendments.length} emendas.`,
+        severity: 'INFO'
+      });
 
-  const handleBatchImportAmendments = async (data: Amendment[]) => {
-    try {
-      setIsLoadingData(true);
-      const saved = await db.amendments.insertMany(data);
-      setAmendments(prev => [...saved, ...prev]);
-      notify('success', 'Carga Concluída', `${saved.length} registros integrados.`);
-    } catch (err) {
-      notify('error', 'Falha na Carga', 'Erro ao processar lote no Banco.');
+      await fetchData();
+      notify('success', 'Importação Concluída', `${newAmendments.length} registros persistidos.`);
+      setCurrentView('amendments');
+    } catch (err: any) {
+      notify('error', 'Erro na Carga', `Não foi possível incluir os registros: ${err.message}`);
     } finally {
       setIsLoadingData(false);
     }
-  };
-
-  const handleMoveAmendment = (newMovements: AmendmentMovement[], newStatus: string) => {
-    if (!selectedAmendment) return;
-
-    const now = new Date().toISOString();
-    
-    // 1. "Fechar" o trâmite anterior se ele existir
-    const updatedHistory = [...selectedAmendment.movements].map((m, idx, arr) => {
-      if (idx === arr.length - 1 && !m.dateOut) {
-        const dateOut = now;
-        const limit = new Date(m.deadline);
-        const exit = new Date(dateOut);
-        
-        // Calcular dilação
-        let dilaçãoMsg = '';
-        if (exit > limit) {
-          const delayDays = Math.ceil((exit.getTime() - limit.getTime()) / (1000 * 60 * 60 * 24));
-          dilaçãoMsg = `\n[AUDITORIA: DILAÇÃO DE PRAZO DE ${delayDays} DIAS IDENTIFICADA]`;
-        }
-
-        return {
-          ...m,
-          dateOut,
-          daysSpent: Math.ceil((exit.getTime() - new Date(m.dateIn).getTime()) / (1000 * 60 * 60 * 24)),
-          remarks: m.remarks ? `${m.remarks}${dilaçãoMsg}` : dilaçãoMsg.trim()
-        };
-      }
-      return m;
-    });
-
-    // 2. Adicionar os novos movimentos
-    const finalHistory = [...updatedHistory, ...newMovements];
-    const latestDest = newMovements[newMovements.length - 1].toSector;
-
-    // 3. Atualizar o registro ÚNICO (sem duplicar)
-    const updatedAmendment: Amendment = {
-      ...selectedAmendment,
-      movements: finalHistory,
-      status: newStatus,
-      currentSector: latestDest
-    };
-
-    handleUpdateAmendment(updatedAmendment);
-    logAction(AuditAction.MOVE, `Tramitou o processo ${selectedAmendment.seiNumber} para: ${latestDest}. Status: ${newStatus}`, 'INFO');
-  };
-
-  const handleAddSector = async (sector: SectorConfig) => {
-    try {
-      const saved = await db.sectors.upsert(sector);
-      setSectors(prev => {
-        const index = prev.findIndex(s => s.id === saved.id || s.name === saved.name);
-        if (index >= 0) {
-          const newSectors = [...prev];
-          newSectors[index] = saved;
-          return newSectors;
-        }
-        return [...prev, saved];
-      });
-      notify('success', 'Setor Salvo', 'Unidade técnica atualizada.');
-    } catch (err) {
-      notify('error', 'Erro DB', 'Falha ao salvar setor.');
-    }
-  };
-
-  const handleBatchAddSectors = async (newSectors: any[]) => {
-    try {
-      const saved = await db.sectors.insertMany(newSectors);
-      setSectors(prev => [...prev, ...saved]);
-      notify('success', 'Lote Importado', `${saved.length} setores adicionados.`);
-    } catch (err) {}
-  };
-
-  const handleResetStatuses = async () => {
-    if (!currentUser) return;
-    try {
-      await db.statuses.resetToEmpty(currentUser.tenantId);
-      setStatuses([]);
-      notify('info', 'Base Limpa', 'Todos os estados foram removidos.');
-    } catch (err) {}
-  };
-
-  const handleAddUser = async (u: any) => {
-    try {
-      const savedUser = await db.users.upsert({ ...u, tenantId: currentUser?.tenantId || 'GOIAS', lgpdAccepted: true });
-      setUsers(prev => [...prev, savedUser]);
-      setCurrentView('security');
-      logAction(AuditAction.SECURITY, `Provisionou novo usuário: ${savedUser.name}.`, 'WARN');
-    } catch (err) {}
-  };
-
-  const handleDeleteUser = async (id: string) => {
-    const userToDelete = users.find(u => u.id === id);
-    try {
-      await db.users.delete(id);
-      setUsers(prev => prev.filter(u => u.id !== id));
-      logAction(AuditAction.SECURITY, `Excluiu o usuário ${userToDelete?.name || id}.`, 'CRITICAL');
-    } catch (err) {}
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    notify('info', 'Sessão Encerrada', 'Até breve.');
+    localStorage.removeItem('gesa_current_user');
   };
 
-  if (!currentUser) return <Login onLogin={(user) => { 
-    setCurrentUser(user);
-  }} />;
+  if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); localStorage.setItem('gesa_current_user', JSON.stringify(u)); }} />;
 
-  const renderView = () => {
-    if (selectedAmendment) {
-      return (
+  return (
+    <Layout 
+      currentUser={currentUser} 
+      currentView={currentView} 
+      activeTenantId={currentUser.tenantId}
+      isLive={isLiveSync}
+      onNavigate={setCurrentView}
+      onLogout={handleLogout}
+      onTenantChange={() => {}}
+    >
+      <DatabaseStatusAlert errors={dbErrors} />
+      
+      {isLoadingData && (
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-[100] flex items-center justify-center">
+           <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-[#0d457a] border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest text-center px-4">
+                 Sincronizando com GESA Cloud Engine...
+              </p>
+           </div>
+        </div>
+      )}
+
+      {selectedAmendment ? (
         <AmendmentDetail 
           amendment={selectedAmendment} 
           currentUser={currentUser}
@@ -327,120 +190,59 @@ const AppContent: React.FC = () => {
           statuses={statuses}
           systemMode={SystemMode.PRODUCTION}
           onBack={() => setSelectedAmendment(null)}
-          onMove={handleMoveAmendment}
+          onMove={(movs, status) => {
+             const updated = { 
+               ...selectedAmendment, 
+               movements: [...selectedAmendment.movements, ...movs], 
+               status, 
+               currentSector: movs[movs.length-1].toSector 
+             };
+             handleUpdateAmendment(updated);
+          }}
           onUpdate={handleUpdateAmendment}
           onStatusChange={() => {}} 
           onDelete={() => {}}
         />
-      );
-    }
-
-    switch (currentView) {
-      case 'dashboard': 
-        return <Dashboard 
-          amendments={amendments} 
-          statusConfigs={statuses} 
-          onSelectAmendment={(id) => setSelectedAmendment(amendments.find(a => a.id === id) || null)} 
-        />;
-      case 'amendments': 
-        return <AmendmentList 
-          amendments={amendments} 
-          sectors={sectors} 
-          statuses={statuses} 
-          userRole={currentUser.role} 
-          systemMode={SystemMode.PRODUCTION} 
-          onSelect={setSelectedAmendment} 
-          onCreate={handleCreateAmendment} 
-          onUpdate={handleUpdateAmendment} 
-          onInactivate={() => {}} 
-          onAddStatus={handleAddStatus}
-          error={dbErrors.amendments}
-        />;
-      case 'sectors':
-        return <SectorManagement 
-          sectors={sectors} 
-          statuses={statuses} 
-          onAdd={handleAddSector} 
-          onBatchAdd={handleBatchAddSectors} 
-          onUpdateSla={(id, sla) => handleAddSector(sectors.find(s => s.id === id)!)}
-          error={dbErrors.sectors}
-        />;
-      case 'statuses':
-        return <StatusManagement 
-          statuses={statuses} 
-          onAdd={handleAddStatus} 
-          onReset={handleResetStatuses} 
-          onBatchAdd={handleBatchAddStatuses} 
-          error={dbErrors.statuses}
-        />;
-      case 'import':
-        return <ImportModule onImport={handleBatchImportAmendments} sectors={sectors} tenantId={currentUser.tenantId} />;
-      case 'repository':
-        return <RepositoryModule amendments={amendments} />;
-      case 'reports': 
-        return <ReportModule amendments={amendments} />;
-      case 'security':
-        return <SecurityModule 
-          users={users} 
-          onAddUser={() => {}} 
-          onDeleteUser={handleDeleteUser} 
-          currentUser={currentUser} 
-          onNavigateToRegister={() => setCurrentView('register')}
-          error={dbErrors.users}
-        />;
-      case 'register':
-        return <UserRegistration onAddUser={handleAddUser} onBack={() => setCurrentView('security')} />;
-      case 'audit':
-        return <AuditModule 
-          logs={logs} 
-          currentUser={currentUser} 
-          activeTenantId={currentUser.tenantId} 
-          error={dbErrors.audit}
-          onRefresh={() => fetchData()}
-        />;
-      case 'api':
-        return <ApiPortal currentUser={currentUser} amendments={amendments} />;
-      case 'governance':
-        return <GovernanceDocs />;
-      case 'compliance_details':
-        return <ComplianceDetails />;
-      case 'manual':
-        return <SystemManual onBack={() => setCurrentView('dashboard')} />;
-      default: 
-        return <Dashboard amendments={amendments} statusConfigs={statuses} onSelectAmendment={() => {}} />;
-    }
-  };
-
-  return (
-    <Layout 
-      currentUser={currentUser} 
-      currentView={currentView} 
-      activeTenantId={currentUser.tenantId}
-      onNavigate={(v) => { setCurrentView(v); setSelectedAmendment(null); }} 
-      onLogout={handleLogout}
-      onTenantChange={(id) => {
-        if (currentUser) {
-          setCurrentUser({ ...currentUser, tenantId: id });
-        }
-      }}
-    >
-      {isLoadingData ? (
-        <div className="flex flex-col items-center justify-center py-40 gap-4 animate-pulse">
-           <div className="w-12 h-12 border-4 border-[#0d457a] border-t-transparent rounded-full animate-spin"></div>
-           <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Sincronizando Base Cloud...</p>
-        </div>
-      ) : renderView()}
+      ) : (
+        <>
+          {currentView === 'dashboard' && <Dashboard amendments={amendments} statusConfigs={statuses} onSelectAmendment={(id) => setSelectedAmendment(amendments.find(a => a.id === id) || null)} />}
+          {currentView === 'amendments' && (
+            <AmendmentList 
+              amendments={amendments} 
+              sectors={sectors} 
+              statuses={statuses} 
+              userRole={currentUser.role} 
+              systemMode={SystemMode.PRODUCTION} 
+              onSelect={setSelectedAmendment} 
+              onCreate={handleUpdateAmendment} 
+              onUpdate={handleUpdateAmendment} 
+              onInactivate={() => {}} 
+              error={dbErrors.amendments} 
+            />
+          )}
+          {currentView === 'calendar' && <CalendarView amendments={amendments} onSelectAmendment={setSelectedAmendment} />}
+          {currentView === 'import' && <ImportModule onImport={handleBatchImport} sectors={sectors} tenantId={currentUser.tenantId} />}
+          {currentView === 'reports' && <ReportModule amendments={amendments} />}
+          {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
+          {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={() => {}} error={dbErrors.sectors} />}
+          {currentView === 'statuses' && <StatusManagement statuses={statuses} onAdd={(s) => db.statuses.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onReset={() => {}} onBatchAdd={(items) => fetchData()} error={dbErrors.statuses} />}
+          {currentView === 'audit' && <AuditModule logs={logs} currentUser={currentUser} activeTenantId={currentUser.tenantId} error={dbErrors.audit} onRefresh={fetchData} />}
+          {currentView === 'security' && <SecurityModule users={users} onDeleteUser={(id) => db.users.delete(id).then(fetchData)} currentUser={currentUser} onNavigateToRegister={() => setCurrentView('register')} error={dbErrors.users} onAddUser={() => {}} />}
+          {currentView === 'register' && <UserRegistration onAddUser={(u) => db.users.upsert({ ...u, tenantId: currentUser.tenantId }).then(() => setCurrentView('security'))} onBack={() => setCurrentView('security')} />}
+          {currentView === 'governance' && <GovernanceDocs />}
+          {currentView === 'compliance_details' && <ComplianceDetails />}
+          {currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
+        </>
+      )}
+      <PlushNotificationContainer />
     </Layout>
   );
 };
 
-const App: React.FC = () => {
-  return (
-    <NotificationProvider>
-      <AppContent />
-      <PlushNotificationContainer />
-    </NotificationProvider>
-  );
-};
+const App: React.FC = () => (
+  <NotificationProvider>
+    <AppContent />
+  </NotificationProvider>
+);
 
 export default App;

@@ -1,11 +1,19 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, RealtimeChannel } from '@supabase/supabase-js';
+import { Amendment, User, SectorConfig, StatusConfig, AuditLog } from '../types.ts';
 
+/**
+ * CONFIGURAÇÃO DO CLIENTE SUPABASE - GESA CLOUD NATIVE
+ * Conexão com as credenciais fornecidas: https://nisqwvdrbytsdwtlivjl.supabase.co
+ */
 const supabaseUrl = 'https://nisqwvdrbytsdwtlivjl.supabase.co';
 const supabaseKey = 'sb_publishable_fcGp4p7EA7gJnyiJJURoZA_HcML_653';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+/**
+ * Utilitário de ID único compatível com UUID v4.
+ */
 export const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -17,264 +25,162 @@ export const generateUUID = () => {
   });
 };
 
-// Helper para obter o tenant atual de forma segura (Auth real ou Fallback demo)
-const getEffectiveTenant = async (providedTenantId?: string) => {
-  if (providedTenantId && providedTenantId !== 'temp-id') return providedTenantId;
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.user_metadata?.tenantId || 'GOIAS';
+/**
+ * Tratamento centralizado de erros de banco de dados.
+ * Corrigido para evitar recursão e mensagens duplicadas.
+ */
+const handleDbError = (error: any) => {
+  // Se já for um erro processado pelo sistema, apenas repassa
+  if (error.message && error.message.startsWith('DB_ERROR')) {
+    throw error;
+  }
+
+  console.group("🔴 Database Error Trace");
+  console.error("Code:", error.code);
+  console.error("Message:", error.message);
+  console.groupEnd();
+
+  if (error.code === 'PGRST116') return null;
+
+  if (error.code === 'PGRST104' || error.message?.includes('does not exist')) {
+    throw new Error('TABLE_MISSING');
+  }
+  
+  if (error.code === '42501' || error.message?.includes('permission denied')) {
+    throw new Error('PERMISSION_DENIED');
+  }
+
+  // Caso específico de chave inválida reportado pelo Supabase
+  if (error.message?.includes('Invalid API key')) {
+    throw new Error('DB_ERROR: Chave de API Supabase Inválida. Verifique o painel do Supabase.');
+  }
+  
+  throw new Error(`DB_ERROR: ${error.message || 'Erro desconhecido no banco'}`);
 };
 
 export const db = {
-  auth: {
-    async signIn(email: string, pass: string) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-      if (error) throw error;
-      return data;
-    },
-    async signUp(email: string, pass: string, name: string, role: string, tenantId: string, department?: string) {
-      const { data, error } = await supabase.auth.signUp({
-        email, 
-        password: pass,
-        options: { 
-          data: { 
-            name, 
-            role, 
-            tenantId,
-            department: department || 'GESA/SUBIPEI',
-            lgpdAccepted: false 
-          } 
-        }
-      });
-      if (error) throw error;
-      return data;
-    },
-    async signOut() {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-    },
-    onAuthStateChange(callback: any) {
-      return supabase.auth.onAuthStateChange(callback);
-    }
-  },
-
-  users: {
-    async getAll(tenantId: string) {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('tenantId', tenantId)
-        .order('name', { ascending: true });
-      
-      if (error) {
-        if (error.code === 'PGRST104' || error.message.includes('public.users')) {
-          throw new Error('TABLE_MISSING');
-        }
-        throw error;
-      }
-      return data || [];
-    },
-    async upsert(user: any) {
-      const tenantId = await getEffectiveTenant(user.tenantId);
-      
-      const payload = { 
-        id: (user.id && !user.id.startsWith('u-')) ? user.id : generateUUID(),
-        tenantId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        password: user.password,
-        department: user.department,
-        avatarUrl: user.avatarUrl,
-        lgpdAccepted: user.lgpdAccepted || false,
-        mfaEnabled: user.mfaEnabled || false,
-        createdAt: user.createdAt || new Date().toISOString()
-      };
-      
-      const { data, error } = await supabase.from('users').upsert(payload).select();
-      if (error) throw error;
-      return data[0];
-    },
-    async delete(id: string) {
-      const { error } = await supabase.from('users').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
-
-  profiles: {
-    async get(id: string) {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (error) throw error;
-      return data;
-    },
-    async rotateApiKey(id: string) {
-      const newKey = `gesa_live_${Math.random().toString(36).substring(2, 15)}`;
-      const { error } = await supabase.from('profiles').update({ api_key: newKey }).eq('id', id);
-      if (error) throw error;
-      return newKey;
-    }
-  },
-
-  sectors: {
-    async getAll(tenantId: string) {
-      const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId).order('name', { ascending: true });
-      if (error) {
-        if (error.code === 'PGRST104' || error.message.includes('public.sectors')) {
-          throw new Error('TABLE_MISSING');
-        }
-        throw error;
-      }
-      return data || [];
-    },
-    async upsert(sector: any) {
-      const tenantId = await getEffectiveTenant(sector.tenantId);
-      const payload = { 
-        ...sector, 
-        tenantId,
-        id: (sector.id && sector.id.length > 10) ? sector.id : generateUUID()
-      };
-      const { data, error } = await supabase.from('sectors').upsert(payload).select();
-      if (error) throw error;
-      return data[0];
-    },
-    async insertMany(sectors: any[]) {
-      const tenantId = await getEffectiveTenant();
-      const payload = sectors.map(s => ({ 
-        ...s, 
-        id: generateUUID(), 
-        tenantId 
-      }));
-      const { data, error } = await supabase.from('sectors').insert(payload).select();
-      if (error) throw error;
-      return data;
-    }
-  },
-
-  statuses: {
-    async getAll(tenantId: string) {
-      const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId).order('name', { ascending: true });
-      if (error) {
-        if (error.code === 'PGRST104' || error.message.includes('public.statuses')) {
-          throw new Error('TABLE_MISSING');
-        }
-        throw error;
-      }
-      return data || [];
-    },
-    async upsert(status: any) {
-      const tenantId = await getEffectiveTenant(status.tenantId);
-      const payload = { 
-        ...status, 
-        tenantId,
-        id: (status.id && status.id.length > 10) ? status.id : generateUUID()
-      };
-      const { data, error } = await supabase.from('statuses').upsert(payload).select();
-      if (error) throw error;
-      return data[0];
-    },
-    async insertMany(statuses: any[]) {
-      const tenantId = await getEffectiveTenant();
-      const payload = statuses.map(s => ({ 
-        ...s, 
-        id: generateUUID(), 
-        tenantId 
-      }));
-      const { data, error } = await supabase.from('statuses').insert(payload).select();
-      if (error) throw error;
-      return data;
-    },
-    async resetToEmpty(tenantId: string) {
-      const { error } = await supabase.from('statuses').delete().eq('tenantId', tenantId);
-      if (error) throw error;
-    }
-  },
-
   amendments: {
-    async getAll(tenantId: string) {
+    async getAll(tenantId: string): Promise<Amendment[]> {
       const { data, error } = await supabase
         .from('amendments')
         .select('*')
         .eq('tenantId', tenantId)
         .order('createdAt', { ascending: false });
       
-      if (error) {
-        if (error.code === 'PGRST104' || error.message.includes('public.amendments')) {
-          throw new Error('TABLE_MISSING');
-        }
-        throw error;
-      }
+      if (error) return handleDbError(error);
       return data || [];
     },
-    async upsert(amendment: any) {
-      const tenantId = await getEffectiveTenant(amendment.tenantId);
-      // Se o ID for de mock (ex: a-01), tentamos encontrar se ele já existe pelo número SEI antes de gerar novo UUID
-      let finalId = amendment.id;
-      
-      if (!finalId || finalId.startsWith('a-') || finalId.startsWith('temp-')) {
-        const { data: existing } = await supabase
-          .from('amendments')
-          .select('id')
-          .eq('seiNumber', amendment.seiNumber)
-          .eq('tenantId', tenantId)
-          .maybeSingle();
-        
-        finalId = existing ? existing.id : generateUUID();
-      }
-
-      const payload = { 
-        ...amendment, 
-        id: finalId,
-        tenantId 
+    async upsert(amendment: Partial<Amendment>) {
+      const payload = {
+        ...amendment,
+        id: amendment.id || generateUUID(),
+        tenantId: amendment.tenantId || 'GOIAS',
+        createdAt: amendment.createdAt || new Date().toISOString()
       };
 
-      const { data, error } = await supabase.from('amendments').upsert(payload).select();
-      if (error) throw error;
-      return data[0];
+      const { data, error } = await supabase
+        .from('amendments')
+        .upsert(payload, { onConflict: 'id' })
+        .select()
+        .single();
+        
+      if (error) return handleDbError(error);
+      return data;
     },
-    async insertMany(amendments: any[]) {
-      const tenantId = await getEffectiveTenant();
-      const payload = amendments.map(a => ({
-        ...a,
-        id: (a.id && !a.id.startsWith('imp-') && !a.id.startsWith('a-')) ? a.id : generateUUID(),
-        tenantId,
-        createdAt: a.createdAt || new Date().toISOString()
+    async insertMany(items: any[]) {
+      const formattedItems = items.map(item => ({
+        ...item,
+        id: item.id || generateUUID(),
+        tenantId: item.tenantId || 'GOIAS',
+        createdAt: item.createdAt || new Date().toISOString()
       }));
-      const { data, error } = await supabase.from('amendments').insert(payload).select();
-      if (error) throw error;
+
+      const { data, error } = await supabase
+        .from('amendments')
+        .insert(formattedItems)
+        .select();
+
+      if (error) return handleDbError(error);
+      return data;
+    },
+    subscribe(tenantId: string, callback: (payload: any) => void): RealtimeChannel {
+      return supabase
+        .channel(`public:amendments:tenant:${tenantId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'amendments' }, callback)
+        .subscribe();
+    }
+  },
+  users: {
+    async getAll(tenantId: string): Promise<User[]> {
+      const { data, error } = await supabase.from('users').select('*').eq('tenantId', tenantId);
+      if (error) return handleDbError(error);
+      return data || [];
+    },
+    async upsert(user: Partial<User>) {
+      const { data, error } = await supabase
+        .from('users')
+        .upsert({ ...user, id: user.id || generateUUID() })
+        .select()
+        .single();
+      if (error) return handleDbError(error);
+      return data;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('users').delete().eq('id', id);
+      if (error) return handleDbError(error);
+    }
+  },
+  profiles: {
+    async get(id: string) {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (error) return null;
       return data;
     }
   },
-
-  audit: {
-    async log(log: any) {
-      const tenantId = await getEffectiveTenant(log.tenantId);
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const payload = {
-        ...log,
-        id: generateUUID(),
-        tenantId,
-        actorId: user?.id || log.actorId || 'demo-actor',
-        actorName: user?.user_metadata?.name || log.actorName || 'Servidor GESA',
-        timestamp: new Date().toISOString()
-      };
-      const { error } = await supabase.from('audit_logs').insert(payload);
-      if (error) console.error("Audit log error:", error);
-    },
-    async getLogs(tenantId: string) {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('tenantId', tenantId)
-        .order('timestamp', { ascending: false })
-        .limit(500);
-      
-      if (error) {
-        if (error.code === 'PGRST104' || error.message.includes('public.audit_logs')) {
-          throw new Error('TABLE_MISSING');
-        }
-        throw error;
-      }
+  sectors: {
+    async getAll(tenantId: string): Promise<SectorConfig[]> {
+      const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId);
+      if (error) return handleDbError(error);
       return data || [];
+    },
+    async upsert(sector: Partial<SectorConfig>) {
+      const { data, error } = await supabase.from('sectors').upsert({ ...sector, id: sector.id || generateUUID() }).select().single();
+      if (error) return handleDbError(error);
+      return data;
+    }
+  },
+  statuses: {
+    async getAll(tenantId: string): Promise<StatusConfig[]> {
+      const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId);
+      if (error) return handleDbError(error);
+      return data || [];
+    },
+    async upsert(status: Partial<StatusConfig>) {
+      const { data, error } = await supabase.from('statuses').upsert({ ...status, id: status.id || generateUUID() }).select().single();
+      if (error) return handleDbError(error);
+      return data;
+    }
+  },
+  audit: {
+    async log(log: Partial<AuditLog>) {
+      const { error } = await supabase.from('audit_logs').insert({ 
+        ...log, 
+        id: generateUUID(), 
+        timestamp: new Date().toISOString() 
+      });
+      if (error) console.warn("Audit Log sync skipped:", error.message);
+    },
+    async getAll(tenantId: string): Promise<AuditLog[]> {
+      const { data, error } = await supabase.from('audit_logs').select('*').eq('tenantId', tenantId).order('timestamp', { ascending: false });
+      if (error) return handleDbError(error);
+      return data || [];
+    }
+  },
+  auth: {
+    async signIn(email: string, pass: string) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+      return data;
     }
   }
 };

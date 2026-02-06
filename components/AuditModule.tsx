@@ -4,7 +4,8 @@ import {
   Search, Download, ShieldAlert, Bug, 
   Activity, X, Terminal, Fingerprint, Database, Binary, History,
   GitBranch, Rocket, ShieldCheck, Code2, AlertTriangle, 
-  ChevronLeft, ChevronRight, Copy, Check, RefreshCw, Loader2
+  ChevronLeft, ChevronRight, Copy, Check, RefreshCw, Loader2,
+  Filter as FilterIcon, Zap, ShieldX
 } from 'lucide-react';
 import { AuditLog, AuditAction, User as AppUser } from '../types.ts';
 
@@ -31,13 +32,13 @@ const actionVisuals: Record<string, { icon: React.ElementType, color: string, bg
 };
 
 export const AuditModule: React.FC<AuditModuleProps> = ({ logs, currentUser, activeTenantId, onRefresh, error }) => {
-  const [activeTab, setActiveTab] = useState<'logs' | 'code' | 'cicd' | 'releases'>('logs');
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(error === 'DATABASE_SETUP_REQUIRED');
+  const [showCriticalPathOnly, setShowCriticalPathOnly] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const sqlSetup = `-- GESA CLOUD: TRILHA DE AUDITORIA IMUTÁVEL
@@ -63,6 +64,13 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
+      // Filtro de Rastreio Crítico (Criação/Tramitação + WARN/CRITICAL)
+      if (showCriticalPathOnly) {
+        const isActionMatch = log.action === AuditAction.CREATE || log.action === AuditAction.MOVE;
+        const isSeverityMatch = log.severity === 'WARN' || log.severity === 'CRITICAL';
+        if (!isActionMatch || !isSeverityMatch) return false;
+      }
+
       const term = searchTerm.toLowerCase();
       const matchesSearch = 
         !term ||
@@ -74,7 +82,7 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
       
       return matchesSearch && matchesSeverity;
     });
-  }, [logs, searchTerm, severityFilter]);
+  }, [logs, searchTerm, severityFilter, showCriticalPathOnly]);
 
   const stats = useMemo(() => {
     return {
@@ -140,6 +148,18 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
         
         <div className="flex gap-3 no-print">
             <button 
+              onClick={() => setShowCriticalPathOnly(!showCriticalPathOnly)}
+              className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg ${
+                showCriticalPathOnly 
+                ? 'bg-red-600 text-white animate-pulse' 
+                : 'bg-white border border-slate-200 text-slate-400 hover:text-red-500'
+              }`}
+              title="Filtrar por Criação/Tramitação com Atraso ou Erro"
+            >
+              <Zap size={16} />
+              {showCriticalPathOnly ? 'Modo Risco Ativo' : 'Filtro de Risco'}
+            </button>
+            <button 
               onClick={handleManualRefresh}
               className="p-4 bg-white border border-slate-200 text-[#0d457a] rounded-2xl hover:bg-blue-50 transition-all shadow-sm flex items-center gap-2"
             >
@@ -199,6 +219,16 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
           </div>
       </div>
 
+      {showCriticalPathOnly && (
+        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
+          <ShieldX className="text-red-500" size={18} />
+          <span className="text-[10px] font-black text-red-900 uppercase tracking-widest">
+            Filtro de Risco Ativo: Exibindo apenas Criações e Tramitações com Avisos ou Falhas Críticas.
+          </span>
+          <button onClick={() => setShowCriticalPathOnly(false)} className="ml-auto text-[9px] font-black text-red-600 uppercase underline">Remover Filtro</button>
+        </div>
+      )}
+
       <div className="bg-white rounded-[40px] shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -252,7 +282,7 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
                   {paginatedLogs.length === 0 && (
                      <tr>
                        <td colSpan={4} className="py-20 text-center">
-                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhuma atividade registrada no banco de dados.</p>
+                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhuma atividade registrada que coincida com os filtros.</p>
                        </td>
                      </tr>
                   )}
@@ -260,6 +290,14 @@ create policy "Sistema Grava Auditoria" on audit_logs for insert with check (tru
           </table>
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 pt-8">
+           <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] disabled:opacity-30 shadow-sm"><ChevronLeft size={20} /></button>
+           <span className="text-[10px] font-black uppercase tracking-widest bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200">Página {currentPage} de {totalPages}</span>
+           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] disabled:opacity-30 shadow-sm"><ChevronRight size={20} /></button>
+        </div>
+      )}
 
       {isSqlModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">

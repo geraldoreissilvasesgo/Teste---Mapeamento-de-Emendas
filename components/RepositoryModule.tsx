@@ -18,18 +18,13 @@ type GroupByOption = 'none' | 'type' | 'deputyName' | 'municipality';
 export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [parlamentarSearch, setParlamentarSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [deputyFilter, setDeputyFilter] = useState<string>('all');
   const [municipalityFilter, setMunicipalityFilter] = useState<string>('all');
   const [minValue, setMinValue] = useState<string>('');
   const [maxValue, setMaxValue] = useState<string>('');
   const [groupBy, setGroupBy] = useState<GroupByOption>('none');
-
-  const dynamicDeputies = useMemo(() => {
-    const names = amendments.map(a => a.deputyName).filter(Boolean) as string[];
-    return Array.from(new Set(names)).sort();
-  }, [amendments]);
 
   const dynamicCities = useMemo(() => {
     const cities = amendments.map(a => a.municipality).filter(Boolean) as string[];
@@ -38,9 +33,10 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
 
   const filteredData = useMemo(() => {
     const term = searchTerm.toLowerCase();
+    const pSearch = parlamentarSearch.toLowerCase();
+    
     return amendments.filter(item => {
       const matchesType = typeFilter === 'all' || item.type === typeFilter;
-      const matchesDeputy = deputyFilter === 'all' || item.deputyName === deputyFilter;
       const matchesMunicipality = municipalityFilter === 'all' || item.municipality === municipalityFilter;
       
       const val = item.value || 0;
@@ -50,13 +46,14 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
       
       const matchesSearch = !term || 
         item.seiNumber?.toLowerCase().includes(term) || 
-        item.object?.toLowerCase().includes(term) || 
-        item.municipality?.toLowerCase().includes(term) ||
-        item.deputyName?.toLowerCase().includes(term); // Busca por parlamentar integrada
+        item.object?.toLowerCase().includes(term);
 
-      return matchesType && matchesDeputy && matchesMunicipality && matchesValue && matchesSearch;
+      const matchesParlamentar = !pSearch || 
+        item.deputyName?.toLowerCase().includes(pSearch);
+
+      return matchesType && matchesMunicipality && matchesValue && matchesSearch && matchesParlamentar;
     });
-  }, [amendments, searchTerm, typeFilter, deputyFilter, municipalityFilter, minValue, maxValue]);
+  }, [amendments, searchTerm, parlamentarSearch, typeFilter, municipalityFilter, minValue, maxValue]);
 
   // Lógica de Agrupamento de Saldos
   const groupedBalances = useMemo(() => {
@@ -83,8 +80,8 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
 
   const handleResetFilters = () => {
     setSearchTerm('');
+    setParlamentarSearch('');
     setTypeFilter('all');
-    setDeputyFilter('all');
     setMunicipalityFilter('all');
     setMinValue('');
     setMaxValue('');
@@ -171,7 +168,7 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
               <input 
                   type="text" 
                   value={searchTerm}
-                  placeholder="Pesquisar por SEI, Objeto, Município ou Parlamentar..."
+                  placeholder="Pesquisar por SEI ou Objeto do processo..."
                   className="w-full pl-16 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-slate-600 uppercase text-xs focus:ring-4 ring-blue-500/5 transition-all"
                   onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -205,10 +202,13 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
             </div>
 
             <div className="relative">
-              <select value={deputyFilter} onChange={(e) => setDeputyFilter(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3.5 text-[10px] font-black text-slate-600 uppercase appearance-none outline-none focus:ring-2 ring-[#0d457a]">
-                  <option value="all">TODOS OS PARLAMENTARES</option>
-                  {dynamicDeputies.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <input 
+                  type="text" 
+                  value={parlamentarSearch}
+                  placeholder="BUSCAR PARLAMENTAR..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3.5 text-[10px] font-black text-slate-600 uppercase outline-none focus:ring-2 ring-[#0d457a]"
+                  onChange={(e) => setParlamentarSearch(e.target.value)}
+              />
               <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
             </div>
 

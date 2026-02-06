@@ -1,18 +1,20 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
-  LogOut, Menu, X, Bell, Globe, ChevronDown, Sparkles,
-  BarChart3, History, Layers, Lock, BookOpen, Braces, Activity, FileCode, Terminal, Tag, UserPlus, Workflow, UploadCloud,
-  Scale, Zap
+  LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
+  BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays, Link2,
+  Scale, Zap, CloudSync, Wifi, WifiOff
 } from 'lucide-react';
-import { User, Role } from '../types';
-import { APP_VERSION } from '../constants';
+import { User, Role } from '../types.ts';
+import { APP_VERSION } from '../constants.ts';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User;
   currentView: string;
   activeTenantId: string;
+  isLive: boolean; // Nova prop para monitorar conexão
   onNavigate: (view: string) => void;
   onLogout: () => void;
   onTenantChange: (id: string) => void;
@@ -20,7 +22,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ 
   children, currentUser, currentView, activeTenantId, 
-  onNavigate, onLogout, onTenantChange 
+  isLive, onNavigate, onLogout, onTenantChange 
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
@@ -42,15 +44,15 @@ export const Layout: React.FC<LayoutProps> = ({
       label: 'Operacional',
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'amendments', label: 'Processos SEI', icon: FileText },
-        { id: 'fast_analysis', label: 'Análise OneDrive', icon: Zap },
+        { id: 'amendments', label: 'Emendas Impositivas', icon: FileText },
+        { id: 'calendar', label: 'Calendário de Prazos', icon: CalendarDays },
         { id: 'repository', label: 'Repositório Central', icon: Database },
       ]
     },
     {
       label: 'Carga e Fluxo',
       items: [
-        { id: 'import', label: 'Carga de Dados', icon: UploadCloud },
+        { id: 'import', label: 'Conexão Planilha', icon: Link2 },
         { id: 'reports', label: 'Relatórios Analíticos', icon: BarChart3 },
         { id: 'sectors', label: 'Unidades Técnicas', icon: Layers },
         { id: 'statuses', label: 'Ciclo de Vida', icon: Workflow },
@@ -158,12 +160,23 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-             <div className="text-right hidden sm:block">
-               <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
-               <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+          <div className="flex items-center gap-4">
+             {/* INDICADOR DE STATUS DA BASE DE DADOS */}
+             <div className={`hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-500 ${isLive ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
+                {isLive ? <CloudSync size={16} className="animate-pulse" /> : <WifiOff size={16} />}
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase leading-none">{isLive ? 'Banco Cloud Conectado' : 'Modo Simulação'}</span>
+                  <span className="text-[7px] font-bold opacity-60 uppercase mt-0.5">{isLive ? 'Sincronização em Tempo Real' : 'Local Mock Data Active'}</span>
+                </div>
              </div>
-             <img src={currentUser.avatarUrl} className="w-9 h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
+
+             <div className="flex items-center gap-3 ml-4">
+                <div className="text-right hidden sm:block">
+                  <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
+                  <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+                </div>
+                <img src={currentUser.avatarUrl} className="w-9 h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
+             </div>
           </div>
         </header>
 
@@ -176,3 +189,12 @@ export const Layout: React.FC<LayoutProps> = ({
     </div>
   );
 };
+
+const Workflow = ({ size, className }: { size: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="3" y="3" width="6" height="6" rx="1" />
+    <rect x="15" y="15" width="6" height="6" rx="1" />
+    <path d="M9 6h6a2 2 0 0 1 2 2v7" />
+    <path d="M15 18H9a2 2 0 0 1-2-2V9" />
+  </svg>
+);

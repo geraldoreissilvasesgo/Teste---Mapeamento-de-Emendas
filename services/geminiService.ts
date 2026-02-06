@@ -1,42 +1,35 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Amendment, AIAnalysisResult } from "../types.ts";
 
 /**
  * SERVIÇO DE INTELIGÊNCIA ARTIFICIAL (IA)
- * Utiliza o modelo Gemini 3.0 Pro para realizar análises preditivas em processos burocráticos.
+ * Utiliza o modelo Gemini 3 Pro para realizar análises preditivas.
  */
 export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysisResult> => {
-  // Verifica se a chave de API está presente no ambiente
-  if (!process.env.API_KEY) {
-    return {
-      summary: "Análise Preditiva Indisponível (Sem API Key)",
-      bottleneck: "N/A",
-      recommendation: "Configure a API Key para habilitar inteligência de dados.",
-      riskScore: 50,
-      completionProbability: 0.5
-    };
-  }
-
   try {
-    // Inicialização do SDK do Google GenAI
+    // Inicialização obrigatória conforme diretrizes: usar process.env.API_KEY
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Prompt de sistema estruturado para atuar como especialista em eficiência pública
     const prompt = `
-      Você é um especialista em eficiência burocrática da GESA Cloud.
+      Você é um especialista em auditoria e eficiência burocrática da GESA Cloud (Estado de Goiás).
       Analise o processo SEI ${amendment.seiNumber} - "${amendment.object}".
+      Exercício: ${amendment.year}.
       Localização Atual: ${amendment.currentSector}.
+      Valor: R$ ${amendment.value}.
+      Status do Ciclo: ${amendment.status}.
       Histórico: ${amendment.movements.length} tramitações realizadas.
       
-      Gere uma análise técnica em formato JSON contendo:
-      1. summary: Um breve resumo executivo do status.
-      2. bottleneck: Identifique o provável gargalo técnico ou administrativo.
-      3. recommendation: Sugestão de ação imediata para o gestor.
-      4. riskScore: Pontuação de risco de atraso (0-100).
-      5. completionProbability: Probabilidade de liquidação financeira este ano (0-1).
+      Considere as normas do Decreto Estadual nº 10.634/2025 para emendas parlamentares.
+      
+      Gere uma análise técnica rigorosa em formato JSON contendo:
+      1. summary: Um breve resumo executivo do status jurídico-administrativo.
+      2. bottleneck: Identifique o provável gargalo técnico ou administrativo (ex: falta de certidão, análise orçamentária).
+      3. recommendation: Sugestão de ação imediata e específica para o gestor da SES-GO.
+      4. riskScore: Pontuação de risco de atraso ou impedimento (0-100).
+      5. completionProbability: Probabilidade de liquidação financeira efetiva (0-1).
     `;
 
-    // Chamada ao modelo com esquema de resposta JSON forçado para estabilidade
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -56,21 +49,20 @@ export const analyzeAmendment = async (amendment: Amendment): Promise<AIAnalysis
       }
     });
 
-    // Extração e limpeza do texto retornado pela IA conforme diretrizes do SDK
-    const jsonStr = response.text?.trim();
-    if (!jsonStr) {
-      throw new Error("O modelo retornou uma resposta vazia.");
-    }
+    const text = response.text;
+    if (!text) throw new Error("Resposta vazia da IA");
 
-    return JSON.parse(jsonStr) as AIAnalysisResult;
-  } catch (error) {
+    return JSON.parse(text) as AIAnalysisResult;
+  } catch (error: any) {
     console.error("AI Analysis Error:", error);
+    
+    // Fallback amigável caso a API_KEY do Gemini falhe
     return {
-      summary: "Falha na análise técnica por IA. O serviço pode estar sobrecarregado.",
-      bottleneck: "Indeterminado",
-      recommendation: "Realize a conferência manual do processo no SEI.",
-      riskScore: 0,
-      completionProbability: 0
+      summary: "A análise automática está indisponível no momento. O token de IA pode estar inválido ou expirado.",
+      bottleneck: "Interrupção do serviço de inteligência externa",
+      recommendation: "Prossiga com a conferência manual via SEI-GO para garantir o cumprimento dos prazos do Decreto 10.634/2025.",
+      riskScore: 50,
+      completionProbability: 0.5
     };
   }
 };
