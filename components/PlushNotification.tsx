@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import { useNotification, NotificationType } from '../context/NotificationContext.tsx';
+import { useNotification, NotificationType } from '../context/NotificationContext';
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 
 const icons: Record<NotificationType, React.ElementType> = {

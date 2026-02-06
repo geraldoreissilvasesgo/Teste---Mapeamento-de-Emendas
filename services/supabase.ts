@@ -1,6 +1,6 @@
 
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
-import { Amendment, User, SectorConfig, StatusConfig, AuditLog } from '../types.ts';
+import { Amendment, User, SectorConfig, StatusConfig, AuditLog } from '../types';
 
 /**
  * CONFIGURAÇÃO DO CLIENTE SUPABASE - GESA CLOUD NATIVE
@@ -27,10 +27,8 @@ export const generateUUID = () => {
 
 /**
  * Tratamento centralizado de erros de banco de dados.
- * Corrigido para evitar recursão e mensagens duplicadas.
  */
 const handleDbError = (error: any) => {
-  // Se já for um erro processado pelo sistema, apenas repassa
   if (error.message && error.message.startsWith('DB_ERROR')) {
     throw error;
   }
@@ -50,9 +48,8 @@ const handleDbError = (error: any) => {
     throw new Error('PERMISSION_DENIED');
   }
 
-  // Caso específico de chave inválida reportado pelo Supabase
   if (error.message?.includes('Invalid API key')) {
-    throw new Error('DB_ERROR: Chave de API Supabase Inválida. Verifique o painel do Supabase.');
+    throw new Error('DB_ERROR: Chave de API Supabase Inválida.');
   }
   
   throw new Error(`DB_ERROR: ${error.message || 'Erro desconhecido no banco'}`);
@@ -67,7 +64,10 @@ export const db = {
         .eq('tenantId', tenantId)
         .order('createdAt', { ascending: false });
       
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async upsert(amendment: Partial<Amendment>) {
@@ -113,7 +113,10 @@ export const db = {
   users: {
     async getAll(tenantId: string): Promise<User[]> {
       const { data, error } = await supabase.from('users').select('*').eq('tenantId', tenantId);
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async upsert(user: Partial<User>) {
@@ -140,7 +143,10 @@ export const db = {
   sectors: {
     async getAll(tenantId: string): Promise<SectorConfig[]> {
       const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId);
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async upsert(sector: Partial<SectorConfig>) {
@@ -152,7 +158,10 @@ export const db = {
   statuses: {
     async getAll(tenantId: string): Promise<StatusConfig[]> {
       const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId);
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async upsert(status: Partial<StatusConfig>) {
@@ -172,7 +181,10 @@ export const db = {
     },
     async getAll(tenantId: string): Promise<AuditLog[]> {
       const { data, error } = await supabase.from('audit_logs').select('*').eq('tenantId', tenantId).order('timestamp', { ascending: false });
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     }
   },

@@ -1,31 +1,30 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout } from './components/Layout.tsx';
-import { Dashboard } from './components/Dashboard.tsx';
-import { AmendmentList } from './components/AmendmentList.tsx';
-import { AmendmentDetail } from './components/AmendmentDetail.tsx';
-import { ReportModule } from './components/ReportModule.tsx';
-import { ImportModule } from './components/ImportModule.tsx';
-import { RepositoryModule } from './components/RepositoryModule.tsx';
-import { SecurityModule } from './components/SecurityModule.tsx';
-import { AuditModule } from './components/AuditModule.tsx';
-import { UserRegistration } from './components/UserRegistration.tsx';
-import { SectorManagement } from './components/SectorManagement.tsx';
-import { StatusManagement } from './components/StatusManagement.tsx';
-import { GovernanceDocs } from './components/GovernanceDocs.tsx';
-import { ComplianceDetails } from './components/ComplianceDetails.tsx';
-import { ApiPortal } from './components/ApiPortal.tsx';
-import { Login } from './components/Login.tsx';
-import { DatabaseStatusAlert } from './components/DatabaseStatusAlert.tsx';
-import { CalendarView } from './components/CalendarView.tsx';
-import { NotificationProvider, useNotification } from './context/NotificationContext.tsx';
-import { PlushNotificationContainer } from './components/PlushNotification.tsx';
+import { Layout } from './components/Layout';
+import { Dashboard } from './components/Dashboard';
+import { AmendmentList } from './components/AmendmentList';
+import { AmendmentDetail } from './components/AmendmentDetail';
+import { ReportModule } from './components/ReportModule';
+import { ImportModule } from './components/ImportModule';
+import { RepositoryModule } from './components/RepositoryModule';
+import { SecurityModule } from './components/SecurityModule';
+import { AuditModule } from './components/AuditModule';
+import { UserRegistration } from './components/UserRegistration';
+import { SectorManagement } from './components/SectorManagement';
+import { StatusManagement } from './components/StatusManagement';
+import { GovernanceDocs } from './components/GovernanceDocs';
+import { ComplianceDetails } from './components/ComplianceDetails';
+import { ApiPortal } from './components/ApiPortal';
+import { Login } from './components/Login';
+import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
+import { CalendarView } from './components/CalendarView';
+import { NotificationProvider, useNotification } from './context/NotificationContext';
+import { PlushNotificationContainer } from './components/PlushNotification';
 import { 
   User, Amendment, SystemMode, StatusConfig, AuditLog, SectorConfig, AuditAction
-} from './types.ts';
-import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS, MOCK_USERS } from './constants.ts';
-import { db } from './services/supabase.ts';
-import { Activity, CloudSync } from 'lucide-react';
+} from './types';
+import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS, MOCK_USERS } from './constants';
+import { db } from './services/supabase';
 
 const AppContent: React.FC = () => {
   const { notify } = useNotification();
@@ -106,13 +105,12 @@ const AppContent: React.FC = () => {
         severity: 'INFO'
       });
 
-      // Atualização imediata do estado local para refletir no Grid e Dashboard
       setAmendments(prev => {
         const exists = prev.some(a => a.id === saved.id);
         if (exists) {
           return prev.map(a => a.id === saved.id ? saved : a);
         }
-        return [saved, ...prev]; // Novo registro entra no topo
+        return [saved, ...prev];
       });
 
       if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);

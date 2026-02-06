@@ -1,3 +1,4 @@
+
 /**
  * PONTO DE ENTRADA (ENTRYPOINT) DA APLICAÇÃO
  * 
@@ -5,7 +6,7 @@
  */
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 
 // Busca o elemento principal no DOM onde a aplicação será montada.
 const rootElement = document.getElementById('root');

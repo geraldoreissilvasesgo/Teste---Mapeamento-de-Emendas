@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
-import { Role, ROLE_METADATA } from '../types.ts';
-import { useNotification } from '../context/NotificationContext.tsx';
+import { Role, ROLE_METADATA } from '../types';
+import { useNotification } from '../context/NotificationContext';
 import { 
   UserPlus, Shield, Mail, Eye, EyeOff, ShieldCheck, 
   UserCog, Key, CheckCircle2, ShieldAlert, ArrowLeft,

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { db } from '../services/supabase.ts';
-import { APP_VERSION, MOCK_USERS } from '../constants.ts';
-import { Role, User } from '../types.ts';
+import { db } from '../services/supabase';
+import { APP_VERSION, MOCK_USERS } from '../constants';
+import { Role, User } from '../types';
 import { 
   ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, 
   CheckCircle2, AlertCircle, Loader2, Info, MailQuestion, Sparkles
@@ -41,10 +42,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
 
     try {
-      // Tenta login real via Supabase
       try {
         const authData = await db.auth.signIn(email, password);
-        // Se sucesso, mapeia para o objeto User
         const user = MOCK_USERS.find(u => u.email === email) || {
           id: authData.user?.id || 'new-user',
           name: authData.user?.user_metadata?.name || 'Servidor',
@@ -57,13 +56,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       } catch (err: any) {
         console.warn("Auth error, checking bypass:", err);
         
-        // Bypass para Anderson Alves
         if (email === 'anderson.alves@goias.gov.br' && password === '123456') {
           onLogin(MOCK_USERS[1]);
           return;
         }
 
-        // Bypass para modo demonstração com Geraldo Silva
         if (email === 'geraldo.rsilva@goias.gov.br' && password === 'Goias@2024') {
           onLogin(MOCK_USERS[0]);
           return;
