@@ -5,7 +5,7 @@ import {
   Clock, AlertCircle, CheckCircle2, FileText, ArrowRight,
   Info, Filter, MapPin, DollarSign
 } from 'lucide-react';
-import { Amendment, Status } from '../types.ts';
+import { Amendment, Status } from '../types';
 
 interface CalendarViewProps {
   amendments: Amendment[];
