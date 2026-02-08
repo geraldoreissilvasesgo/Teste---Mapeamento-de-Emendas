@@ -1,7 +1,7 @@
 
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 2.9.5-stable
+ * Versão: 2.9.8-stable
  */
 
 export enum SystemMode {
@@ -17,22 +17,28 @@ export enum Role {
   VIEWER = 'Consultor Externo'
 }
 
-// Enum para os estados padronizados do ciclo de vida de um processo
+// Enum para os estados padronizados do ciclo de vida
 export enum Status {
   DOCUMENT_ANALYSIS = 'Análise da Documentação',
   TECHNICAL_FLOW = 'Em Tramitação Técnica',
   DILIGENCE = 'Em Diligência',
   LEGAL_OPINION = 'Aguardando Parecer Jurídico',
   CONCLUDED = 'Liquidado / Pago',
-  ARCHIVED = 'Arquivado / Rejeitado',
-  DOCUMENT_ANALYSIS_TEXT = 'Análise da Documentação' // Fallback para compatibilidade com strings puras se necessário
+  ARCHIVED = 'Arquivado / Rejeitado'
 }
 
-// Metadados para exibição visual dos perfis
+// Mapeamento de Fases para o Stepper de Rastreabilidade
+export const PROCESS_PHASES = [
+  { id: 'start', label: 'Protocolo', statuses: [Status.DOCUMENT_ANALYSIS] },
+  { id: 'tech', label: 'Análise Técnica', statuses: [Status.TECHNICAL_FLOW, Status.DILIGENCE] },
+  { id: 'legal', label: 'Conformidade', statuses: [Status.LEGAL_OPINION] },
+  { id: 'end', label: 'Liquidação', statuses: [Status.CONCLUDED, Status.ARCHIVED] }
+];
+
 export const ROLE_METADATA = {
   [Role.SUPER_ADMIN]: {
     label: 'Super Admin',
-    description: 'Acesso total irrestrito a todos os tenants e configurações globais do sistema.',
+    description: 'Acesso total irrestrito a todos os tenants e configurações globais.',
     color: 'bg-red-500',
     lightColor: 'bg-red-50',
     borderColor: 'border-red-200',
@@ -41,7 +47,7 @@ export const ROLE_METADATA = {
   },
   [Role.ADMIN]: {
     label: 'Administrador',
-    description: 'Gestão completa da unidade (SES, SEDUC, etc), incluindo usuários e setores.',
+    description: 'Gestão completa da unidade (SES, SEDUC, etc).',
     color: 'bg-blue-600',
     lightColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
@@ -50,25 +56,25 @@ export const ROLE_METADATA = {
   },
   [Role.OPERATOR]: {
     label: 'Operador',
-    description: 'Perfil operacional para tramitação diária e atualização de processos SEI.',
+    description: 'Perfil operacional para tramitação diária e atualização.',
     color: 'bg-emerald-500',
     lightColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
     textColor: 'text-emerald-700',
-    permissions: ['Tramitar Processos', 'Anexar Documentos', 'Atualizar Status', 'Visualizar Dashboard']
+    permissions: ['Tramitar Processos', 'Anexar Documentos', 'Atualizar Status', 'Dashboard']
   },
   [Role.AUDITOR]: {
     label: 'Auditor',
-    description: 'Acesso para órgãos de controle. Visualização total de trilhas de auditoria.',
+    description: 'Acesso para órgãos de controle. Visualização total de trilhas.',
     color: 'bg-purple-500',
     lightColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
     textColor: 'text-purple-700',
-    permissions: ['Trilha de Auditoria', 'Exportação de Dados', 'Visualização de Logs', 'Relatórios Fiscais']
+    permissions: ['Trilha de Auditoria', 'Exportação de Dados', 'Logs', 'Relatórios Fiscais']
   },
   [Role.VIEWER]: {
     label: 'Consultor',
-    description: 'Acesso apenas leitura para acompanhamento de processos externos.',
+    description: 'Acesso apenas leitura para acompanhamento.',
     color: 'bg-slate-500',
     lightColor: 'bg-slate-50',
     borderColor: 'border-slate-200',
@@ -94,18 +100,8 @@ export enum GNDType {
   INVESTIMENTO = '4 - Investmento'
 }
 
-export enum AnalysisType {
-  TECHNICAL = 'Análise Técnica',
-  LEGAL = 'Parecer Jurídico',
-  BUDGET_RESERVE = 'Reserva Orçamentária',
-  PAYMENT_PROC = 'Processamento de Pagamento',
-  FINAL_APPROVAL = 'Aprovação Final',
-  DOC_COMPLEMENT = 'Complementação Documental'
-}
-
 export interface SectorConfig {
   id: string;
-  // Fix: Added optional tenantId to support multi-tenancy logic in App.tsx
   tenantId?: string;
   name: string;
   defaultSlaDays: number;
@@ -195,9 +191,6 @@ export interface AuditLog {
   severity: AuditSeverity;
 }
 
-/**
- * Interface para o resultado da análise técnica gerada pela IA Gemini.
- */
 export interface AIAnalysisResult {
   summary: string;
   bottleneck: string;
