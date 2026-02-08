@@ -101,7 +101,7 @@ const AppContent: React.FC = () => {
         actorId: currentUser?.id,
         actorName: currentUser?.name,
         action: AuditAction.UPDATE,
-        details: `Sucesso: Gravação do processo SEI ${amendment.seiNumber}`,
+        details: `Gravação do processo SEI ${amendment.seiNumber}`,
         severity: 'INFO'
       });
 
@@ -114,39 +114,34 @@ const AppContent: React.FC = () => {
       });
 
       if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
-      notify('success', 'Base Cloud Atualizada', `O processo ${amendment.seiNumber} foi sincronizado com sucesso.`);
+      notify('success', 'Base Cloud Atualizada', `O processo ${amendment.seiNumber} foi sincronizado.`);
     } catch (err: any) {
       const errorMsg = err.message || 'Erro desconhecido';
-      console.error("Save failure:", errorMsg);
-      notify('error', 'Falha na Gravação', `O banco rejeitou a operação. Motivo: ${errorMsg}`);
-      
-      if (errorMsg.includes('42501') || errorMsg.includes('permission denied')) {
-        setDbErrors(prev => ({ ...prev, amendments: 'DATABASE_SETUP_REQUIRED' }));
-      }
+      notify('error', 'Falha na Gravação', `O banco rejeitou a operação.`);
     }
   };
 
-  const handleBatchImport = async (newAmendments: Amendment[]) => {
-    setIsLoadingData(true);
+  const handleUpdateSectorSla = async (id: string, newSla: number) => {
     try {
-      await db.amendments.insertMany(newAmendments.map(a => ({ ...a, tenantId: currentUser?.tenantId })));
+      const sector = sectors.find(s => s.id === id);
+      if (!sector) return;
+      
+      const updated = { ...sector, defaultSlaDays: newSla };
+      await db.sectors.upsert({ ...updated, tenantId: currentUser?.tenantId });
       
       await db.audit.log({
         tenantId: currentUser?.tenantId,
         actorId: currentUser?.id,
         actorName: currentUser?.name,
-        action: AuditAction.CREATE,
-        details: `Importação em lote: ${newAmendments.length} emendas.`,
-        severity: 'INFO'
+        action: AuditAction.UPDATE,
+        details: `SLA da unidade ${sector.name} alterado para ${newSla} dias.`,
+        severity: 'WARN'
       });
 
-      await fetchData();
-      notify('success', 'Importação Concluída', `${newAmendments.length} registros persistidos.`);
-      setCurrentView('amendments');
-    } catch (err: any) {
-      notify('error', 'Erro na Carga', `Não foi possível incluir os registros: ${err.message}`);
-    } finally {
-      setIsLoadingData(false);
+      setSectors(prev => prev.map(s => s.id === id ? updated : s));
+      notify('success', 'SLA Atualizado', `A unidade ${sector.name} agora possui ${newSla} dias de prazo padrão.`);
+    } catch (err) {
+      notify('error', 'Erro', 'Não foi possível atualizar o SLA no banco.');
     }
   };
 
@@ -219,10 +214,10 @@ const AppContent: React.FC = () => {
             />
           )}
           {currentView === 'calendar' && <CalendarView amendments={amendments} onSelectAmendment={setSelectedAmendment} />}
-          {currentView === 'import' && <ImportModule onImport={handleBatchImport} sectors={sectors} tenantId={currentUser.tenantId} />}
+          {currentView === 'import' && <ImportModule onImport={fetchData} sectors={sectors} tenantId={currentUser.tenantId} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
-          {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={() => {}} error={dbErrors.sectors} />}
+          {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={handleUpdateSectorSla} error={dbErrors.sectors} />}
           {currentView === 'statuses' && <StatusManagement statuses={statuses} onAdd={(s) => db.statuses.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onReset={() => {}} onBatchAdd={(items) => fetchData()} error={dbErrors.statuses} />}
           {currentView === 'audit' && <AuditModule logs={logs} currentUser={currentUser} activeTenantId={currentUser.tenantId} error={dbErrors.audit} onRefresh={fetchData} />}
           {currentView === 'security' && <SecurityModule users={users} onDeleteUser={(id) => db.users.delete(id).then(fetchData)} currentUser={currentUser} onNavigateToRegister={() => setCurrentView('register')} error={dbErrors.users} onAddUser={() => {}} />}

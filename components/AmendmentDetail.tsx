@@ -15,7 +15,7 @@ import {
   Timer, FileSearch, ShieldCheck, Search, X,
   Plus, Building2, Activity, AlertCircle,
   FileBadge, Briefcase, DollarSign, Fingerprint,
-  ChevronRight, ArrowUpRight, Scale
+  ChevronRight, ArrowUpRight, Scale, CalendarPlus
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -56,6 +56,13 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   const [showDestList, setShowDestList] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   
+  // Estado para Dilação de Prazo
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [extensionData, setExtensionData] = useState({
+    newDeadline: '',
+    justification: ''
+  });
+
   const currentPhaseIndex = useMemo(() => {
     const idx = PROCESS_PHASES.findIndex(phase => phase.statuses.includes(amendment.status as Status));
     return idx === -1 ? 0 : idx;
@@ -74,11 +81,10 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     const progressPercent = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
 
     const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    const totalDaysElapsed = Math.ceil((today.getTime() - new Date(amendment.createdAt).getTime()) / (1000 * 60 * 60 * 24));
     
     return {
+      deadlineDate: deadline,
       daysLeft: diffDays,
-      totalElapsed: totalDaysElapsed,
       progressPercent,
       status: diffDays < 0 ? 'Excedido' : diffDays <= 2 ? 'Crítico' : 'Regular',
       color: diffDays < 0 ? 'text-red-600' : diffDays <= 2 ? 'text-amber-600' : 'text-emerald-600',
@@ -131,6 +137,38 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
     onMove(newMovements, newStatus);
     notify('success', 'Trâmite Registrado', 'Processo movimentado com sucesso.');
+  };
+
+  const handleDeadlineExtension = () => {
+    if (!extensionData.newDeadline || !extensionData.justification) {
+      notify('warning', 'Campos Obrigatórios', 'Justificativa e nova data são obrigatórios.');
+      return;
+    }
+
+    const updatedMovements = [...amendment.movements];
+    const lastIndex = updatedMovements.length - 1;
+    
+    if (lastIndex >= 0) {
+      const lastMov = updatedMovements[lastIndex];
+      const previousDeadline = new Date(lastMov.deadline).toLocaleDateString('pt-BR');
+      
+      updatedMovements[lastIndex] = {
+        ...lastMov,
+        deadline: new Date(extensionData.newDeadline).toISOString(),
+        remarks: (lastMov.remarks ? lastMov.remarks + "\n\n" : "") + 
+                 `[DILAÇÃO DE PRAZO] De ${previousDeadline} para ${new Date(extensionData.newDeadline).toLocaleDateString('pt-BR')}. ` +
+                 `Justificativa: ${extensionData.justification}`
+      };
+
+      onUpdate({
+        ...amendment,
+        movements: updatedMovements
+      });
+
+      setIsExtensionModalOpen(false);
+      setExtensionData({ newDeadline: '', justification: '' });
+      notify('success', 'Prazo Prorrogado', 'A alteração foi registrada na trilha de auditoria.');
+    }
   };
 
   const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -190,7 +228,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
           
           {/* Eficiência SLA e Status da Unidade Atual */}
           {slaSummary && (
-            <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8">
+            <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8 relative overflow-hidden">
                <div className="flex justify-between items-center">
                   <div className="flex items-center gap-4">
                      <div className={`p-4 rounded-2xl ${slaSummary.bg} ${slaSummary.color}`}>
@@ -201,15 +239,24 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SLA Unidade: {amendment.currentSector}</p>
                      </div>
                   </div>
-                  <div className="text-right">
-                     <p className={`text-2xl font-black ${slaSummary.color}`}>{slaSummary.daysLeft} Dias</p>
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Saldo de Prazo</p>
+                  <div className="flex items-center gap-6">
+                    <button 
+                      onClick={() => setIsExtensionModalOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase text-[#0d457a] hover:bg-white transition-all shadow-sm group"
+                    >
+                      <CalendarPlus size={14} className="text-blue-500 group-hover:scale-110 transition-transform" />
+                      Dilação de Prazo
+                    </button>
+                    <div className="text-right border-l border-slate-100 pl-6">
+                      <p className={`text-2xl font-black ${slaSummary.color}`}>{slaSummary.daysLeft} Dias</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Saldo de Prazo</p>
+                    </div>
                   </div>
                </div>
 
                <div className="space-y-3">
                   <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                     <span>Consumo de Prazo (Unidade)</span>
+                     <span>Consumo de Prazo (Unidade) - Vence em: {slaSummary.deadlineDate.toLocaleDateString('pt-BR')}</span>
                      <span className={slaSummary.color}>{slaSummary.progressPercent.toFixed(0)}%</span>
                   </div>
                   <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden p-1 shadow-inner">
@@ -259,6 +306,10 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                       <Calendar size={14} />
                                       <span className="text-[10px] font-bold uppercase">Entrada: {new Date(mov.dateIn).toLocaleDateString('pt-BR')}</span>
                                   </div>
+                                  <div className="flex items-center gap-2 justify-end text-blue-400 mt-1">
+                                      <Timer size={14} />
+                                      <span className="text-[10px] font-bold uppercase">Prazo: {new Date(mov.deadline).toLocaleDateString('pt-BR')}</span>
+                                  </div>
                                   {!isCurrent && (
                                       <div className="flex items-center gap-2 justify-end text-emerald-600 mt-1">
                                           <ArrowUpRight size={14} />
@@ -269,9 +320,9 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                           </div>
 
                           {mov.remarks && (
-                              <div className="p-6 bg-white/60 rounded-2xl border border-slate-200/50 italic text-[12px] text-slate-500 leading-relaxed relative">
+                              <div className="p-6 bg-white/60 rounded-2xl border border-slate-200/50 italic text-[12px] text-slate-500 leading-relaxed relative whitespace-pre-wrap">
                                   <Quote className="absolute -top-3 -left-3 text-slate-200" size={24} />
-                                  "{mov.remarks}"
+                                  {mov.remarks}
                               </div>
                           )}
                       </div>
@@ -330,22 +381,63 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
               </button>
             </div>
           </div>
-          
-          {aiResult && (
-            <div className="bg-slate-900 p-10 rounded-[48px] text-white shadow-2xl relative overflow-hidden border border-white/10 animate-in zoom-in-95">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 flex items-center gap-3 mb-8">
-                    <Sparkles size={20} /> IA Gemini Pro
-                </h3>
-                <div className="space-y-6">
-                    <div className="p-6 bg-white/5 border border-white/10 rounded-3xl">
-                        <p className="text-[9px] font-black text-blue-300 uppercase mb-2">Resumo Executivo</p>
-                        <p className="text-xs text-blue-100/80 leading-relaxed font-medium">{aiResult.summary}</p>
-                    </div>
-                </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* MODAL DE DILAÇÃO DE PRAZO */}
+      {isExtensionModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
+          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-[40px]">
+               <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-50 text-[#0d457a] rounded-xl shadow-sm">
+                    <CalendarPlus size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-[#0d457a] uppercase tracking-tighter">Dilação de Prazo</h3>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Alteração de Deadline Administrativo</p>
+                  </div>
+               </div>
+               <button onClick={() => setIsExtensionModalOpen(false)} className="p-2 hover:bg-white rounded-xl transition-all">
+                  <X size={20} className="text-slate-400" />
+               </button>
+            </div>
+            <div className="p-10 space-y-6">
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Novo Prazo Limite *</label>
+                  <input 
+                    type="date" required
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a] outline-none focus:ring-4 ring-blue-500/5 transition-all text-xs"
+                    value={extensionData.newDeadline}
+                    onChange={(e) => setExtensionData({...extensionData, newDeadline: e.target.value})}
+                  />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Justificativa da Prorrogação *</label>
+                  <textarea 
+                    required
+                    className="w-full p-6 bg-slate-50 border border-slate-200 rounded-3xl outline-none h-40 font-medium text-[11px] text-slate-600 placeholder:text-slate-300 resize-none uppercase"
+                    placeholder="DESCREVA O MOTIVO TÉCNICO PARA A DILAÇÃO DO PRAZO..."
+                    value={extensionData.justification}
+                    onChange={(e) => setExtensionData({...extensionData, justification: e.target.value})}
+                  />
+               </div>
+               <div className="flex items-start gap-4 p-5 bg-amber-50 rounded-2xl border border-amber-100">
+                  <AlertCircle size={18} className="text-amber-600 shrink-0" />
+                  <p className="text-[9px] text-amber-800 font-bold uppercase leading-relaxed">
+                    Esta ação é irreversível e será registrada como um evento de auditoria imutável na trilha digital do processo.
+                  </p>
+               </div>
+               <button 
+                  onClick={handleDeadlineExtension}
+                  className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3"
+               >
+                 <CheckCircle2 size={18} /> Confirmar Nova Data
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
