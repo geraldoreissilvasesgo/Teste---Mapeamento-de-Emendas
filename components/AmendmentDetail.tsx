@@ -16,7 +16,7 @@ import {
   Plus, Building2, Activity, AlertCircle,
   FileBadge, Briefcase, DollarSign, Fingerprint,
   ChevronRight, ArrowUpRight, Scale, CalendarPlus,
-  Zap, ShieldX, Save
+  Zap, ShieldX, Save, Trash2, Archive, ShieldAlert
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -39,7 +39,8 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   statuses,
   onBack, 
   onMove,
-  onUpdate
+  onUpdate,
+  onDelete
 }) => {
   const { notify } = useNotification();
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -57,6 +58,8 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     newDeadline: '',
     justification: ''
   });
+
+  const isAdmin = currentUser.role === Role.SUPER_ADMIN || currentUser.role === Role.ADMIN;
 
   const isLocked = useMemo(() => {
     const statusObj = statuses.find(s => s.name.toUpperCase() === amendment.status.toUpperCase());
@@ -105,6 +108,37 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     } finally {
       setIsAiLoading(false);
     }
+  };
+
+  const handleInactivate = () => {
+    if (!window.confirm("⚠️ INATIVAÇÃO: Deseja mover este processo para o ARQUIVO? Ele não aparecerá mais no fluxo ativo.")) return;
+    
+    const justification = prompt("Justificativa para inativação:");
+    if (!justification) {
+      notify('warning', 'Ação Cancelada', 'Justificativa obrigatória para inativação.');
+      return;
+    }
+
+    const updated = {
+      ...amendment,
+      status: Status.ARCHIVED,
+      updatedAt: new Date().toISOString()
+    };
+
+    onUpdate(updated);
+    notify('info', 'Processo Inativado', 'O SEI foi movido para o Repositório de Arquivos.');
+  };
+
+  const handleDelete = () => {
+    if (!window.confirm("🚨 EXCLUSÃO CRÍTICA: Você está prestes a apagar este registro DEFINITIVAMENTE do banco de dados GESA. Esta ação é IRREVERSÍVEL. Confirmar exclusão?")) return;
+    
+    const justification = prompt("Justificativa para exclusão (será gravada nos logs de auditoria):");
+    if (!justification) {
+      notify('warning', 'Ação Cancelada', 'Justificativa obrigatória para exclusão.');
+      return;
+    }
+
+    onDelete(amendment.id, justification);
   };
 
   const filteredDestSectors = useMemo(() => {
@@ -206,7 +240,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
           </div>
         </div>
         <div className="flex gap-3">
-          {(currentUser.role === Role.SUPER_ADMIN || currentUser.role === Role.ADMIN) && (
+          {isAdmin && (
             <button 
               onClick={() => setIsFastTransitionOpen(true)}
               disabled={isLocked}
@@ -404,6 +438,41 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
               </div>
             )}
           </div>
+
+          {/* ZONA DE GESTÃO CRÍTICA (ADMIN ONLY) */}
+          {isAdmin && (
+            <div className="p-10 rounded-[48px] bg-white border border-red-100 shadow-sm space-y-6">
+              <h3 className="text-xs font-black text-red-600 uppercase tracking-widest flex items-center gap-2">
+                 <ShieldAlert size={16} /> Gestão de Registro
+              </h3>
+              
+              <div className="space-y-3">
+                 <button 
+                   onClick={handleInactivate}
+                   disabled={amendment.status === Status.ARCHIVED}
+                   className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 ${
+                     amendment.status === Status.ARCHIVED 
+                     ? 'bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed' 
+                     : 'bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100'
+                   }`}
+                 >
+                   <Archive size={14} /> 
+                   {amendment.status === Status.ARCHIVED ? 'Já Inativado' : 'Inativar Processo'}
+                 </button>
+                 
+                 <button 
+                   onClick={handleDelete}
+                   className="w-full py-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                 >
+                   <Trash2 size={14} /> Excluir Definitivamente
+                 </button>
+              </div>
+
+              <p className="text-[8px] font-bold text-slate-400 uppercase text-center leading-tight">
+                Ações de exclusão e inativação são registradas no histórico de auditoria GESA.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

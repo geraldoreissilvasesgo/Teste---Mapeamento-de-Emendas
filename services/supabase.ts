@@ -58,6 +58,13 @@ export const db = {
       if (error) return handleDbError(error);
       return data;
     },
+    async delete(id: string) {
+      const { error } = await supabase
+        .from('amendments')
+        .delete()
+        .eq('id', id);
+      if (error) handleDbError(error);
+    },
     subscribe(tenantId: string, onEvent: (payload: any) => void): RealtimeChannel {
       return supabase
         .channel(`realtime:amendments:${tenantId}`)
@@ -119,7 +126,7 @@ export const db = {
     },
     async delete(id: string) {
       const { error } = await supabase.from('users').delete().eq('id', id);
-      if (error) return handleDbError(error);
+      if (error) handleDbError(error);
     }
   },
   sectors: {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -17,6 +16,7 @@ import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
 import { Login } from './components/Login';
 import { CalendarView } from './components/CalendarView';
+import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
 import { PlushNotificationContainer } from './components/PlushNotification';
 import { 
@@ -55,15 +55,18 @@ const AppContent: React.FC = () => {
     const tId = currentUser.tenantId;
     setIsLoadingData(true);
 
-    const loadTable = async (key: keyof typeof dbErrors, promise: Promise<any>, fallback: any, setter: (d: any) => void) => {
+    const loadTable = async (key: string, promise: Promise<any>, fallback: any, setter: (d: any) => void) => {
       try {
         const data = await promise;
         setter(data);
         setDbErrors(prev => ({ ...prev, [key]: undefined }));
         setIsLiveSync(true);
       } catch (err: any) {
-        if (err.message === 'TABLE_MISSING') {
+        console.warn(`Fetch error for ${key}:`, err.message);
+        if (err.message === 'TABLE_MISSING' || err.message?.includes('does not exist')) {
           setDbErrors(prev => ({ ...prev, [key]: 'DATABASE_SETUP_REQUIRED' }));
+          setter(fallback);
+        } else {
           setter(fallback);
         }
       }
@@ -72,13 +75,13 @@ const AppContent: React.FC = () => {
     await Promise.all([
       loadTable('amendments', db.amendments.getAll(tId), MOCK_AMENDMENTS, setAmendments),
       loadTable('users', db.users.getAll(tId), MOCK_USERS, setUsers),
-      loadTable('sectors', db.sectors.getAll(tId), DEFAULT_SECTOR_CONFIGS, (d) => d.length > 0 && setSectors(d)),
+      loadTable('sectors', db.sectors.getAll(tId), DEFAULT_SECTOR_CONFIGS, (d) => { if(d.length > 0) setSectors(d); }),
       loadTable('statuses', db.statuses.getAll(tId), [], setStatuses),
       loadTable('audit', db.audit.getAll(tId), [], setLogs)
     ]);
 
     setIsLoadingData(false);
-  }, [currentUser]);
+  }, [currentUser]); // Fix: Removido fetchData das dependências para evitar erro de inicialização
 
   useEffect(() => {
     const initSession = async () => {
@@ -112,7 +115,6 @@ const AppContent: React.FC = () => {
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
       const isNew = !amendment.id;
-      
       const saved = await db.amendments.upsert({ 
         ...amendment, 
         tenantId: currentUser?.tenantId || 'GOIAS' 
@@ -123,30 +125,68 @@ const AppContent: React.FC = () => {
         actorId: currentUser?.id,
         actorName: currentUser?.name,
         action: isNew ? AuditAction.CREATE : AuditAction.UPDATE,
-        details: `${isNew ? 'Criação' : 'Edição'} do processo SEI ${amendment.seiNumber}`,
+        details: `${isNew ? 'Criação' : 'Edição'} do processo SEI ${amendment.seiNumber}. Status: ${amendment.status}`,
         severity: 'INFO'
       });
 
       notify('success', 'Registro Efetivado', `Processo ${amendment.seiNumber} gravado com sucesso.`);
-      
-      if (isNew) {
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-      } else {
-        await fetchData();
-        if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
+      await fetchData();
+      if (!isNew && selectedAmendment?.id === saved.id) {
+        setSelectedAmendment(saved);
       }
     } catch (err: any) {
       console.error("Save error:", err);
-      notify('warning', 'Modo Offline Ativo', 'Não foi possível gravar no banco cloud. O registro foi mantido na memória local desta sessão.');
-      
+      notify('warning', 'Modo Offline Ativo', 'Não foi possível gravar no banco cloud. O registro foi mantido na memória local.');
       if (!amendment.id) {
         const localMock = { ...amendment, id: `local-${Date.now()}` };
         setAmendments(prev => [localMock, ...prev]);
       } else {
         setAmendments(prev => prev.map(a => a.id === amendment.id ? amendment : a));
       }
+    }
+  };
+
+  const handleImport = async (data: Amendment[]) => {
+    setIsLoadingData(true);
+    try {
+      let count = 0;
+      for (const item of data) {
+        await db.amendments.upsert(item);
+        count++;
+      }
+      notify('success', 'Importação Concluída', `${count} registros integrados ao banco com sucesso.`);
+      await fetchData();
+    } catch (err: any) {
+      notify('error', 'Falha na Importação', `Erro ao processar lote: ${err.message}`);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  const handleDeleteAmendment = async (id: string, justification: string) => {
+    setIsLoadingData(true);
+    const amendmentToDelete = amendments.find(a => a.id === id);
+    try {
+      if (id && !id.startsWith('local-') && !id.startsWith('a-')) {
+        await db.amendments.delete(id);
+      }
+      await db.audit.log({
+        tenantId: currentUser?.tenantId,
+        actorId: currentUser?.id,
+        actorName: currentUser?.name,
+        action: AuditAction.DELETE,
+        details: `EXCLUSÃO DEFINITIVA do processo SEI ${amendmentToDelete?.seiNumber || 'Desconhecido'}. Justificativa: ${justification}`,
+        severity: 'CRITICAL'
+      });
+      setAmendments(prev => prev.filter(a => a.id !== id));
+      setSelectedAmendment(null);
+      notify('error', 'Registro Removido', `O processo ${amendmentToDelete?.seiNumber || ''} foi excluído permanentemente.`);
+      await fetchData();
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      notify('error', 'Falha na Exclusão Cloud', `Erro: ${err.message}. Verifique as permissões de DELETE.`);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -180,6 +220,8 @@ const AppContent: React.FC = () => {
       onLogout={handleLogout}
       onTenantChange={() => {}}
     >
+      <DatabaseStatusAlert errors={dbErrors} />
+
       {isLoadingData && (
         <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-[100] flex items-center justify-center">
            <div className="flex flex-col items-center gap-4">
@@ -208,7 +250,7 @@ const AppContent: React.FC = () => {
           }}
           onUpdate={handleUpdateAmendment}
           onStatusChange={() => {}} 
-          onDelete={() => {}}
+          onDelete={handleDeleteAmendment}
         />
       ) : (
         <>
@@ -228,7 +270,7 @@ const AppContent: React.FC = () => {
             />
           )}
           {currentView === 'calendar' && <CalendarView amendments={amendments} onSelectAmendment={setSelectedAmendment} />}
-          {currentView === 'import' && <ImportModule onImport={fetchData} sectors={sectors} tenantId={currentUser.tenantId} />}
+          {currentView === 'import' && <ImportModule onImport={handleImport} sectors={sectors} tenantId={currentUser.tenantId} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
           {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={(id, sla) => {}} error={dbErrors.sectors} />}

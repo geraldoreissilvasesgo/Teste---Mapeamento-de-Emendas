@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ShieldAlert, Terminal, Copy, Check, X, Database, Info, Zap, AlertTriangle } from 'lucide-react';
 
@@ -38,14 +37,16 @@ BEGIN;
   ALTER TABLE audit_logs REPLICA IDENTITY FULL;
 COMMIT;`,
     
-    setup_rls: `-- CONFIGURAR SEGURANÇA E ISOLAMENTO
+    setup_rls: `-- CONFIGURAR SEGURANÇA E ISOLAMENTO (INCLUINDO EXCLUSÃO)
 BEGIN;
   ALTER TABLE amendments ENABLE ROW LEVEL SECURITY;
   ALTER TABLE users ENABLE ROW LEVEL SECURITY;
   ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
-  CREATE POLICY "Isolamento por Secretaria" ON amendments 
-    FOR ALL USING (true); -- Ajustar para auth.jwt() em produção
+  -- Política de Acesso Total para Emendas
+  DROP POLICY IF EXISTS "Gestão Total de Emendas" ON amendments;
+  CREATE POLICY "Gestão Total de Emendas" ON amendments 
+    FOR ALL USING (true) WITH CHECK (true);
 
   CREATE POLICY "Acesso a Perfis da Secretaria" ON users 
     FOR SELECT USING (true);
@@ -55,7 +56,6 @@ BEGIN;
 COMMIT;`,
 
     fix_schema: `-- CORREÇÃO DE ESQUEMA (ADICIONAR COLUNAS FALTANTES)
--- Execute este script se receber erro de 'column not found'
 BEGIN;
   ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "beneficiaryUnit" TEXT;
   ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "transferMode" TEXT;
@@ -132,7 +132,11 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   details TEXT,
   severity TEXT DEFAULT 'INFO',
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`
+);
+
+-- Ativar RLS após criação
+ALTER TABLE amendments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Permitir Tudo" ON amendments FOR ALL USING (true) WITH CHECK (true);`
   };
 
   const handleCopy = (text: string) => {
@@ -152,29 +156,29 @@ CREATE TABLE IF NOT EXISTS audit_logs (
             <div>
               <h3 className="text-sm font-black text-amber-900 uppercase tracking-tight leading-none">Console de Banco de Dados</h3>
               <p className="text-[10px] text-amber-700 font-bold uppercase mt-2">
-                Ajuste a estrutura cloud para garantir a inclusão de novos registros sem erros de esquema.
+                Ajuste a estrutura cloud para permitir criação, edição e exclusão de registros.
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3 w-full md:w-auto">
             <button 
-              onClick={() => setSelectedTable('fix_schema')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg"
+              onClick={() => setSelectedTable('setup_rls')}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg"
             >
-              <Zap size={14} /> Corrigir Colunas
+              <Zap size={14} /> Liberar Acessos (RLS)
             </button>
             <button 
               onClick={() => setSelectedTable('setup_tables')}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white border border-amber-200 text-amber-700 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-all"
             >
-              <Terminal size={14} /> Setup Inicial
+              <Terminal size={14} /> Setup Completo
             </button>
           </div>
         </div>
       </div>
 
       {selectedTable && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4">
           <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-emerald-500">
             <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                <div className="flex items-center gap-4">
@@ -206,7 +210,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
                <div className="flex items-start gap-4 p-6 bg-blue-50 rounded-3xl border border-blue-100">
                   <Info size={20} className="text-blue-500 shrink-0" />
                   <p className="text-[10px] text-blue-700 font-bold uppercase leading-relaxed">
-                    Copie o código acima, vá ao seu dashboard do Supabase, entre em 'SQL Editor' e clique em 'Run' para efetivar as mudanças no banco de dados.
+                    IMPORTANTE: Sem executar o script 'Liberar Acessos (RLS)', o banco recusará qualquer comando de exclusão ou alteração.
                   </p>
                </div>
 
