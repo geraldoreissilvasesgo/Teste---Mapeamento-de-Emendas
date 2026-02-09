@@ -34,7 +34,11 @@ export const db = {
         .eq('tenantId', tenantId)
         .order('createdAt', { ascending: false });
       if (error) {
-        handleDbError(error);
+        try {
+          handleDbError(error);
+        } catch (e) {
+          console.error(e);
+        }
         return [];
       }
       return data || [];
@@ -96,7 +100,7 @@ export const db = {
     async getAll(tenantId: string): Promise<User[]> {
       const { data, error } = await supabase.from('users').select('*').eq('tenantId', tenantId);
       if (error) {
-        handleDbError(error);
+        try { handleDbError(error); } catch(e) {}
         return [];
       }
       return data || [];
@@ -120,7 +124,7 @@ export const db = {
     async getAll(tenantId: string): Promise<SectorConfig[]> {
       const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId);
       if (error) {
-        handleDbError(error);
+        try { handleDbError(error); } catch(e) {}
         return [];
       }
       return data || [];
@@ -135,7 +139,7 @@ export const db = {
     async getAll(tenantId: string): Promise<StatusConfig[]> {
       const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId);
       if (error) {
-        handleDbError(error);
+        try { handleDbError(error); } catch(e) {}
         return [];
       }
       return data || [];
@@ -154,7 +158,7 @@ export const db = {
     async getAll(tenantId: string): Promise<AuditLog[]> {
       const { data, error } = await supabase.from('audit_logs').select('*').eq('tenantId', tenantId).order('timestamp', { ascending: false });
       if (error) {
-        handleDbError(error);
+        try { handleDbError(error); } catch(e) {}
         return [];
       }
       return data || [];
