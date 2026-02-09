@@ -16,7 +16,6 @@ import { GovernanceDocs } from './components/GovernanceDocs';
 import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
 import { Login } from './components/Login';
-import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
 import { CalendarView } from './components/CalendarView';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
 import { PlushNotificationContainer } from './components/PlushNotification';
@@ -114,7 +113,6 @@ const AppContent: React.FC = () => {
     try {
       const isNew = !amendment.id;
       
-      // Tentativa de gravação no Supabase
       const saved = await db.amendments.upsert({ 
         ...amendment, 
         tenantId: currentUser?.tenantId || 'GOIAS' 
@@ -132,7 +130,6 @@ const AppContent: React.FC = () => {
       notify('success', 'Registro Efetivado', `Processo ${amendment.seiNumber} gravado com sucesso.`);
       
       if (isNew) {
-        // Se for novo cadastro, recarrega a página após breve delay (conforme pedido)
         setTimeout(() => {
           window.location.reload();
         }, 1500);
@@ -144,7 +141,6 @@ const AppContent: React.FC = () => {
       console.error("Save error:", err);
       notify('warning', 'Modo Offline Ativo', 'Não foi possível gravar no banco cloud. O registro foi mantido na memória local desta sessão.');
       
-      // Fallback local para não perder o trabalho do usuário
       if (!amendment.id) {
         const localMock = { ...amendment, id: `local-${Date.now()}` };
         setAmendments(prev => [localMock, ...prev]);
@@ -184,8 +180,6 @@ const AppContent: React.FC = () => {
       onLogout={handleLogout}
       onTenantChange={() => {}}
     >
-      <DatabaseStatusAlert errors={dbErrors} />
-      
       {isLoadingData && (
         <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-[100] flex items-center justify-center">
            <div className="flex flex-col items-center gap-4">

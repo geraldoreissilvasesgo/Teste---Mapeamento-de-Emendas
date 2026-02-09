@@ -1,4 +1,3 @@
-
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import { Amendment, User, SectorConfig, StatusConfig, AuditLog } from '../types';
 
@@ -33,6 +32,7 @@ export const db = {
         .select('*')
         .eq('tenantId', tenantId)
         .order('createdAt', { ascending: false });
+      
       if (error) {
         try {
           handleDbError(error);
@@ -100,14 +100,16 @@ export const db = {
     async getAll(tenantId: string): Promise<User[]> {
       const { data, error } = await supabase.from('users').select('*').eq('tenantId', tenantId);
       if (error) {
-        try { handleDbError(error); } catch(e) {}
+        try { handleDbError(error); } catch (e) {}
         return [];
       }
       return data || [];
     },
     async getByEmail(email: string): Promise<User | null> {
       const { data, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
-      if (error) return handleDbError(error);
+      if (error) {
+        try { return handleDbError(error); } catch (e) { return null; }
+      }
       return data;
     },
     async upsert(user: Partial<User>) {
@@ -124,7 +126,7 @@ export const db = {
     async getAll(tenantId: string): Promise<SectorConfig[]> {
       const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId);
       if (error) {
-        try { handleDbError(error); } catch(e) {}
+        try { handleDbError(error); } catch (e) {}
         return [];
       }
       return data || [];
@@ -139,7 +141,7 @@ export const db = {
     async getAll(tenantId: string): Promise<StatusConfig[]> {
       const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId);
       if (error) {
-        try { handleDbError(error); } catch(e) {}
+        try { handleDbError(error); } catch (e) {}
         return [];
       }
       return data || [];
@@ -158,7 +160,7 @@ export const db = {
     async getAll(tenantId: string): Promise<AuditLog[]> {
       const { data, error } = await supabase.from('audit_logs').select('*').eq('tenantId', tenantId).order('timestamp', { ascending: false });
       if (error) {
-        try { handleDbError(error); } catch(e) {}
+        try { handleDbError(error); } catch (e) {}
         return [];
       }
       return data || [];

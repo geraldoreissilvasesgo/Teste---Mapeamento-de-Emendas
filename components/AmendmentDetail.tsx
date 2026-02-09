@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useNotification } from '../context/NotificationContext';
 import { 
@@ -17,7 +16,7 @@ import {
   Plus, Building2, Activity, AlertCircle,
   FileBadge, Briefcase, DollarSign, Fingerprint,
   ChevronRight, ArrowUpRight, Scale, CalendarPlus,
-  Zap, ShieldX
+  Zap, ShieldX, Save
 } from 'lucide-react';
 
 interface AmendmentDetailProps {
@@ -59,9 +58,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     justification: ''
   });
 
-  // MECANISMO DE LOCK (EMPENHO / LIQUIDAÇÃO)
   const isLocked = useMemo(() => {
-    // Bloqueia se o status for EMPENHO / LIQUIDAÇÃO ou se for marcado como isFinal no banco
     const statusObj = statuses.find(s => s.name.toUpperCase() === amendment.status.toUpperCase());
     return amendment.status === Status.COMMITMENT_LIQUIDATION || (statusObj?.isFinal === true);
   }, [amendment.status, statuses]);
@@ -120,7 +117,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
   const handleFinalMove = () => {
     if (isLocked) {
-      notify('error', 'Ação Bloqueada', 'O processo está em fase de Empenho/Liquidação e não permite novos trâmites.');
+      notify('error', 'Ação Bloqueada', 'O processo está em fase de Empenho/Liquidação.');
       return;
     }
 
@@ -148,10 +145,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   };
 
   const handleDeadlineExtension = () => {
-    if (isLocked) {
-      notify('error', 'Ação Bloqueada', 'Alterações de prazo desabilitadas para processos em liquidação.');
-      return;
-    }
+    if (isLocked) return;
     if (!extensionData.newDeadline || !extensionData.justification) {
       notify('warning', 'Campos Obrigatórios', 'Justificativa e nova data são obrigatórios.');
       return;
@@ -179,21 +173,20 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
       setIsExtensionModalOpen(false);
       setExtensionData({ newDeadline: '', justification: '' });
-      notify('success', 'Prazo Prorrogado', 'A alteração foi registrada na trilha de auditoria.');
+      notify('success', 'Prazo Prorrogado', 'Alteração registrada.');
     }
   };
 
   const handleFastTransitionSave = (updatedAmendment: Amendment) => {
     onUpdate(updatedAmendment);
     setIsFastTransitionOpen(false);
-    notify('success', 'Histórico Atualizado', 'O ciclo de vida foi reajustado com sucesso.');
   };
 
   const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-24 max-w-7xl mx-auto">
-      {/* Botão Voltar e Título */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
         <div className="flex items-center gap-6">
           <button onClick={onBack} className="p-4 bg-white border border-slate-200 rounded-2xl text-[#0d457a] hover:bg-blue-50 transition-all shadow-sm group">
@@ -232,7 +225,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
         </div>
       </div>
 
-      {/* Alerta de Bloqueio se houver lock */}
       {isLocked && (
         <div className="bg-blue-50 border-2 border-blue-200 p-6 rounded-[32px] flex items-center gap-6 animate-in slide-in-from-top-2">
           <div className="p-4 bg-blue-600 text-white rounded-2xl shadow-lg">
@@ -240,12 +232,12 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
           </div>
           <div>
             <h4 className="text-sm font-black text-blue-900 uppercase">Registro em Fase de Empenho/Liquidação</h4>
-            <p className="text-[10px] text-blue-700 font-bold uppercase mt-1">Este processo atingiu um estado de controle financeiro. Edições e movimentações administrativas foram suspensas para preservar a integridade da liquidação.</p>
+            <p className="text-[10px] text-blue-700 font-bold uppercase mt-1">Bloqueio financeiro ativo. Edições desabilitadas.</p>
           </div>
         </div>
       )}
 
-      {/* Stepper de Ciclo de Vida */}
+      {/* STEPPER */}
       <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm relative overflow-hidden">
          <div className="flex justify-between items-center relative">
             <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -translate-y-1/2 -z-0"></div>
@@ -268,7 +260,6 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          {/* Eficiência SLA e Status da Unidade Atual */}
           {slaSummary && (
             <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8 relative overflow-hidden">
                <div className="flex justify-between items-center">
@@ -300,20 +291,17 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
                <div className="space-y-3">
                   <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                     <span>Consumo de Prazo (Unidade) - Vence em: {slaSummary.deadlineDate.toLocaleDateString('pt-BR')}</span>
+                     <span>Consumo de Prazo - Vence em: {slaSummary.deadlineDate.toLocaleDateString('pt-BR')}</span>
                      <span className={slaSummary.color}>{slaSummary.progressPercent.toFixed(0)}%</span>
                   </div>
                   <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden p-1 shadow-inner">
-                     <div 
-                        className={`h-full rounded-full transition-all duration-1000 ${slaSummary.barColor}`} 
-                        style={{ width: `${slaSummary.progressPercent}%` }}
-                     />
+                     <div className={`h-full rounded-full transition-all duration-1000 ${slaSummary.barColor}`} style={{ width: `${slaSummary.progressPercent}%` }} />
                   </div>
                </div>
             </div>
           )}
 
-          {/* Ledger de Trilha Digital Cronológica */}
+          {/* TRILHA DE AUDITORIA */}
           <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-10">
             <h3 className="text-sm font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-3">
                 <History size={20} className="text-blue-500" /> Trilha Digital de Auditoria
@@ -354,18 +342,8 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                                       <Timer size={14} />
                                       <span className="text-[10px] font-bold uppercase">Prazo: {new Date(mov.deadline).toLocaleDateString('pt-BR')}</span>
                                   </div>
-                                  {!isCurrent && (
-                                      <div className="flex items-center gap-2 justify-end text-emerald-600 mt-1">
-                                          <ArrowUpRight size={14} />
-                                          <span className="text-[10px] font-bold uppercase">Saída: {new Date(mov.dateOut!).toLocaleDateString('pt-BR')}</span>
-                                      </div>
-                                  )}
-                                  <div className="flex items-center gap-2 justify-end text-slate-500 mt-1 font-black">
-                                      <span className="text-[9px] uppercase">Permanência: {mov.daysSpent} Dias</span>
-                                  </div>
                               </div>
                           </div>
-
                           {mov.remarks && (
                               <div className="p-6 bg-white/60 rounded-2xl border border-slate-200/50 italic text-[12px] text-slate-500 leading-relaxed relative whitespace-pre-wrap">
                                   <Quote className="absolute -top-3 -left-3 text-slate-200" size={24} />
@@ -380,7 +358,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
           </div>
         </div>
 
-        {/* Sidebar Operacional */}
+        {/* SIDEBAR OPERACIONAL */}
         <div className="space-y-8 no-print">
           <div className={`p-10 rounded-[48px] text-white shadow-2xl relative overflow-hidden transition-all duration-500 ${isLocked ? 'bg-slate-400' : 'bg-[#0d457a]'}`}>
             <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3 mb-10">
@@ -392,7 +370,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
               <div className="space-y-6 text-center py-4">
                 <ShieldX size={48} className="mx-auto text-white/50 mb-4" />
                 <p className="text-[10px] font-black uppercase tracking-widest text-white/80 leading-relaxed">
-                  Este registro foi congelado pela Gerência de Planejamento devido à fase de execução orçamentária final.
+                  Fase de liquidação financeira.
                 </p>
               </div>
             ) : (
@@ -418,20 +396,8 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {selectedDestinations.map(d => (
-                      <span key={d.id} className="px-3 py-1.5 bg-blue-400/30 text-blue-50 rounded-xl text-[9px] font-black uppercase flex items-center gap-2 border border-white/10">
-                        {d.name} <button onClick={() => setSelectedDestinations([])}><X size={12}/></button>
-                      </span>
-                    ))}
-                  </div>
                 </div>
-
-                <div>
-                  <label className="text-[9px] font-black text-blue-200/50 uppercase tracking-widest block mb-3 ml-1">Despacho SEI</label>
-                  <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} className="w-full p-5 bg-white/10 border border-white/20 rounded-3xl outline-none h-40 font-medium text-[11px] text-white placeholder:text-white/20 resize-none uppercase" placeholder="DIGITE O TEXTO DO DESPACHO..." />
-                </div>
-
+                <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} className="w-full p-5 bg-white/10 border border-white/20 rounded-3xl outline-none h-40 font-medium text-[11px] text-white placeholder:text-white/20 resize-none uppercase" placeholder="DESPACHO SEI..." />
                 <button onClick={handleFinalMove} className="w-full py-6 bg-emerald-500 hover:bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
                   Confirmar Trâmite
                 </button>
@@ -440,6 +406,57 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
           </div>
         </div>
       </div>
+
+      {/* MODAL: TRANSIÇÃO RÁPIDA */}
+      {isFastTransitionOpen && (
+        <FastTransitionModal 
+          amendment={amendment}
+          sectors={sectors}
+          statuses={statuses}
+          onClose={() => setIsFastTransitionOpen(false)}
+          onSave={handleFastTransitionSave}
+        />
+      )}
+
+      {/* MODAL: DILAÇÃO DE PRAZO */}
+      {isExtensionModalOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4">
+          <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-[40px]">
+              <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Dilação de Prazo</h3>
+              <button onClick={() => setIsExtensionModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-10 space-y-6">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Novo Prazo Limite</label>
+                <input 
+                  type="date"
+                  className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a]"
+                  value={extensionData.newDeadline}
+                  onChange={(e) => setExtensionData({...extensionData, newDeadline: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Justificativa SES/SEI</label>
+                <textarea 
+                  className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-[#0d457a] h-32 resize-none text-xs"
+                  placeholder="MOTIVO DA ALTERAÇÃO..."
+                  value={extensionData.justification}
+                  onChange={(e) => setExtensionData({...extensionData, justification: e.target.value})}
+                />
+              </div>
+              <button 
+                onClick={handleDeadlineExtension}
+                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3"
+              >
+                <Save size={18} /> Confirmar Novo Prazo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

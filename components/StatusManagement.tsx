@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { StatusConfig } from '../types';
+import { StatusConfig, Status } from '../types';
 import { 
   Plus, X, Tag, Info, Search, Save, Pencil, Trash2, ShieldAlert,
   Database, CheckCircle2, Loader2, Copy, Check, Terminal, Edit2, Zap, ShieldCheck, CheckCircle,
@@ -19,11 +18,11 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
   statuses, onAdd, onReset, onBatchAdd, error 
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(error === 'DATABASE_SETUP_REQUIRED');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'ingestion' | 'final'>('all');
+  const [copied, setCopied] = useState(false);
 
   const [newStatus, setNewStatus] = useState<Partial<StatusConfig>>({
     name: '',
@@ -31,20 +30,18 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
     isFinal: false
   });
 
-  const [editingStatus, setEditingStatus] = useState<StatusConfig | null>(null);
-
   const handleSeedData = async () => {
     if (!window.confirm("Deseja carregar os estados padrão do Governo de Goiás diretamente no Banco de Dados Cloud?")) return;
     
     setIsLoading(true);
     const seed = [
-      { name: 'ANÁLISE DA DOCUMENTAÇÃO', color: '#64748b', isFinal: false },
-      { name: 'EM TRAMITAÇÃO TÉCNICA', color: '#0d457a', isFinal: false },
-      { name: 'EM DILIGÊNCIA', color: '#f59e0b', isFinal: false },
-      { name: 'AGUARDANDO PARECER JURÍDICO', color: '#8b5cf6', isFinal: false },
-      { name: 'EMPENHO / LIQUIDAÇÃO', color: '#3b82f6', isFinal: true }, // Marcado como final para ativar lock
-      { name: 'LIQUIDADO / PAGO', color: '#10b981', isFinal: true },
-      { name: 'ARQUIVADO / REJEITADO', color: '#ef4444', isFinal: true }
+      { name: Status.DOCUMENT_ANALYSIS, color: '#64748b', isFinal: false },
+      { name: Status.TECHNICAL_FLOW, color: '#0d457a', isFinal: false },
+      { name: Status.DILIGENCE, color: '#f59e0b', isFinal: false },
+      { name: Status.LEGAL_OPINION, color: '#8b5cf6', isFinal: false },
+      { name: Status.COMMITMENT_LIQUIDATION, color: '#3b82f6', isFinal: true },
+      { name: Status.CONCLUDED, color: '#10b981', isFinal: true },
+      { name: Status.ARCHIVED, color: '#ef4444', isFinal: true }
     ];
     
     try {
@@ -78,15 +75,6 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
     }
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingStatus) {
-      onAdd(editingStatus);
-      setIsEditModalOpen(false);
-      setEditingStatus(null);
-    }
-  };
-
   const sqlSetup = `-- GESA CLOUD: ESTRUTURA DE ESTADOS DO CICLO
 create table if not exists statuses (
   id uuid primary key default gen_random_uuid(),
@@ -96,6 +84,12 @@ create table if not exists statuses (
   "isFinal" boolean default false,
   "createdAt" timestamp with time zone default now()
 );`;
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlSetup);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
@@ -154,17 +148,11 @@ create table if not exists statuses (
                   {status.isFinal ? <CheckCircle size={24} /> : <Workflow size={24} />}
                </div>
                <div className="flex gap-2">
-                 {status.name === 'EMPENHO / LIQUIDAÇÃO' && (
+                 {(status.name === Status.COMMITMENT_LIQUIDATION || status.isFinal) && (
                     <div className="p-2 bg-blue-50 text-blue-600 rounded-xl" title="Trava de Segurança Ativa">
                       <Lock size={16} />
                     </div>
                  )}
-                 <button 
-                    onClick={() => { setEditingStatus(status); setIsEditModalOpen(true); }}
-                    className="p-2 bg-slate-50 text-slate-400 hover:text-[#0d457a] hover:bg-blue-50 rounded-xl transition-all"
-                 >
-                    <Edit2 size={16} />
-                 </button>
                </div>
             </div>
             <h3 className="font-black text-base text-[#0d457a] uppercase leading-tight mb-4 min-h-[40px]">{status.name}</h3>
@@ -174,6 +162,42 @@ create table if not exists statuses (
           </div>
         ))}
       </div>
+
+      {/* Modal SQL Setup */}
+      {isSqlModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4">
+          <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-emerald-500">
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+               <div className="flex items-center gap-4">
+                  <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+                    <Database size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Script SQL Status</h3>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Sincronização Cloud Status</p>
+                  </div>
+               </div>
+               <button onClick={() => setIsSqlModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
+                  <X size={24} />
+               </button>
+            </div>
+            <div className="p-10 space-y-6">
+               <div className="relative group">
+                  <pre className="bg-slate-900 text-emerald-400 p-8 rounded-[32px] font-mono text-[11px] overflow-x-auto h-48 border border-white/5 shadow-inner custom-scrollbar">
+                      {sqlSetup}
+                  </pre>
+               </div>
+               <button 
+                  onClick={handleCopySql}
+                  className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-[#0a365f] transition-all"
+               >
+                 {copied ? <Check size={18}/> : <Copy size={18}/>}
+                 {copied ? 'Copiado!' : 'Copiar Script SQL'}
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Novo Status */}
       {isModalOpen && (
