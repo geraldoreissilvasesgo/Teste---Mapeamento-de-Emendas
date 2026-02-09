@@ -53,7 +53,7 @@ export const Layout: React.FC<LayoutProps> = ({
       label: 'Carga e Fluxo',
       items: [
         { id: 'import', label: 'Conexão Planilha', icon: Link2 },
-        { id: 'reports', label: 'Relatórios Analíticos', icon: BarChart3 },
+        { id: 'reports', label: 'Central de Relatórios', icon: BarChart3 },
         { id: 'sectors', label: 'Unidades Técnicas', icon: Layers },
         { id: 'statuses', label: 'Ciclo de Vida', icon: Workflow },
       ]

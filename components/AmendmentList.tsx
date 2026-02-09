@@ -7,8 +7,8 @@ import {
   X, User, DollarSign, Calendar, Info, ArrowRight, Save, Loader2,
   LayoutGrid, Briefcase, FileSignature, Landmark, TrendingUp,
   Filter, AlertCircle, Clock, History, Timer, CheckCircle2,
-  ChevronRight as ChevronRightSmall, Quote, Building2, HardDrive, 
-  Settings, ClipboardList, CalendarDays
+  Quote, Building2, HardDrive, Settings, ClipboardList, 
+  CalendarDays, BookOpen, ShieldCheck, Scale, Binary
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 
@@ -22,7 +22,6 @@ interface AmendmentListProps {
   onCreate: (amendment: Amendment) => void;
   onUpdate: (amendment: Amendment) => void;
   onInactivate: (id: string, justification: string) => void;
-  onAddStatus?: (status: StatusConfig) => Promise<StatusConfig>;
   error?: string | null;
 }
 
@@ -38,7 +37,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedTrailAmendment, setSelectedTrailAmendment] = useState<Amendment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -82,13 +80,13 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.seiNumber || !formData.deputyName || !formData.municipality || !formData.object || !formData.value) {
-      notify('warning', 'Campos Obrigatórios', 'Preencha os campos essenciais do processo.');
+      notify('warning', 'Dados Incompletos', 'Preencha todos os campos obrigatórios para protocolo.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const cleanValue = parseFloat(formData.value.replace(/[^\d,]/g, '').replace(',', '.'));
+      const cleanValue = parseFloat(formData.value.replace(/[^\d]/g, '')) / 100 || 0;
       
       const newAmendment: Amendment = {
         id: '', 
@@ -119,14 +117,15 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           dateOut: null,
           deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
           daysSpent: 0,
-          handledBy: 'Sistema GESA',
-          remarks: `Carga inicial. Modalidade: ${formData.transferMode}. GND: ${formData.gnd}.`,
-          analysisType: 'Análise da Documentação'
+          handledBy: 'GESA Portal',
+          remarks: `Protocolo inicial. Modalidade: ${formData.transferMode}. GND: ${formData.gnd}.`,
+          analysisType: 'Abertura de Processo'
         }]
       };
 
       await onCreate(newAmendment);
       setIsCreateModalOpen(false);
+      // Reset
       setFormData({
         seiNumber: '',
         year: new Date().getFullYear(),
@@ -142,286 +141,269 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         suinfra: false,
         sutis: false
       });
-      notify('success', 'Processo Registrado', `SEI ${formData.seiNumber} incluído com sucesso.`);
+      notify('success', 'Registro Efetivado', `SEI ${formData.seiNumber} sincronizado com a base cloud.`);
     } catch (err) {
-      notify('error', 'Falha no Cadastro', 'Ocorreu um erro ao persistir o registro.');
+      notify('error', 'Falha no Banco', 'Ocorreu um erro ao persistir o registro no banco de dados.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleOpenTrail = (e: React.MouseEvent, amendment: Amendment) => {
-    e.stopPropagation();
-    setSelectedTrailAmendment(amendment);
+  const handleValueChange = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    const number = parseFloat(digits) / 100;
+    if (isNaN(number)) {
+      setFormData({ ...formData, value: '' });
+      return;
+    }
+    const formatted = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(number);
+    setFormData({ ...formData, value: formatted });
   };
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-20">
+      {/* HEADER DINÂMICO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h2 className="text-4xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Emendas Impositivas</h2>
+          <h2 className="text-4xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Célula de Processos</h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-3 flex items-center gap-2">
-            <LayoutGrid size={16} className="text-blue-500" /> Visualização em Cards: Exercício {new Date().getFullYear()}
+            <LayoutGrid size={16} className="text-blue-500" /> Fluxo de Tramitação • GESA/SUBIPEI
           </p>
         </div>
         <div className="flex gap-4 w-full md:w-auto">
-          <div className="flex-1 md:w-80 relative">
+          <div className="flex-1 md:w-96 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             <input 
               type="text" 
-              placeholder="PESQUISAR SEI, AUTOR OU OBJETO..."
-              className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-[10px] uppercase text-[#0d457a] shadow-sm focus:ring-4 ring-blue-500/5 transition-all"
+              placeholder="BUSCAR SEI, OBJETO OU AUTOR..."
+              className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-[20px] outline-none font-bold text-[10px] uppercase text-[#0d457a] shadow-sm focus:ring-4 ring-blue-500/5 transition-all"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
           <button 
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#0d457a] text-white px-6 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center gap-3 shrink-0 active:scale-95"
+            className="bg-[#0d457a] text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center gap-3 shrink-0 active:scale-95"
           >
-            <Plus size={18} /> Novo Registro
+            <Plus size={20} /> Novo Protocolo
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {/* GRID DE CARDS GOVERNAMENTAIS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {paginatedData.map((amendment) => (
           <div 
             key={amendment.id} 
             onClick={() => onSelect(amendment)}
-            className="group bg-white rounded-[40px] border border-slate-200 shadow-sm hover:shadow-2xl hover:border-blue-100 transition-all cursor-pointer flex flex-col p-8 overflow-hidden relative active:scale-[0.98]"
+            className="group bg-white rounded-[48px] border border-slate-200 shadow-sm hover:shadow-2xl hover:border-blue-100 transition-all cursor-pointer flex flex-col p-10 overflow-hidden relative"
           >
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">{amendment.type}</span>
-                <h3 className="text-lg font-black text-[#0d457a] uppercase tracking-tighter group-hover:text-blue-600 transition-colors">
+            <div className="flex justify-between items-start mb-8">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.25em]">{amendment.type}</span>
+                <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter group-hover:text-blue-600 transition-colors">
                   {amendment.seiNumber}
                 </h3>
               </div>
-              <button 
-                onClick={(e) => handleOpenTrail(e, amendment)}
-                className="p-3 bg-slate-50 text-[#0d457a] hover:bg-blue-500 hover:text-white rounded-2xl transition-all shadow-sm border border-slate-100 flex items-center gap-2"
-                title="Ver Trilha Rápida"
-              >
-                <History size={16} />
-                <span className="text-[8px] font-black uppercase tracking-widest hidden sm:inline">Ver Trilha</span>
-              </button>
+              <div className="p-4 bg-slate-50 text-[#0d457a] rounded-2xl border border-slate-100 group-hover:bg-blue-50 transition-colors">
+                <FileText size={20} />
+              </div>
             </div>
 
-            <div className="flex-1 space-y-4">
-              <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group-hover:bg-white transition-all">
+            <div className="flex-1 space-y-6">
+              <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 group-hover:bg-white transition-all">
                 <p className="text-[11px] font-bold text-slate-500 uppercase leading-relaxed line-clamp-3">
                   {amendment.object}
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <User size={14} />
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-sm">
+                    <User size={16} />
                   </div>
-                  <span className="text-[10px] font-black text-[#0d457a] uppercase truncate">{amendment.deputyName}</span>
+                  <div className="min-w-0">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Autor</p>
+                    <p className="text-[10px] font-black text-[#0d457a] uppercase truncate">{amendment.deputyName}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                    <MapPin size={14} />
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
+                    <MapPin size={16} />
                   </div>
-                  <span className="text-[10px] font-black text-slate-500 uppercase truncate">{amendment.municipality}</span>
+                  <div className="min-w-0">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Município</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase truncate">{amendment.municipality}</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
+            <div className="mt-10 pt-8 border-t border-slate-100 flex items-end justify-between">
               <div className="flex flex-col">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Valor do Repasse</span>
-                <span className="text-base font-black text-emerald-600 tracking-tight">{formatBRL(amendment.value)}</span>
+                <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Valor Nominal</span>
+                <span className="text-xl font-black text-emerald-600 tracking-tight">{formatBRL(amendment.value)}</span>
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Unidade Atual</span>
-                <span className="text-[9px] font-black text-[#0d457a] uppercase bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">{amendment.currentSector}</span>
+                <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Status GESA</span>
+                <span className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-[9px] font-black uppercase border border-blue-100">{amendment.status}</span>
               </div>
             </div>
           </div>
         ))}
       </div>
 
+      {/* PAGINAÇÃO */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 pt-8">
-           <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-5 bg-white border border-slate-200 rounded-[24px] text-[#0d457a] disabled:opacity-30 shadow-sm hover:bg-blue-50 transition-all"><ChevronLeft size={24} /></button>
-           <span className="text-[11px] font-black uppercase tracking-widest bg-white px-8 py-5 rounded-[24px] shadow-sm border border-slate-200">Página {currentPage} de {totalPages}</span>
-           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-5 bg-white border border-slate-200 rounded-[24px] text-[#0d457a] disabled:opacity-30 shadow-sm hover:bg-blue-50 transition-all"><ChevronRight size={24} /></button>
+        <div className="flex justify-center items-center gap-4 pt-12">
+           <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-5 bg-white border border-slate-200 rounded-[28px] text-[#0d457a] shadow-sm hover:bg-blue-50 transition-all disabled:opacity-30"><ChevronLeft size={24} /></button>
+           <div className="bg-white px-10 py-5 rounded-[28px] shadow-sm border border-slate-200">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#0d457a]">Página {currentPage} de {totalPages}</span>
+           </div>
+           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-5 bg-white border border-slate-200 rounded-[28px] text-[#0d457a] shadow-sm hover:bg-blue-50 transition-all disabled:opacity-30"><ChevronRight size={24} /></button>
         </div>
       )}
 
-      {/* MODAL DE CADASTRO EXPANDIDO - TODOS OS DADOS */}
+      {/* MODAL DE PROTOCOLO ROBUSTO (PADRÃO SES-GO) */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4 overflow-y-auto">
-          <div className="bg-white rounded-[48px] w-full max-w-5xl shadow-2xl animate-in zoom-in-95 duration-300 my-auto border border-white/10">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-               <div className="flex items-center gap-4">
-                  <div className="p-4 bg-[#0d457a] text-white rounded-3xl shadow-xl">
-                     <FileSignature size={32} />
+          <div className="bg-white rounded-[60px] w-full max-w-6xl shadow-2xl animate-in zoom-in-95 duration-300 my-auto border border-white/10 flex flex-col max-h-[95vh] overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="p-12 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-[60px] shrink-0">
+               <div className="flex items-center gap-6">
+                  <div className="p-5 bg-[#0d457a] text-white rounded-[32px] shadow-2xl">
+                     <FileSignature size={40} />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Ingestão de Processo GESA</h3>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Conformidade com Decreto 10.634/2025</p>
+                    <h3 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Novo Protocolo Governamental</h3>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">GESA Cloud Native • Emendas e Repasses</p>
                   </div>
                </div>
-               <button onClick={() => setIsCreateModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
-                  <X size={24} className="text-slate-400" />
+               <button onClick={() => setIsCreateModalOpen(false)} className="p-4 hover:bg-white rounded-2xl shadow-sm transition-all border border-transparent hover:border-slate-200">
+                  <X size={32} className="text-slate-400" />
                </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="p-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <form onSubmit={handleCreateSubmit} className="flex-1 p-12 overflow-y-auto custom-scrollbar space-y-12">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
                 
-                {/* COLUNA 1: DADOS DO PROCESSO */}
-                <div className="space-y-6">
-                   <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 flex items-center gap-3">
-                      <ClipboardList size={18} className="text-blue-600" />
-                      <h4 className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Dados Processuais</h4>
+                {/* GRUPO 1: PROTOCOLO E IDENTIFICAÇÃO */}
+                <div className="space-y-8">
+                   <div className="flex items-center gap-4 mb-10">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center"><ClipboardList size={20}/></div>
+                      <h4 className="text-xs font-black text-[#0d457a] uppercase tracking-widest">Protocolo e Origem</h4>
                    </div>
                    
                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Nº SEI (Completo) *</label>
-                      <input type="text" required placeholder="Ex: 2026.0001.XXXXX" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-xs outline-none focus:ring-4 ring-blue-500/5 transition-all" value={formData.seiNumber} onChange={(e) => setFormData({...formData, seiNumber: e.target.value})} />
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Processo SEI (Principal) *</label>
+                      <input type="text" required placeholder="XXXX.XXXX.XXXXXXX" className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] uppercase text-xs outline-none focus:border-blue-500 transition-all shadow-inner" value={formData.seiNumber} onChange={(e) => setFormData({...formData, seiNumber: e.target.value})} />
                    </div>
 
                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Exercício *</label>
-                        <input type="number" required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] text-xs outline-none" value={formData.year} onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})} />
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Exercício *</label>
+                        <input type="number" required className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] text-xs outline-none focus:border-blue-500" value={formData.year} onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})} />
                       </div>
                       <div>
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Entrada GESA *</label>
-                        <input type="date" required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] text-xs outline-none" value={formData.entryDate} onChange={(e) => setFormData({...formData, entryDate: e.target.value})} />
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Data de Protocolo *</label>
+                        <input type="date" required className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] text-xs outline-none focus:border-blue-500" value={formData.entryDate} onChange={(e) => setFormData({...formData, entryDate: e.target.value})} />
                       </div>
                    </div>
 
                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Tipo de Emenda *</label>
-                      <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-[10px] outline-none" value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value as AmendmentType})}>
-                        {Object.values(AmendmentType).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                   </div>
-                </div>
-
-                {/* COLUNA 2: FINANCEIRO E CLASSIFICAÇÃO */}
-                <div className="space-y-6">
-                   <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 flex items-center gap-3">
-                      <TrendingUp size={18} className="text-emerald-600" />
-                      <h4 className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Orçamentário</h4>
-                   </div>
-
-                   <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">GND (Grupo Despesa)</label>
-                      <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-[10px] outline-none" value={formData.gnd} onChange={(e) => setFormData({...formData, gnd: e.target.value as GNDType})}>
-                        {Object.values(GNDType).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                   </div>
-
-                   <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Modalidade de Repasse</label>
-                      <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-[10px] outline-none" value={formData.transferMode} onChange={(e) => setFormData({...formData, transferMode: e.target.value as TransferMode})}>
-                        {Object.values(TransferMode).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                   </div>
-
-                   <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Valor Nominal (R$) *</label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                        <input type="text" required className="w-full pl-12 pr-5 py-4 bg-[#0d457a] text-white rounded-xl font-black text-xl outline-none" placeholder="0,00" value={formData.value} onChange={(e) => {
-                            let val = e.target.value.replace(/\D/g, "");
-                            val = (Number(val) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                            setFormData({...formData, value: val});
-                          }}
-                        />
-                      </div>
-                   </div>
-                </div>
-
-                {/* COLUNA 3: IDENTIFICAÇÃO E ORIGEM */}
-                <div className="space-y-6">
-                   <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 flex items-center gap-3">
-                      <MapPin size={18} className="text-purple-600" />
-                      <h4 className="text-[10px] font-black text-purple-900 uppercase tracking-widest">Identificação</h4>
-                   </div>
-
-                   <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Parlamentar Autor *</label>
-                      <select required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-[10px] outline-none" value={formData.deputyName} onChange={(e) => setFormData({...formData, deputyName: e.target.value})}>
-                        <option value="">SELECIONE...</option>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Parlamentar / Autor *</label>
+                      <select required className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] uppercase text-[10px] outline-none focus:border-blue-500" value={formData.deputyName} onChange={(e) => setFormData({...formData, deputyName: e.target.value})}>
+                        <option value="">SELECIONE O AUTOR...</option>
                         {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                    </div>
+                </div>
+
+                {/* GRUPO 2: CLASSIFICAÇÃO ORÇAMENTÁRIA */}
+                <div className="space-y-8">
+                   <div className="flex items-center gap-4 mb-10">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center"><TrendingUp size={20}/></div>
+                      <h4 className="text-xs font-black text-[#0d457a] uppercase tracking-widest">Plano Orçamentário</h4>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">GND (Gasto)</label>
+                        <select className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] uppercase text-[10px] outline-none focus:border-blue-500" value={formData.gnd} onChange={(e) => setFormData({...formData, gnd: e.target.value as GNDType})}>
+                          {Object.values(GNDType).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Modalidade</label>
+                        <select className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] uppercase text-[10px] outline-none focus:border-blue-500" value={formData.transferMode} onChange={(e) => setFormData({...formData, transferMode: e.target.value as TransferMode})}>
+                          {Object.values(TransferMode).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                   </div>
 
                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Município Beneficiado *</label>
-                      <select required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-[10px] outline-none" value={formData.municipality} onChange={(e) => setFormData({...formData, municipality: e.target.value})}>
-                        <option value="">SELECIONE...</option>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Valor Nominal (R$) *</label>
+                      <input 
+                        type="text" required 
+                        placeholder="R$ 0,00" 
+                        className="w-full px-8 py-6 bg-emerald-50 border-2 border-emerald-100 rounded-[32px] font-black text-emerald-700 text-2xl outline-none focus:border-emerald-500 transition-all shadow-inner" 
+                        value={formData.value} 
+                        onChange={(e) => handleValueChange(e.target.value)} 
+                      />
+                   </div>
+
+                   <div className="space-y-4 pt-6">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-1">Checkpoints de Conformidade</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <label className={`flex items-center justify-between p-5 rounded-[24px] border-2 transition-all cursor-pointer ${formData.suinfra ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                           <span className="text-[9px] font-black uppercase text-slate-600">SUINFRA (Obras)</span>
+                           <input type="checkbox" checked={formData.suinfra} onChange={(e) => setFormData({...formData, suinfra: e.target.checked})} className="w-5 h-5 rounded-lg text-emerald-600" />
+                        </label>
+                        <label className={`flex items-center justify-between p-5 rounded-[24px] border-2 transition-all cursor-pointer ${formData.sutis ? 'bg-blue-50 border-blue-500' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                           <span className="text-[9px] font-black uppercase text-slate-600">SUTIS (Tecnologia)</span>
+                           <input type="checkbox" checked={formData.sutis} onChange={(e) => setFormData({...formData, sutis: e.target.checked})} className="w-5 h-5 rounded-lg text-blue-600" />
+                        </label>
+                      </div>
+                   </div>
+                </div>
+
+                {/* GRUPO 3: BENEFICIÁRIO E OBJETO */}
+                <div className="space-y-8">
+                   <div className="flex items-center gap-4 mb-10">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center"><Building2 size={20}/></div>
+                      <h4 className="text-xs font-black text-[#0d457a] uppercase tracking-widest">Beneficiário e Objeto</h4>
+                   </div>
+
+                   <div>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Município de Aplicação *</label>
+                      <select required className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] uppercase text-[10px] outline-none focus:border-blue-500" value={formData.municipality} onChange={(e) => setFormData({...formData, municipality: e.target.value})}>
+                        <option value="">CIDADE...</option>
                         {GOIAS_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                    </div>
 
                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Unidade Beneficiada (Fundo/Hospital)</label>
-                      <input type="text" placeholder="Ex: FUNDO MUNICIPAL DE SAÚDE" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-black text-[#0d457a] uppercase text-xs outline-none" value={formData.beneficiaryUnit} onChange={(e) => setFormData({...formData, beneficiaryUnit: e.target.value})} />
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Objeto Detalhado *</label>
+                      <textarea required className="w-full px-8 py-6 bg-slate-50 border-2 border-slate-100 rounded-[32px] font-bold text-[#0d457a] uppercase text-xs outline-none focus:border-blue-500 h-44 resize-none shadow-inner leading-relaxed" placeholder="DESCREVA A FINALIDADE DOS RECURSOS..." value={formData.object} onChange={(e) => setFormData({...formData, object: e.target.value})} />
                    </div>
                 </div>
               </div>
 
-              {/* AREA DE OBJETO E FLAGS TECNICAS */}
-              <div className="mt-10 pt-10 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-10">
-                 <div className="space-y-4">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Descrição do Objeto *</label>
-                    <textarea required className="w-full p-5 bg-slate-50 border border-slate-200 rounded-3xl font-medium text-slate-600 uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all h-32 resize-none text-[11px] leading-relaxed shadow-inner" placeholder="DESCREVA CONFORME PLANILHA DE ORIGEM..." value={formData.object} onChange={(e) => setFormData({...formData, object: e.target.value})} />
-                 </div>
-
-                 <div className="space-y-6">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Tramitação Especial (Vetos/Análises)</label>
-                    <div className="grid grid-cols-1 gap-4">
-                       <div 
-                         onClick={() => setFormData({...formData, suinfra: !formData.suinfra})}
-                         className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group ${formData.suinfra ? 'bg-amber-50 border-amber-300' : 'bg-white border-slate-100 hover:border-slate-200'}`}
-                       >
-                          <div className="flex items-center gap-4">
-                             <div className={`p-3 rounded-xl ${formData.suinfra ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                <HardDrive size={20} />
-                             </div>
-                             <div>
-                                <h5 className={`text-[11px] font-black uppercase ${formData.suinfra ? 'text-amber-800' : 'text-slate-500'}`}>Exige Parecer SUINFRA</h5>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">Processos de Obras e Engenharia</p>
-                             </div>
-                          </div>
-                          {formData.suinfra && <CheckCircle2 className="text-amber-500" size={20} />}
-                       </div>
-
-                       <div 
-                         onClick={() => setFormData({...formData, sutis: !formData.sutis})}
-                         className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group ${formData.sutis ? 'bg-blue-50 border-blue-300' : 'bg-white border-slate-100 hover:border-slate-200'}`}
-                       >
-                          <div className="flex items-center gap-4">
-                             <div className={`p-3 rounded-xl ${formData.sutis ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                <Settings size={20} />
-                             </div>
-                             <div>
-                                <h5 className={`text-[11px] font-black uppercase ${formData.sutis ? 'text-blue-800' : 'text-slate-500'}`}>Exige Parecer SUTIS</h5>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">Aquisição de TI e Software</p>
-                             </div>
-                          </div>
-                          {formData.sutis && <CheckCircle2 className="text-blue-500" size={20} />}
-                       </div>
-                    </div>
-                 </div>
-              </div>
-
-              <div className="mt-12 flex justify-end gap-4 pb-4">
-                 <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-[#0d457a]">Descartar</button>
-                 <button type="submit" disabled={isSubmitting} className="bg-emerald-500 text-white px-16 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-4 group active:scale-95">
-                   {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} className="group-hover:scale-110 transition-transform" />}
-                   Efetivar Registro no GESA Cloud
-                 </button>
+              {/* Botões de Ação */}
+              <div className="flex flex-col sm:flex-row justify-end gap-6 pt-12 border-t border-slate-100 no-print">
+                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-12 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-colors">Descartar Protocolo</button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="bg-[#0d457a] text-white px-20 py-8 rounded-[36px] font-black uppercase text-sm tracking-[0.3em] shadow-2xl hover:bg-[#0a365f] transition-all flex items-center gap-5 disabled:opacity-50 hover:scale-105 active:scale-95"
+                >
+                  {isSubmitting ? <Loader2 size={28} className="animate-spin" /> : <Save size={28} />}
+                  Gravar Processo no Sistema
+                </button>
               </div>
             </form>
           </div>
