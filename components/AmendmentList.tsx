@@ -88,6 +88,8 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     try {
       const cleanValue = parseFloat(formData.value.replace(/[^\d]/g, '')) / 100 || 0;
       
+      const INITIAL_SECTOR = 'SES/CEP-20903';
+
       const newAmendment: Amendment = {
         id: '', // Será gerado UUID no serviço
         tenantId: 'GOIAS',
@@ -102,7 +104,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         object: formData.object,
         value: cleanValue,
         status: 'Análise da Documentação',
-        currentSector: sectors[0]?.name || 'SES/CEP-20903',
+        currentSector: INITIAL_SECTOR,
         createdAt: new Date().toISOString(),
         transferMode: formData.transferMode,
         gnd: formData.gnd,
@@ -112,7 +114,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           id: `mov-init-${Date.now()}`,
           amendmentId: '',
           fromSector: 'Protocolo Externo',
-          toSector: sectors[0]?.name || 'SES/CEP-20903',
+          toSector: INITIAL_SECTOR,
           dateIn: new Date().toISOString(),
           dateOut: null,
           deadline: new Date(Date.now() + 5 * 86400000).toISOString(),

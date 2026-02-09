@@ -1,7 +1,7 @@
 
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 3.0.0-stable (Multi-user Robustness)
+ * Versão: 3.1.0-stable (Locking Mechanism)
  */
 
 export enum SystemMode {
@@ -54,13 +54,14 @@ export enum Status {
   TECHNICAL_FLOW = 'Em Tramitação Técnica',
   DILIGENCE = 'Em Diligência',
   LEGAL_OPINION = 'Aguardando Parecer Jurídico',
+  COMMITMENT_LIQUIDATION = 'EMPENHO / LIQUIDAÇÃO',
   CONCLUDED = 'Liquidado / Pago',
   ARCHIVED = 'Arquivado / Rejeitado'
 }
 
 export interface User {
   id: string;
-  tenantId: string; // Identificador da Secretaria (Ex: SES-GO, SEDUC-GO)
+  tenantId: string;
   name: string;
   email: string;
   role: Role;
@@ -68,7 +69,7 @@ export interface User {
   avatarUrl?: string;
   lgpdAccepted: boolean;
   mfaEnabled?: boolean;
-  api_key?: string; // Para o Portal de Integração
+  api_key?: string;
 }
 
 export interface AmendmentMovement {
@@ -100,7 +101,7 @@ export interface Amendment {
   status: string;
   currentSector: string;
   createdAt: string;
-  updatedAt?: string; // Para controle de concorrência
+  updatedAt?: string;
   entryDate?: string;
   suinfra?: boolean;
   sutis?: boolean;
@@ -148,6 +149,7 @@ export const PROCESS_PHASES = [
   { id: 'start', label: 'Protocolo', statuses: [Status.DOCUMENT_ANALYSIS] },
   { id: 'tech', label: 'Análise Técnica', statuses: [Status.TECHNICAL_FLOW, Status.DILIGENCE] },
   { id: 'legal', label: 'Conformidade', statuses: [Status.LEGAL_OPINION] },
+  { id: 'exec', label: 'Empenho', statuses: [Status.COMMITMENT_LIQUIDATION] },
   { id: 'end', label: 'Liquidação', statuses: [Status.CONCLUDED, Status.ARCHIVED] }
 ];
 

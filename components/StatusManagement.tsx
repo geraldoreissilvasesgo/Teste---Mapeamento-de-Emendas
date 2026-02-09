@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { StatusConfig } from '../types';
 import { 
@@ -43,6 +42,7 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
       { name: 'EM TRAMITAÇÃO TÉCNICA', color: '#0d457a', isFinal: false },
       { name: 'EM DILIGÊNCIA', color: '#f59e0b', isFinal: false },
       { name: 'AGUARDANDO PARECER JURÍDICO', color: '#8b5cf6', isFinal: false },
+      { name: 'EMPENHO / LIQUIDAÇÃO', color: '#3b82f6', isFinal: true }, // Marcado como final para ativar lock
       { name: 'LIQUIDADO / PAGO', color: '#10b981', isFinal: true },
       { name: 'ARQUIVADO / REJEITADO', color: '#ef4444', isFinal: true }
     ];
@@ -74,7 +74,6 @@ export const StatusManagement: React.FC<StatusManagementProps> = ({
         isFinal: newStatus.isFinal || false
       } as StatusConfig);
       setIsModalOpen(false);
-      // Fix: Corrected the call from setNewSector to setNewStatus to reset the form state
       setNewStatus({ name: '', color: '#0d457a', isFinal: false });
     }
   };
@@ -154,17 +153,80 @@ create table if not exists statuses (
                <div className="w-12 h-12 rounded-2xl shadow-inner flex items-center justify-center" style={{ backgroundColor: `${status.color}15`, color: status.color }}>
                   {status.isFinal ? <CheckCircle size={24} /> : <Workflow size={24} />}
                </div>
-               <button 
-                  onClick={() => { setEditingStatus(status); setIsEditModalOpen(true); }}
-                  className="p-2 bg-slate-50 text-slate-400 hover:text-[#0d457a] hover:bg-blue-50 rounded-xl transition-all"
-               >
-                  <Edit2 size={16} />
-               </button>
+               <div className="flex gap-2">
+                 {status.name === 'EMPENHO / LIQUIDAÇÃO' && (
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-xl" title="Trava de Segurança Ativa">
+                      <Lock size={16} />
+                    </div>
+                 )}
+                 <button 
+                    onClick={() => { setEditingStatus(status); setIsEditModalOpen(true); }}
+                    className="p-2 bg-slate-50 text-slate-400 hover:text-[#0d457a] hover:bg-blue-50 rounded-xl transition-all"
+                 >
+                    <Edit2 size={16} />
+                 </button>
+               </div>
             </div>
             <h3 className="font-black text-base text-[#0d457a] uppercase leading-tight mb-4 min-h-[40px]">{status.name}</h3>
+            {status.isFinal && (
+               <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Estado de Bloqueio Ativo</p>
+            )}
           </div>
         ))}
       </div>
+
+      {/* Modal de Novo Status */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-md p-4">
+          <form onSubmit={handleSubmit} className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-[40px]">
+               <h3 className="text-lg font-black text-[#0d457a] uppercase tracking-tighter">Novo Estado do Ciclo</h3>
+               <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white rounded-xl transition-all">
+                  <X size={20} className="text-slate-400" />
+               </button>
+            </div>
+            <div className="p-10 space-y-6">
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Status *</label>
+                  <input 
+                    type="text" required
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all text-xs"
+                    value={newStatus.name}
+                    onChange={(e) => setNewStatus({...newStatus, name: e.target.value})}
+                  />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cor de Identificação</label>
+                    <input 
+                      type="color"
+                      className="w-full h-14 bg-slate-50 border border-slate-200 rounded-2xl outline-none p-2 cursor-pointer"
+                      value={newStatus.color}
+                      onChange={(e) => setNewStatus({...newStatus, color: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2 flex flex-col justify-end">
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        className="w-5 h-5 rounded border-slate-300"
+                        checked={newStatus.isFinal}
+                        onChange={(e) => setNewStatus({...newStatus, isFinal: e.target.checked})}
+                      />
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Travar Edição (Final)</span>
+                    </label>
+                  </div>
+               </div>
+               <button 
+                  type="submit"
+                  className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center justify-center gap-3"
+               >
+                 <Save size={18} /> Efetivar Status
+               </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
