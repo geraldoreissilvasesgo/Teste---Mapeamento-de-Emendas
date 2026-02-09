@@ -18,7 +18,7 @@ export const generateUUID = () => {
   });
 };
 
-const handleDbError = (error: any) => {
+const handleDbError = (error: any): any => {
   if (error.code === 'PGRST116') return null;
   if (error.code === 'PGRST104' || error.message?.includes('does not exist')) throw new Error('TABLE_MISSING');
   if (error.code === '42501' || error.message?.includes('permission denied')) throw new Error('PERMISSION_DENIED');
@@ -33,7 +33,10 @@ export const db = {
         .select('*')
         .eq('tenantId', tenantId)
         .order('createdAt', { ascending: false });
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async upsert(amendment: Partial<Amendment>) {
@@ -92,7 +95,10 @@ export const db = {
   users: {
     async getAll(tenantId: string): Promise<User[]> {
       const { data, error } = await supabase.from('users').select('*').eq('tenantId', tenantId);
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async getByEmail(email: string): Promise<User | null> {
@@ -113,7 +119,10 @@ export const db = {
   sectors: {
     async getAll(tenantId: string): Promise<SectorConfig[]> {
       const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId);
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async upsert(sector: Partial<SectorConfig>) {
@@ -125,7 +134,10 @@ export const db = {
   statuses: {
     async getAll(tenantId: string): Promise<StatusConfig[]> {
       const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId);
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     },
     async upsert(status: Partial<StatusConfig>) {
@@ -141,7 +153,10 @@ export const db = {
     },
     async getAll(tenantId: string): Promise<AuditLog[]> {
       const { data, error } = await supabase.from('audit_logs').select('*').eq('tenantId', tenantId).order('timestamp', { ascending: false });
-      if (error) return handleDbError(error);
+      if (error) {
+        handleDbError(error);
+        return [];
+      }
       return data || [];
     }
   },

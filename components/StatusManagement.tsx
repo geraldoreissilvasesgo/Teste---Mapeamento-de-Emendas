@@ -4,7 +4,7 @@ import { StatusConfig } from '../types';
 import { 
   Plus, X, Tag, Info, Search, Save, Pencil, Trash2, ShieldAlert,
   Database, CheckCircle2, Loader2, Copy, Check, Terminal, Edit2, Zap, ShieldCheck, CheckCircle,
-  Import, Filter, ListTree, Workflow, RefreshCw, Cloud
+  Import, Filter, ListTree, Workflow, RefreshCw, Cloud, Lock
 } from 'lucide-react';
 
 interface StatusManagementProps {
