@@ -51,30 +51,6 @@ const AppContent: React.FC = () => {
     audit?: string;
   }>({});
 
-  useEffect(() => {
-    const initSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.email) {
-          const profile = await db.users.getByEmail(session.user.email);
-          if (profile) setCurrentUser(profile);
-          else {
-            const saved = localStorage.getItem('gesa_current_user');
-            if (saved) setCurrentUser(JSON.parse(saved));
-          }
-        } else {
-          const saved = localStorage.getItem('gesa_current_user');
-          if (saved) setCurrentUser(JSON.parse(saved));
-        }
-      } catch (e) {
-        console.error("Session init failed:", e);
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-    initSession();
-  }, []);
-
   const fetchData = useCallback(async () => {
     if (!currentUser) return;
     const tId = currentUser.tenantId;
@@ -105,60 +81,76 @@ const AppContent: React.FC = () => {
     setIsLoadingData(false);
   }, [currentUser]);
 
-  // Efeito para Realtime e Presence
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email) {
+          const profile = await db.users.getByEmail(session.user.email);
+          if (profile) setCurrentUser(profile);
+          else {
+            const saved = localStorage.getItem('gesa_current_user');
+            if (saved) setCurrentUser(JSON.parse(saved));
+          }
+        } else {
+          const saved = localStorage.getItem('gesa_current_user');
+          if (saved) setCurrentUser(JSON.parse(saved));
+        }
+      } catch (e) {
+        console.error("Session init failed:", e);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    initSession();
+  }, []);
+
   useEffect(() => {
     if (!currentUser) return;
-
-    // Assinatura de Alterações em Tempo Real (Concorrência)
-    const amendmentsSub = db.amendments.subscribe(currentUser.tenantId, (payload) => {
-      const { eventType, new: newRecord, old: oldRecord } = payload;
-      
-      setAmendments(prev => {
-        if (eventType === 'INSERT') return [newRecord as Amendment, ...prev];
-        if (eventType === 'UPDATE') {
-          if (selectedAmendment?.id === newRecord.id) {
-            setSelectedAmendment(newRecord as Amendment);
-            notify('info', 'Processo Atualizado', `O registro ${newRecord.seiNumber} foi alterado por outro servidor.`);
-          }
-          return prev.map(a => a.id === newRecord.id ? (newRecord as Amendment) : a);
-        }
-        if (eventType === 'DELETE') return prev.filter(a => a.id === oldRecord.id);
-        return prev;
-      });
-    });
-
-    // Assinatura de Presença (Evita conflitos de "usuário fantasma")
-    const presenceSub = db.presence.subscribe(currentUser.tenantId, currentUser, (users) => {
-      setOnlineUsers(users);
-    });
-
     fetchData();
-
-    return () => {
-      amendmentsSub.unsubscribe();
-      presenceSub.unsubscribe();
-    };
-  }, [currentUser, fetchData, selectedAmendment, notify]);
+  }, [currentUser, fetchData]);
 
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
-      const saved = await db.amendments.upsert({ ...amendment, tenantId: currentUser?.tenantId });
+      const isNew = !amendment.id;
+      
+      // Tentativa de gravação no Supabase
+      const saved = await db.amendments.upsert({ 
+        ...amendment, 
+        tenantId: currentUser?.tenantId || 'GOIAS' 
+      });
       
       await db.audit.log({
         tenantId: currentUser?.tenantId,
         actorId: currentUser?.id,
         actorName: currentUser?.name,
-        action: amendment.id ? AuditAction.UPDATE : AuditAction.CREATE,
-        details: `${amendment.id ? 'Edição' : 'Criação'} do processo SEI ${amendment.seiNumber}`,
+        action: isNew ? AuditAction.CREATE : AuditAction.UPDATE,
+        details: `${isNew ? 'Criação' : 'Edição'} do processo SEI ${amendment.seiNumber}`,
         severity: 'INFO'
       });
 
-      // Nota: O estado 'amendments' será atualizado pelo listener de Realtime automaticamente.
-      // Aqui apenas tratamos a seleção atual.
-      if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
-      notify('success', 'Operação Sincronizada', `Os dados foram persistidos para todos os operadores.`);
+      notify('success', 'Registro Efetivado', `Processo ${amendment.seiNumber} gravado com sucesso.`);
+      
+      if (isNew) {
+        // Se for novo cadastro, recarrega a página após breve delay (conforme pedido)
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        await fetchData();
+        if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
+      }
     } catch (err: any) {
-      notify('error', 'Erro de Concorrência', `Falha ao salvar. Verifique sua conexão.`);
+      console.error("Save error:", err);
+      notify('warning', 'Modo Offline Ativo', 'Não foi possível gravar no banco cloud. O registro foi mantido na memória local desta sessão.');
+      
+      // Fallback local para não perder o trabalho do usuário
+      if (!amendment.id) {
+        const localMock = { ...amendment, id: `local-${Date.now()}` };
+        setAmendments(prev => [localMock, ...prev]);
+      } else {
+        setAmendments(prev => prev.map(a => a.id === amendment.id ? amendment : a));
+      }
     }
   };
 
