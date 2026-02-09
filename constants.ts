@@ -97,11 +97,12 @@ export const GOIAS_CITIES = [
   'Valparaíso de Goiás', 'Varjão', 'Vianópolis', 'Vicentinópolis', 'Vila Boa', 'Vila Propício'
 ].sort();
 
+// Fix: Added missing tenantId property to each sector config to satisfy the SectorConfig interface requirements.
 export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [
-  { id: 'sec-01', name: 'SES/CEP-20903', defaultSlaDays: 5, analysisType: 'Análise da Documentação' },
-  { id: 'sec-02', name: 'SES/SUBIPEI-21286', defaultSlaDays: 7, analysisType: 'Em Tramitação Técnica' },
-  { id: 'sec-03', name: 'SES/GCONV', defaultSlaDays: 10, analysisType: 'Aguardando Parecer Jurídico' },
-  { id: 'sec-04', name: 'SES/FES', defaultSlaDays: 3, analysisType: 'Liquidado / Pago' }
+  { id: 'sec-01', tenantId: 'GOIAS', name: 'SES/CEP-20903', defaultSlaDays: 5, analysisType: 'Análise da Documentação' },
+  { id: 'sec-02', tenantId: 'GOIAS', name: 'SES/SUBIPEI-21286', defaultSlaDays: 7, analysisType: 'Em Tramitação Técnica' },
+  { id: 'sec-03', tenantId: 'GOIAS', name: 'SES/GCONV', defaultSlaDays: 10, analysisType: 'Aguardando Parecer Jurídico' },
+  { id: 'sec-04', tenantId: 'GOIAS', name: 'SES/FES', defaultSlaDays: 3, analysisType: 'Liquidado / Pago' }
 ];
 
 export const MOCK_USERS: User[] = [

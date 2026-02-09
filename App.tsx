@@ -31,6 +31,7 @@ const AppContent: React.FC = () => {
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -50,25 +51,18 @@ const AppContent: React.FC = () => {
     audit?: string;
   }>({});
 
-  // Efeito de Inicialização de Sessão
   useEffect(() => {
     const initSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (session?.user?.email) {
-          // Recupera o perfil do banco para garantir as 'roles' corretas
           const profile = await db.users.getByEmail(session.user.email);
-          if (profile) {
-            setCurrentUser(profile);
-          } else {
-            // Fallback para o que estiver no localStorage se houver erro de rede, 
-            // mas priorizando a segurança do banco
+          if (profile) setCurrentUser(profile);
+          else {
             const saved = localStorage.getItem('gesa_current_user');
             if (saved) setCurrentUser(JSON.parse(saved));
           }
         } else {
-          // Tenta carregar do localStorage apenas se houver uma persistência de "lembrar e-mail"
           const saved = localStorage.getItem('gesa_current_user');
           if (saved) setCurrentUser(JSON.parse(saved));
         }
@@ -96,8 +90,6 @@ const AppContent: React.FC = () => {
         if (err.message === 'TABLE_MISSING') {
           setDbErrors(prev => ({ ...prev, [key]: 'DATABASE_SETUP_REQUIRED' }));
           setter(fallback);
-        } else {
-          console.error(`Read error on ${String(key)}:`, err.message);
         }
       }
     };
@@ -113,9 +105,40 @@ const AppContent: React.FC = () => {
     setIsLoadingData(false);
   }, [currentUser]);
 
+  // Efeito para Realtime e Presence
   useEffect(() => {
-    if (currentUser) fetchData();
-  }, [currentUser, fetchData]);
+    if (!currentUser) return;
+
+    // Assinatura de Alterações em Tempo Real (Concorrência)
+    const amendmentsSub = db.amendments.subscribe(currentUser.tenantId, (payload) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      
+      setAmendments(prev => {
+        if (eventType === 'INSERT') return [newRecord as Amendment, ...prev];
+        if (eventType === 'UPDATE') {
+          if (selectedAmendment?.id === newRecord.id) {
+            setSelectedAmendment(newRecord as Amendment);
+            notify('info', 'Processo Atualizado', `O registro ${newRecord.seiNumber} foi alterado por outro servidor.`);
+          }
+          return prev.map(a => a.id === newRecord.id ? (newRecord as Amendment) : a);
+        }
+        if (eventType === 'DELETE') return prev.filter(a => a.id === oldRecord.id);
+        return prev;
+      });
+    });
+
+    // Assinatura de Presença (Evita conflitos de "usuário fantasma")
+    const presenceSub = db.presence.subscribe(currentUser.tenantId, currentUser, (users) => {
+      setOnlineUsers(users);
+    });
+
+    fetchData();
+
+    return () => {
+      amendmentsSub.unsubscribe();
+      presenceSub.unsubscribe();
+    };
+  }, [currentUser, fetchData, selectedAmendment, notify]);
 
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
@@ -125,47 +148,17 @@ const AppContent: React.FC = () => {
         tenantId: currentUser?.tenantId,
         actorId: currentUser?.id,
         actorName: currentUser?.name,
-        action: AuditAction.UPDATE,
-        details: `Gravação do processo SEI ${amendment.seiNumber}`,
+        action: amendment.id ? AuditAction.UPDATE : AuditAction.CREATE,
+        details: `${amendment.id ? 'Edição' : 'Criação'} do processo SEI ${amendment.seiNumber}`,
         severity: 'INFO'
       });
 
-      setAmendments(prev => {
-        const exists = prev.some(a => a.id === saved.id);
-        if (exists) {
-          return prev.map(a => a.id === saved.id ? saved : a);
-        }
-        return [saved, ...prev];
-      });
-
+      // Nota: O estado 'amendments' será atualizado pelo listener de Realtime automaticamente.
+      // Aqui apenas tratamos a seleção atual.
       if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
-      notify('success', 'Base Cloud Atualizada', `O processo ${amendment.seiNumber} foi sincronizado.`);
+      notify('success', 'Operação Sincronizada', `Os dados foram persistidos para todos os operadores.`);
     } catch (err: any) {
-      notify('error', 'Falha na Gravação', `O banco rejeitou a operação.`);
-    }
-  };
-
-  const handleUpdateSectorSla = async (id: string, newSla: number) => {
-    try {
-      const sector = sectors.find(s => s.id === id);
-      if (!sector) return;
-      
-      const updated = { ...sector, defaultSlaDays: newSla };
-      await db.sectors.upsert({ ...updated, tenantId: currentUser?.tenantId });
-      
-      await db.audit.log({
-        tenantId: currentUser?.tenantId,
-        actorId: currentUser?.id,
-        actorName: currentUser?.name,
-        action: AuditAction.UPDATE,
-        details: `SLA da unidade ${sector.name} alterado para ${newSla} dias.`,
-        severity: 'WARN'
-      });
-
-      setSectors(prev => prev.map(s => s.id === id ? updated : s));
-      notify('success', 'SLA Atualizado', `A unidade ${sector.name} agora possui ${newSla} dias de prazo padrão.`);
-    } catch (err) {
-      notify('error', 'Erro', 'Não foi possível atualizar o SLA no banco.');
+      notify('error', 'Erro de Concorrência', `Falha ao salvar. Verifique sua conexão.`);
     }
   };
 
@@ -180,7 +173,7 @@ const AppContent: React.FC = () => {
       <div className="h-screen w-screen bg-[#f1f5f9] flex items-center justify-center">
          <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-[#0d457a] border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Validando Credenciais Governamentais...</p>
+            <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Validando Sessão Segura...</p>
          </div>
       </div>
     );
@@ -194,6 +187,7 @@ const AppContent: React.FC = () => {
       currentView={currentView} 
       activeTenantId={currentUser.tenantId}
       isLive={isLiveSync}
+      onlineUsers={onlineUsers}
       onNavigate={setCurrentView}
       onLogout={handleLogout}
       onTenantChange={() => {}}
@@ -204,9 +198,7 @@ const AppContent: React.FC = () => {
         <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-[100] flex items-center justify-center">
            <div className="flex flex-col items-center gap-4">
               <div className="w-12 h-12 border-4 border-[#0d457a] border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest text-center px-4">
-                 Sincronizando com GESA Cloud Engine...
-              </p>
+              <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Sincronizando Base de Dados...</p>
            </div>
         </div>
       )}
@@ -253,7 +245,7 @@ const AppContent: React.FC = () => {
           {currentView === 'import' && <ImportModule onImport={fetchData} sectors={sectors} tenantId={currentUser.tenantId} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
-          {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={handleUpdateSectorSla} error={dbErrors.sectors} />}
+          {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={(id, sla) => {}} error={dbErrors.sectors} />}
           {currentView === 'statuses' && <StatusManagement statuses={statuses} onAdd={(s) => db.statuses.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onReset={() => {}} onBatchAdd={(items) => fetchData()} error={dbErrors.statuses} />}
           {currentView === 'audit' && <AuditModule logs={logs} currentUser={currentUser} activeTenantId={currentUser.tenantId} error={dbErrors.audit} onRefresh={fetchData} />}
           {currentView === 'security' && <SecurityModule users={users} onDeleteUser={(id) => db.users.delete(id).then(fetchData)} currentUser={currentUser} onNavigateToRegister={() => setCurrentView('register')} error={dbErrors.users} onAddUser={() => {}} />}

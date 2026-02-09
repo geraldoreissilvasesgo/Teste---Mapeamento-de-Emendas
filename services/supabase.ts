@@ -2,18 +2,11 @@
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import { Amendment, User, SectorConfig, StatusConfig, AuditLog } from '../types';
 
-/**
- * CONFIGURAÇÃO DO CLIENTE SUPABASE - GESA CLOUD NATIVE
- * Conexão com as credenciais fornecidas: https://nisqwvdrbytsdwtlivjl.supabase.co
- */
 const supabaseUrl = 'https://nisqwvdrbytsdwtlivjl.supabase.co';
 const supabaseKey = 'sb_publishable_fcGp4p7EA7gJnyiJJURoZA_HcML_653';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-/**
- * Utilitário de ID único compatível com UUID v4.
- */
 export const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -25,33 +18,10 @@ export const generateUUID = () => {
   });
 };
 
-/**
- * Tratamento centralizado de erros de banco de dados.
- */
 const handleDbError = (error: any) => {
-  if (error.message && error.message.startsWith('DB_ERROR')) {
-    throw error;
-  }
-
-  console.group("🔴 Database Error Trace");
-  console.error("Code:", error.code);
-  console.error("Message:", error.message);
-  console.groupEnd();
-
   if (error.code === 'PGRST116') return null;
-
-  if (error.code === 'PGRST104' || error.message?.includes('does not exist')) {
-    throw new Error('TABLE_MISSING');
-  }
-  
-  if (error.code === '42501' || error.message?.includes('permission denied')) {
-    throw new Error('PERMISSION_DENIED');
-  }
-
-  if (error.message?.includes('Invalid API key')) {
-    throw new Error('DB_ERROR: Chave de API Supabase Inválida.');
-  }
-  
+  if (error.code === 'PGRST104' || error.message?.includes('does not exist')) throw new Error('TABLE_MISSING');
+  if (error.code === '42501' || error.message?.includes('permission denied')) throw new Error('PERMISSION_DENIED');
   throw new Error(`DB_ERROR: ${error.message || 'Erro desconhecido no banco'}`);
 };
 
@@ -63,11 +33,7 @@ export const db = {
         .select('*')
         .eq('tenantId', tenantId)
         .order('createdAt', { ascending: false });
-      
-      if (error) {
-        handleDbError(error);
-        return [];
-      }
+      if (error) return handleDbError(error);
       return data || [];
     },
     async upsert(amendment: Partial<Amendment>) {
@@ -77,67 +43,65 @@ export const db = {
         tenantId: amendment.tenantId || 'GOIAS',
         createdAt: amendment.createdAt || new Date().toISOString()
       };
-
       const { data, error } = await supabase
         .from('amendments')
         .upsert(payload, { onConflict: 'id' })
         .select()
         .single();
-        
       if (error) return handleDbError(error);
       return data;
     },
-    async insertMany(items: any[]) {
-      const formattedItems = items.map(item => ({
-        ...item,
-        id: item.id || generateUUID(),
-        tenantId: item.tenantId || 'GOIAS',
-        createdAt: item.createdAt || new Date().toISOString()
-      }));
-
-      const { data, error } = await supabase
-        .from('amendments')
-        .insert(formattedItems)
-        .select();
-
-      if (error) return handleDbError(error);
-      return data;
-    },
-    subscribe(tenantId: string, callback: (payload: any) => void): RealtimeChannel {
+    subscribe(tenantId: string, onEvent: (payload: any) => void): RealtimeChannel {
       return supabase
-        .channel(`public:amendments:tenant:${tenantId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'amendments' }, callback)
+        .channel(`realtime:amendments:${tenantId}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'amendments',
+          filter: `tenantId=eq.${tenantId}` 
+        }, onEvent)
         .subscribe();
+    }
+  },
+  presence: {
+    subscribe(tenantId: string, user: User, onSync: (users: any[]) => void): RealtimeChannel {
+      const channel = supabase.channel(`presence:${tenantId}`, {
+        config: { presence: { key: user.id } }
+      });
+
+      channel
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          const onlineUsers = Object.values(state).flat();
+          onSync(onlineUsers);
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.track({
+              id: user.id,
+              name: user.name,
+              avatar: user.avatarUrl,
+              online_at: new Date().toISOString()
+            });
+          }
+        });
+
+      return channel;
     }
   },
   users: {
     async getAll(tenantId: string): Promise<User[]> {
       const { data, error } = await supabase.from('users').select('*').eq('tenantId', tenantId);
-      if (error) {
-        handleDbError(error);
-        return [];
-      }
+      if (error) return handleDbError(error);
       return data || [];
     },
     async getByEmail(email: string): Promise<User | null> {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .maybeSingle();
-      
-      if (error) {
-        handleDbError(error);
-        return null;
-      }
+      const { data, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
+      if (error) return handleDbError(error);
       return data;
     },
     async upsert(user: Partial<User>) {
-      const { data, error } = await supabase
-        .from('users')
-        .upsert({ ...user, id: user.id || generateUUID() })
-        .select()
-        .single();
+      const { data, error } = await supabase.from('users').upsert({ ...user, id: user.id || generateUUID() }).select().single();
       if (error) return handleDbError(error);
       return data;
     },
@@ -146,20 +110,10 @@ export const db = {
       if (error) return handleDbError(error);
     }
   },
-  profiles: {
-    async get(id: string) {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (error) return null;
-      return data;
-    }
-  },
   sectors: {
     async getAll(tenantId: string): Promise<SectorConfig[]> {
       const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId);
-      if (error) {
-        handleDbError(error);
-        return [];
-      }
+      if (error) return handleDbError(error);
       return data || [];
     },
     async upsert(sector: Partial<SectorConfig>) {
@@ -171,10 +125,7 @@ export const db = {
   statuses: {
     async getAll(tenantId: string): Promise<StatusConfig[]> {
       const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId);
-      if (error) {
-        handleDbError(error);
-        return [];
-      }
+      if (error) return handleDbError(error);
       return data || [];
     },
     async upsert(status: Partial<StatusConfig>) {
@@ -185,19 +136,12 @@ export const db = {
   },
   audit: {
     async log(log: Partial<AuditLog>) {
-      const { error } = await supabase.from('audit_logs').insert({ 
-        ...log, 
-        id: generateUUID(), 
-        timestamp: new Date().toISOString() 
-      });
+      const { error } = await supabase.from('audit_logs').insert({ ...log, id: generateUUID(), timestamp: new Date().toISOString() });
       if (error) console.warn("Audit Log sync skipped:", error.message);
     },
     async getAll(tenantId: string): Promise<AuditLog[]> {
       const { data, error } = await supabase.from('audit_logs').select('*').eq('tenantId', tenantId).order('timestamp', { ascending: false });
-      if (error) {
-        handleDbError(error);
-        return [];
-      }
+      if (error) return handleDbError(error);
       return data || [];
     }
   },

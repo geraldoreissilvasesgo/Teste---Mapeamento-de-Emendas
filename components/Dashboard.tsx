@@ -9,7 +9,8 @@ import {
   Landmark, CheckCircle, AlertTriangle, 
   TrendingUp, Activity, Search, FileSearch, 
   DollarSign, Briefcase, Target, ArrowUpRight,
-  PieChart as PieIcon, BarChart3, MapPin
+  PieChart as PieIcon, BarChart3, MapPin, CheckCircle2,
+  Percent
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -32,6 +33,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
       const concluded = filtered.filter(a => finalStatuses.includes(a.status)).length;
       return { totalValue, count: filtered.length, efficiency: filtered.length > 0 ? (concluded / filtered.length) * 100 : 0 };
     };
+
+    // Cálculo de Efetividade Global
+    const allConcluded = amendments.filter(a => finalStatuses.includes(a.status)).length;
+    const globalEfficiency = amendments.length > 0 ? (allConcluded / amendments.length) * 100 : 0;
 
     // Dados para Gráfico de Pizza (Status)
     const statusData = amendments.reduce((acc, curr) => {
@@ -56,6 +61,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
       impositiva: getStatsByType(AmendmentType.IMPOSITIVA),
       crescimento: getStatsByType(AmendmentType.GOIAS_CRESCIMENTO),
       globalValue: amendments.reduce((acc, c) => acc + c.value, 0),
+      globalEfficiency,
+      totalConcluded: allConcluded,
       pieData,
       barData
     };
@@ -133,16 +140,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ amendments, statusConfigs,
            </div>
         </div>
 
-        <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex items-center justify-between group">
+        <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col justify-between group overflow-hidden relative">
+           <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform duration-700 text-[#0d457a]"><Percent size={120} /></div>
            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Total de Processos</p>
-              <p className="text-4xl font-black text-[#0d457a]">{amendments.length}</p>
-              <p className="text-[8px] font-bold text-emerald-500 uppercase mt-2 flex items-center gap-1">
-                 <CheckCircle size={10} /> Base Cloud Sincronizada
+              <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Efetividade de Execução</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-4xl font-black text-[#0d457a]">{stats.globalEfficiency.toFixed(1)}%</p>
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Concluídos</p>
+              </div>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-2 flex items-center gap-1">
+                 <CheckCircle2 size={10} className="text-emerald-500" /> {stats.totalConcluded} de {amendments.length} Processos Efetivados
               </p>
            </div>
-           <div className="p-5 bg-blue-50 text-blue-500 rounded-[32px] group-hover:bg-[#0d457a] group-hover:text-white transition-all duration-500">
-              <Target size={40} />
+           <div className="mt-6">
+              <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden p-0.5">
+                <div className="h-full bg-[#0d457a] rounded-full transition-all duration-1000 shadow-sm" style={{ width: `${stats.globalEfficiency}%` }}></div>
+              </div>
            </div>
         </div>
       </div>

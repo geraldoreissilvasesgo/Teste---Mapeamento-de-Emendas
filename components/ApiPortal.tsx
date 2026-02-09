@@ -29,7 +29,8 @@ export const ApiPortal: React.FC<ApiPortalProps> = ({ currentUser, amendments })
   useEffect(() => {
     const fetchKey = async () => {
       try {
-        const profile = await db.profiles.get(currentUser.id);
+        // Fix: Changed db.profiles.get to db.users.getByEmail as db.profiles does not exist in the db service.
+        const profile = await db.users.getByEmail(currentUser.email);
         if (profile?.api_key) {
           setApiKey(profile.api_key);
         } else {
@@ -40,7 +41,7 @@ export const ApiPortal: React.FC<ApiPortalProps> = ({ currentUser, amendments })
       }
     };
     fetchKey();
-  }, [currentUser.id]);
+  }, [currentUser.id, currentUser.email]);
 
   const copyKey = (val: string) => {
     navigator.clipboard.writeText(val);

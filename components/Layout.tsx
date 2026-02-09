@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays, Link2,
-  Scale, Zap, RefreshCw, Wifi, WifiOff
+  Scale, Zap, RefreshCw, Wifi, WifiOff, Users
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -15,6 +15,7 @@ interface LayoutProps {
   currentView: string;
   activeTenantId: string;
   isLive: boolean; 
+  onlineUsers?: any[];
   onNavigate: (view: string) => void;
   onLogout: () => void;
   onTenantChange: (id: string) => void;
@@ -22,7 +23,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ 
   children, currentUser, currentView, activeTenantId, 
-  isLive, onNavigate, onLogout, onTenantChange 
+  isLive, onlineUsers = [], onNavigate, onLogout, onTenantChange 
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
@@ -150,9 +151,9 @@ export const Layout: React.FC<LayoutProps> = ({
             >
               <Menu size={24} />
             </button>
-            <div className="hidden md:flex flex-col">
+            <div className="hidden xl:flex flex-col">
                 <h2 className="text-[11px] font-black text-[#0d457a] uppercase leading-tight tracking-tight">
-                  SUBSECRETARIA DE INOVAÇÃO, PLANEJAMENTO, EDUCAÇÃO E INFRAESTRUTURA - SES/SUBIPEI-21286
+                  SUBSECRETARIA DE INOVAÇÃO, PLANEJAMENTO, EDUCAÇÃO E INFRAESTRUTURA
                 </h2>
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
                   GERÊNCIA DE SUPORTE ADMINISTRATIVO
@@ -161,12 +162,25 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
           
           <div className="flex items-center gap-4">
-             {/* INDICADOR DE STATUS DA BASE DE DADOS */}
+             {/* PRESENÇA DE USUÁRIOS ONLINE */}
+             {onlineUsers.length > 1 && (
+               <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full">
+                  <div className="flex -space-x-2">
+                    {onlineUsers.slice(0, 3).map((u, i) => (
+                      <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-blue-500 flex items-center justify-center text-[8px] font-black text-white overflow-hidden" title={u.name}>
+                        {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover"/> : u.name[0]}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-[8px] font-black text-slate-400 uppercase">+{onlineUsers.length} Operadores</span>
+               </div>
+             )}
+
              <div className={`hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-500 ${isLive ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
                 {isLive ? <RefreshCw size={16} className="animate-pulse" /> : <WifiOff size={16} />}
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase leading-none">{isLive ? 'Banco Cloud Conectado' : 'Modo Simulação'}</span>
-                  <span className="text-[7px] font-bold opacity-60 uppercase mt-0.5">{isLive ? 'Sincronização em Tempo Real' : 'Local Mock Data Active'}</span>
+                  <span className="text-[9px] font-black uppercase leading-none">{isLive ? 'Cloud Realtime' : 'Modo Offline'}</span>
+                  <span className="text-[7px] font-bold opacity-60 uppercase mt-0.5">{isLive ? 'Sincronização Ativa' : 'Local Buffer'}</span>
                 </div>
              </div>
 
