@@ -97,7 +97,6 @@ export const GOIAS_CITIES = [
   'Valparaíso de Goiás', 'Varjão', 'Vianópolis', 'Vicentinópolis', 'Vila Boa', 'Vila Propício'
 ].sort();
 
-// Fix: Added missing tenantId property to each sector config to satisfy the SectorConfig interface requirements.
 export const DEFAULT_SECTOR_CONFIGS: SectorConfig[] = [
   { id: 'sec-01', tenantId: 'GOIAS', name: 'SES/CEP-20903', defaultSlaDays: 5, analysisType: 'Análise da Documentação' },
   { id: 'sec-02', tenantId: 'GOIAS', name: 'SES/SUBIPEI-21286', defaultSlaDays: 7, analysisType: 'Em Tramitação Técnica' },
@@ -111,7 +110,7 @@ export const MOCK_USERS: User[] = [
     tenantId: 'GOIAS',
     name: 'Geraldo Silva',
     email: 'geraldo.rsilva@goias.gov.br',
-    role: Role.ADMIN,
+    role: Role.SUPER_ADMIN,
     lgpdAccepted: true,
     department: 'SES/SUBIPEI',
     avatarUrl: 'https://ui-avatars.com/api/?name=Geraldo+Silva&background=0d457a&color=fff'
