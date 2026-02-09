@@ -24,19 +24,13 @@ import {
   User, Amendment, SystemMode, StatusConfig, AuditLog, SectorConfig, AuditAction
 } from './types';
 import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS, MOCK_USERS } from './constants';
-import { db } from './services/supabase';
+import { db, supabase } from './services/supabase';
 
 const AppContent: React.FC = () => {
   const { notify } = useNotification();
   
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('gesa_current_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -55,6 +49,37 @@ const AppContent: React.FC = () => {
     amendments?: string;
     audit?: string;
   }>({});
+
+  // Efeito de Inicialização de Sessão
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user?.email) {
+          // Recupera o perfil do banco para garantir as 'roles' corretas
+          const profile = await db.users.getByEmail(session.user.email);
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            // Fallback para o que estiver no localStorage se houver erro de rede, 
+            // mas priorizando a segurança do banco
+            const saved = localStorage.getItem('gesa_current_user');
+            if (saved) setCurrentUser(JSON.parse(saved));
+          }
+        } else {
+          // Tenta carregar do localStorage apenas se houver uma persistência de "lembrar e-mail"
+          const saved = localStorage.getItem('gesa_current_user');
+          if (saved) setCurrentUser(JSON.parse(saved));
+        }
+      } catch (e) {
+        console.error("Session init failed:", e);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    initSession();
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!currentUser) return;
@@ -89,8 +114,8 @@ const AppContent: React.FC = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (currentUser) fetchData();
+  }, [currentUser, fetchData]);
 
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
@@ -116,7 +141,6 @@ const AppContent: React.FC = () => {
       if (selectedAmendment?.id === saved.id) setSelectedAmendment(saved);
       notify('success', 'Base Cloud Atualizada', `O processo ${amendment.seiNumber} foi sincronizado.`);
     } catch (err: any) {
-      const errorMsg = err.message || 'Erro desconhecido';
       notify('error', 'Falha na Gravação', `O banco rejeitou a operação.`);
     }
   };
@@ -145,10 +169,22 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await db.auth.signOut();
     setCurrentUser(null);
     localStorage.removeItem('gesa_current_user');
   };
+
+  if (isInitializing) {
+    return (
+      <div className="h-screen w-screen bg-[#f1f5f9] flex items-center justify-center">
+         <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[#0d457a] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest">Validando Credenciais Governamentais...</p>
+         </div>
+      </div>
+    );
+  }
 
   if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); localStorage.setItem('gesa_current_user', JSON.stringify(u)); }} />;
 

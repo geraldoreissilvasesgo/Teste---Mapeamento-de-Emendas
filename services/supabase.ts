@@ -119,6 +119,19 @@ export const db = {
       }
       return data || [];
     },
+    async getByEmail(email: string): Promise<User | null> {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (error) {
+        handleDbError(error);
+        return null;
+      }
+      return data;
+    },
     async upsert(user: Partial<User>) {
       const { data, error } = await supabase
         .from('users')
@@ -193,6 +206,9 @@ export const db = {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
       return data;
+    },
+    async signOut() {
+      await supabase.auth.signOut();
     }
   }
 };

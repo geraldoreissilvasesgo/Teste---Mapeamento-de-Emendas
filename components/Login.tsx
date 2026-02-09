@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/supabase';
 import { APP_VERSION, MOCK_USERS } from '../constants';
-import { Role, User } from '../types';
+import { Role, User, AuditAction } from '../types';
 import { 
   ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, 
   CheckCircle2, AlertCircle, Loader2, Info, MailQuestion, Sparkles
@@ -18,7 +18,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [rememberEmail, setRememberEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<{message: string, type?: 'auth' | 'confirm' | 'demo'}>({ message: '' });
+  const [error, setError] = useState<{message: string, type?: 'auth' | 'confirm' | 'demo' | 'missing_profile'}>({ message: '' });
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
@@ -42,44 +42,64 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
 
     try {
-      try {
-        const authData = await db.auth.signIn(email, password);
-        const user = MOCK_USERS.find(u => u.email === email) || {
-          id: authData.user?.id || 'new-user',
-          name: authData.user?.user_metadata?.name || 'Servidor',
-          email: email,
-          role: Role.OPERATOR,
-          tenantId: 'GOIAS',
-          lgpdAccepted: true
-        };
-        onLogin(user as User);
-      } catch (err: any) {
-        console.warn("Auth error, checking bypass:", err);
+      // 1. Tenta autenticação no Supabase Auth
+      const authData = await db.auth.signIn(email, password);
+      
+      if (authData.user) {
+        // 2. Busca o perfil completo na tabela 'users' para identificar o cargo e tenant
+        const profile = await db.users.getByEmail(email);
         
-        if (email === 'anderson.alves@goias.gov.br' && password === '123456') {
-          onLogin(MOCK_USERS[1]);
-          return;
-        }
-
-        if (email === 'geraldo.rsilva@goias.gov.br' && password === 'Goias@2024') {
-          onLogin(MOCK_USERS[0]);
-          return;
-        }
-
-        if (err.message?.includes('Email not confirmed')) {
-          setError({ 
-            message: 'E-mail institucional não confirmado. Verifique seu e-mail.',
-            type: 'confirm'
+        if (profile) {
+          // Auditoria de login bem sucedido
+          await db.audit.log({
+            tenantId: profile.tenantId,
+            actorId: profile.id,
+            actorName: profile.name,
+            action: AuditAction.LOGIN,
+            details: `Acesso autenticado via Portal Cloud.`,
+            severity: 'INFO'
           });
+
+          onLogin(profile);
         } else {
+          // Se autenticou mas não tem perfil na tabela 'users'
           setError({ 
-            message: 'Credenciais inválidas ou erro de conexão. Tente o botão de provisionamento abaixo.',
-            type: 'demo'
+            message: 'Usuário autenticado, mas perfil não localizado na base de servidores. Contate o administrador.',
+            type: 'missing_profile'
           });
         }
       }
     } catch (err: any) {
-      setError({ message: err.message || 'Falha na autenticação corporativa.' });
+      console.warn("Auth error, checking bypass/fallback:", err);
+      
+      // Bypasses de Homologação (mantendo funcionalidade solicitada anteriormente)
+      if (email === 'anderson.alves@goias.gov.br' && password === '123456') {
+        onLogin(MOCK_USERS[1]);
+        return;
+      }
+
+      if (email === 'geraldo.rsilva@goias.gov.br' && password === 'Goias@2024') {
+        onLogin(MOCK_USERS[0]);
+        return;
+      }
+
+      // Tratamento de erros específicos
+      if (err.message?.includes('Email not confirmed')) {
+        setError({ 
+          message: 'E-mail institucional não confirmado. Verifique sua caixa de entrada.',
+          type: 'confirm'
+        });
+      } else if (err.message?.includes('Invalid login credentials')) {
+        setError({ 
+          message: 'E-mail ou senha incorretos. Verifique suas credenciais do Estado de Goiás.',
+          type: 'auth'
+        });
+      } else {
+        setError({ 
+          message: `Erro de conexão: ${err.message}. Tente novamente em instantes.`,
+          type: 'demo'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +108,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleProvision = () => {
     setEmail('anderson.alves@goias.gov.br');
     setPassword('123456');
-    setSuccess('Credenciais de Anderson Alves (Administrador) inseridas. Clique em Entrar.');
+    setSuccess('Perfil de Anderson Alves (Administrador SES) carregado. Clique em Entrar.');
     setError({ message: '' });
   };
 
