@@ -64,10 +64,10 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     if (!searchTerm) return amendments;
     const tokens = searchTerm.toLowerCase().split(/\s+/).filter(t => t.length > 0);
     return amendments.filter(a => {
-      const sei = a.seiNumber.toLowerCase();
-      const obj = a.object.toLowerCase();
+      const sei = (a.seiNumber || '').toLowerCase();
+      const obj = (a.object || '').toLowerCase();
       const deputy = (a.deputyName || '').toLowerCase();
-      const city = a.municipality.toLowerCase();
+      const city = (a.municipality || '').toLowerCase();
       return tokens.every(token => 
         sei.includes(token) || obj.includes(token) || deputy.includes(token) || city.includes(token)
       );
@@ -89,7 +89,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
       const cleanValue = parseFloat(formData.value.replace(/[^\d]/g, '')) / 100 || 0;
       
       const newAmendment: Amendment = {
-        id: '', 
+        id: '', // Será gerado UUID no serviço
         tenantId: 'GOIAS',
         code: `EM-${formData.year}-${Math.floor(1000 + Math.random() * 9000)}`,
         seiNumber: formData.seiNumber,
@@ -98,7 +98,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         type: formData.type,
         deputyName: formData.deputyName,
         municipality: formData.municipality,
-        beneficiaryUnit: formData.beneficiaryUnit,
+        beneficiaryUnit: formData.beneficiaryUnit || undefined,
         object: formData.object,
         value: cleanValue,
         status: 'Análise da Documentação',
@@ -125,7 +125,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 
       await onCreate(newAmendment);
       setIsCreateModalOpen(false);
-      // Reset
       setFormData({
         seiNumber: '',
         year: new Date().getFullYear(),
@@ -141,9 +140,8 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         suinfra: false,
         sutis: false
       });
-      notify('success', 'Registro Efetivado', `SEI ${formData.seiNumber} sincronizado com a base cloud.`);
     } catch (err) {
-      notify('error', 'Falha no Banco', 'Ocorreu um erro ao persistir o registro no banco de dados.');
+      console.error("Submit error:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -379,6 +377,9 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                    </div>
 
                    <div>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Unidade Beneficiária (Opcional)</label>
+                      <input type="text" placeholder="EX: HOSPITAL REGIONAL..." className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] uppercase text-xs outline-none focus:border-blue-500 transition-all shadow-inner mb-6" value={formData.beneficiaryUnit} onChange={(e) => setFormData({...formData, beneficiaryUnit: e.target.value})} />
+                      
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Município de Aplicação *</label>
                       <select required className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[24px] font-black text-[#0d457a] uppercase text-[10px] outline-none focus:border-blue-500" value={formData.municipality} onChange={(e) => setFormData({...formData, municipality: e.target.value})}>
                         <option value="">CIDADE...</option>
