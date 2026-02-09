@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays, Link2,
-  Scale, Zap, RefreshCw, Wifi, WifiOff, Users
+  Scale, Zap, RefreshCw, Wifi, WifiOff, Users, Workflow
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -46,6 +45,7 @@ export const Layout: React.FC<LayoutProps> = ({
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'amendments', label: 'Emendas Impositivas', icon: FileText },
+        { id: 'fast_analysis', label: 'Análise Rápida (2026)', icon: Zap },
         { id: 'calendar', label: 'Calendário de Prazos', icon: CalendarDays },
         { id: 'repository', label: 'Repositório Central', icon: Database },
       ]
@@ -162,7 +162,6 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
           
           <div className="flex items-center gap-4">
-             {/* PRESENÇA DE USUÁRIOS ONLINE */}
              {onlineUsers.length > 1 && (
                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full">
                   <div className="flex -space-x-2">
@@ -203,12 +202,3 @@ export const Layout: React.FC<LayoutProps> = ({
     </div>
   );
 };
-
-const Workflow = ({ size, className }: { size: number, className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <rect x="3" y="3" width="6" height="6" rx="1" />
-    <rect x="15" y="15" width="6" height="6" rx="1" />
-    <path d="M9 6h6a2 2 0 0 1 2 2v7" />
-    <path d="M15 18H9a2 2 0 0 1-2-2V9" />
-  </svg>
-);

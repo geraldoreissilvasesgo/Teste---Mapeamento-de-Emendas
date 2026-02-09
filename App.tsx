@@ -14,6 +14,7 @@ import { StatusManagement } from './components/StatusManagement';
 import { GovernanceDocs } from './components/GovernanceDocs';
 import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
+import { FastAnalysisModule } from './components/FastAnalysisModule';
 import { Login } from './components/Login';
 import { CalendarView } from './components/CalendarView';
 import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
@@ -81,7 +82,7 @@ const AppContent: React.FC = () => {
     ]);
 
     setIsLoadingData(false);
-  }, [currentUser]); // Fix: Removido fetchData das dependências para evitar erro de inicialização
+  }, [currentUser]);
 
   useEffect(() => {
     const initSession = async () => {
@@ -269,6 +270,7 @@ const AppContent: React.FC = () => {
               error={dbErrors.amendments} 
             />
           )}
+          {currentView === 'fast_analysis' && <FastAnalysisModule />}
           {currentView === 'calendar' && <CalendarView amendments={amendments} onSelectAmendment={setSelectedAmendment} />}
           {currentView === 'import' && <ImportModule onImport={handleImport} sectors={sectors} tenantId={currentUser.tenantId} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
