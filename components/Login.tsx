@@ -41,7 +41,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       localStorage.removeItem('gesa_remembered_email');
     }
 
-    // Lógica para credenciais de demonstração legado (Mantido para Anderson e Geraldo via login manual)
+    // Lógica para credenciais de demonstração legado (Anderson e Geraldo)
     if (email === 'anderson.alves@goias.gov.br' && password === '123456') {
       const profile = await db.users.getByEmail(email);
       setTimeout(() => onLogin(profile || MOCK_USERS[1]), 500);
@@ -82,8 +82,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const registeredProfile = await db.users.getByEmail(email);
       
       if (registeredProfile) {
-        // Se o usuário mudou a senha, ela está em registeredProfile.password
-        // Se for primeiro acesso, aceita Goias@2025
         const validPassword = registeredProfile.password || 'Goias@2025';
         
         if (password === validPassword) {
@@ -177,7 +175,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all disabled:opacity-50 flex items-center justify-center gap-3 active:scale-[0.98]"
             >
               {isLoading ? <Loader2 className="animate-spin" size={18} /> : (
-                <>Acessar Painel Governamental <LogIn size={16} /></>
+                <>Acessar Painel <LogIn size={16} /></>
               )}
             </button>
           </form>

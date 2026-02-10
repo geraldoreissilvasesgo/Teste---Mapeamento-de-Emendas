@@ -4,10 +4,8 @@ import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { 
   Plus, Search, MapPin, ChevronLeft, ChevronRight, FileText, 
   X, User, DollarSign, Calendar, Info, ArrowRight, Save, Loader2,
-  LayoutGrid, Briefcase, FileSignature, Landmark, TrendingUp,
-  Filter, AlertCircle, Clock, History, Timer, CheckCircle2,
-  Quote, Building2, HardDrive, Settings, ClipboardList, 
-  CalendarDays, BookOpen, ShieldCheck, Scale, Binary, ChevronDown
+  LayoutGrid, FileSignature, History, Timer, CheckCircle2,
+  Building2, ClipboardList, TrendingUp, AlertCircle, Clock
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 
@@ -87,7 +85,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     setIsSubmitting(true);
     try {
       const cleanValue = parseFloat(formData.value.replace(/[^\d]/g, '')) / 100 || 0;
-      
       const INITIAL_SECTOR = 'SES/CEP-20903';
 
       const newAmendment: Amendment = {
@@ -120,33 +117,28 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
           daysSpent: 0,
           handledBy: 'GESA Portal',
-          remarks: `Protocolo inicial. Modalidade: ${formData.transferMode}. GND: ${formData.gnd}.`,
+          remarks: `Protocolo inicial via sistema.`,
           analysisType: 'Abertura de Processo'
         }]
       };
 
       await onCreate(newAmendment);
       setIsCreateModalOpen(false);
-      setFormData({
-        seiNumber: '',
-        year: new Date().getFullYear(),
-        entryDate: new Date().toISOString().split('T')[0],
-        type: AmendmentType.IMPOSITIVA,
-        deputyName: '',
-        municipality: '',
-        beneficiaryUnit: '',
-        object: '',
-        value: '',
-        transferMode: TransferMode.FUNDO_A_FUNDO,
-        gnd: GNDType.INVESTIMENTO,
-        suinfra: false,
-        sutis: false
-      });
+      resetForm();
     } catch (err) {
-      console.error("Submit error:", err);
+      console.error(err);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      seiNumber: '', year: new Date().getFullYear(), entryDate: new Date().toISOString().split('T')[0],
+      type: AmendmentType.IMPOSITIVA, deputyName: '', municipality: '', beneficiaryUnit: '',
+      object: '', value: '', transferMode: TransferMode.FUNDO_A_FUNDO, gnd: GNDType.INVESTIMENTO,
+      suinfra: false, sutis: false
+    });
   };
 
   const handleValueChange = (val: string) => {
@@ -165,7 +157,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-20">
-      {/* HEADER DINÂMICO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h2 className="text-4xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Célula de Processos</h2>
@@ -186,14 +177,13 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           </div>
           <button 
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#0d457a] text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center gap-3 shrink-0 active:scale-95"
+            className="bg-[#0d457a] text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center gap-3 shrink-0"
           >
             <Plus size={20} /> Novo Protocolo
           </button>
         </div>
       </div>
 
-      {/* GRID DE CARDS GOVERNAMENTAIS */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {paginatedData.map((amendment) => (
           <div 
@@ -249,12 +239,15 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
               </div>
               <div className="flex flex-col items-end gap-3">
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setTrailAmendment(amendment); }}
-                  className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100 hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2 group/btn"
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setTrailAmendment(amendment); 
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#0d457a] transition-all flex items-center gap-2 shadow-lg shadow-blue-900/10 active:scale-95"
                 >
-                  <History size={12} /> Ver Trilha
+                  <History size={14} /> Ver Trilha
                 </button>
-                <span className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-[9px] font-black uppercase border border-slate-100 truncate max-w-[120px] text-center" title={amendment.status}>
+                <span className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-[9px] font-black uppercase border border-slate-100 truncate max-w-[120px] text-center">
                   {amendment.status}
                 </span>
               </div>
@@ -263,7 +256,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         ))}
       </div>
 
-      {/* PAGINAÇÃO */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-4 pt-12">
            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-5 bg-white border border-slate-200 rounded-[28px] text-[#0d457a] shadow-sm hover:bg-blue-50 transition-all disabled:opacity-30"><ChevronLeft size={24} /></button>
@@ -274,78 +266,112 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         </div>
       )}
 
-      {/* MODAL DE TRILHA (TRAIL MODAL) */}
+      {/* MODAL DE TRILHA DETALHADO */}
       {trailAmendment && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4">
-          <div className="bg-white rounded-[60px] w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-300 my-auto border border-white/10 flex flex-col max-h-[85vh] overflow-hidden">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4">
+          <div className="bg-white rounded-[60px] w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10 flex flex-col max-h-[85vh] overflow-hidden">
             <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                <div className="flex items-center gap-6">
-                  <div className="p-4 bg-[#0d457a] text-white rounded-2xl shadow-lg">
-                    <History size={28} />
+                  <div className="p-4 bg-[#0d457a] text-white rounded-[24px] shadow-xl">
+                    <History size={32} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Trilha de Movimentação</h3>
-                    <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mt-1">SEI {trailAmendment.seiNumber} • {trailAmendment.deputyName}</p>
+                    <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Histórico de Movimentações</h3>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2 flex items-center gap-2">
+                       <FileSignature size={12} className="text-blue-500" /> SEI {trailAmendment.seiNumber} • {trailAmendment.deputyName}
+                    </p>
                   </div>
                </div>
-               <button onClick={() => setTrailAmendment(null)} className="p-3 hover:bg-white rounded-2xl shadow-sm border border-transparent hover:border-slate-200 transition-all">
-                  <X size={24} className="text-slate-400" />
+               <button onClick={() => setTrailAmendment(null)} className="p-4 hover:bg-white rounded-2xl shadow-sm transition-all text-slate-400">
+                  <X size={28} />
                </button>
             </div>
 
             <div className="flex-1 p-10 overflow-y-auto custom-scrollbar">
-              {trailAmendment.movements && trailAmendment.movements.length > 0 ? (
-                <div className="space-y-0 relative">
-                  <div className="absolute left-[24px] top-8 bottom-8 w-1 bg-slate-50"></div>
-                  {[...trailAmendment.movements].reverse().map((mov, idx) => {
-                    const isFinalStatus = trailAmendment.status === Status.CONCLUDED || trailAmendment.status === Status.ARCHIVED;
-                    const isLastMov = idx === 0; // Pois está em reverse()
-                    const isCompleted = mov.dateOut !== null || (isLastMov && isFinalStatus);
-                    
-                    return (
-                      <div key={mov.id} className="relative pl-20 pb-10 last:pb-0 group">
-                        <div className={`absolute left-0 top-1 w-12 h-12 rounded-[16px] border-4 border-white shadow-lg flex items-center justify-center z-10 transition-all ${
-                          !isCompleted ? 'bg-[#0d457a] text-white ring-4 ring-blue-50' : 'bg-emerald-500 text-white shadow-emerald-200'
-                        }`}>
-                            {!isCompleted ? <Timer size={20} className="animate-pulse" /> : <CheckCircle2 size={20} />}
-                        </div>
-                        <div className={`p-6 rounded-[32px] border transition-all duration-300 ${
-                          !isCompleted ? 'bg-blue-50/50 border-blue-200' : 'bg-emerald-50/10 border-emerald-100'
-                        }`}>
-                            <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                       <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{mov.toSector}</span>
-                                    </div>
-                                    <h4 className={`text-sm font-black uppercase tracking-tight ${!isCompleted ? 'text-[#0d457a]' : 'text-emerald-700'}`}>
-                                      {!isCompleted ? 'Posição Atual' : `Trâmite Finalizado`}
-                                    </h4>
-                                </div>
-                                <div className="text-right text-[9px] font-bold uppercase text-slate-400">
-                                    <p>Entrada: {new Date(mov.dateIn).toLocaleDateString('pt-BR')}</p>
-                                    {mov.dateOut && <p>Saída: {new Date(mov.dateOut).toLocaleDateString('pt-BR')}</p>}
-                                </div>
-                            </div>
-                            {mov.remarks && (
-                                <div className="p-4 bg-white rounded-xl border border-slate-100 italic text-[11px] text-slate-500 whitespace-pre-wrap">
-                                    {mov.remarks}
-                                </div>
-                            )}
-                        </div>
+              <div className="space-y-0 relative">
+                <div className="absolute left-[30px] top-8 bottom-8 w-1 bg-slate-100"></div>
+                
+                {[...trailAmendment.movements].reverse().map((mov, idx) => {
+                  const isCurrent = !mov.dateOut;
+                  
+                  // Calcular dias se não houver no objeto (fallback)
+                  let days = mov.daysSpent;
+                  if (!mov.dateOut) {
+                    const diff = Math.ceil((new Date().getTime() - new Date(mov.dateIn).getTime()) / (1000 * 60 * 60 * 24));
+                    days = diff;
+                  }
+
+                  return (
+                    <div key={mov.id} className="relative pl-24 pb-12 last:pb-0 group">
+                      {/* Indicador de Timeline */}
+                      <div className={`absolute left-0 top-1 w-16 h-16 rounded-[24px] border-4 border-white shadow-xl flex items-center justify-center z-10 transition-all ${
+                        isCurrent ? 'bg-[#0d457a] text-white ring-8 ring-blue-50 animate-pulse-sync' : 'bg-emerald-500 text-white'
+                      }`}>
+                          {isCurrent ? <Timer size={24} /> : <CheckCircle2 size={24} />}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="py-20 text-center opacity-30 flex flex-col items-center">
-                   <AlertCircle size={48} className="text-slate-300 mb-4" />
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sem histórico de movimentação registrado.</p>
-                </div>
-              )}
+
+                      {/* Conteúdo do Trâmite */}
+                      <div className={`p-8 rounded-[40px] border transition-all duration-300 ${
+                        isCurrent ? 'bg-blue-50/50 border-blue-200 shadow-lg' : 'bg-white border-slate-100'
+                      }`}>
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                              <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                     <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{mov.analysisType || 'Tramitação'}</span>
+                                     {isCurrent && <span className="px-2 py-0.5 bg-blue-600 text-white rounded text-[8px] font-black uppercase">Localização Atual</span>}
+                                  </div>
+                                  <h4 className="text-lg font-black text-[#0d457a] uppercase tracking-tight">{mov.toSector}</h4>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                 <div className="text-right">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Permanência</p>
+                                    <p className={`text-xl font-black ${days > 10 ? 'text-red-500' : 'text-blue-600'}`}>{days} <span className="text-[10px] uppercase">Dias</span></p>
+                                 </div>
+                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${days > 10 ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'}`}>
+                                    <Clock size={20} />
+                                 </div>
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-100">
+                             <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                   <div className="w-8 h-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center"><Calendar size={14}/></div>
+                                   <div>
+                                      <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Data de Entrada</p>
+                                      <p className="text-[11px] font-bold text-slate-600">{new Date(mov.dateIn).toLocaleString('pt-BR')}</p>
+                                   </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                   <div className="w-8 h-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center"><Calendar size={14}/></div>
+                                   <div>
+                                      <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Data de Saída</p>
+                                      <p className="text-[11px] font-bold text-slate-600">{mov.dateOut ? new Date(mov.dateOut).toLocaleString('pt-BR') : 'Processamento Ativo'}</p>
+                                   </div>
+                                </div>
+                             </div>
+                             <div className="bg-slate-50/50 p-5 rounded-3xl border border-slate-100">
+                                <div className="flex items-center gap-2 mb-3">
+                                   <User size={12} className="text-slate-400" />
+                                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Responsável pelo Trâmite</span>
+                                </div>
+                                <p className="text-[11px] font-black text-[#0d457a] uppercase">{mov.handledBy || 'Sistema'}</p>
+                                {mov.remarks && (
+                                   <div className="mt-3 p-3 bg-white rounded-xl text-[10px] text-slate-500 italic leading-relaxed border border-slate-100">
+                                      "{mov.remarks}"
+                                   </div>
+                                )}
+                             </div>
+                          </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="p-8 border-t border-slate-100 bg-slate-50/30 shrink-0">
-               <button onClick={() => setTrailAmendment(null)} className="w-full py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-[#0d457a] uppercase tracking-widest hover:bg-[#0d457a] hover:text-white transition-all shadow-sm">
+            <div className="p-8 border-t border-slate-100 bg-slate-50/30 flex justify-center shrink-0">
+               <button onClick={() => setTrailAmendment(null)} className="px-12 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-[#0d457a] uppercase tracking-widest hover:bg-[#0d457a] hover:text-white transition-all shadow-sm">
                   Fechar Visualização
                </button>
             </div>
