@@ -4,7 +4,7 @@ import { APP_VERSION, MOCK_USERS } from '../constants';
 import { Role, User, AuditAction } from '../types';
 import { 
   ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, 
-  CheckCircle2, AlertCircle, Loader2, Info, MailQuestion, Sparkles, UserCheck
+  CheckCircle2, AlertCircle, Loader2, Info, MailQuestion, Sparkles, UserCheck, Zap
 } from 'lucide-react';
 
 interface LoginProps {
@@ -40,8 +40,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       localStorage.removeItem('gesa_remembered_email');
     }
 
-    // 1. Prioridade: Bypasses de Homologação (Offline/Teste)
-    // Isso evita erros de configuração de banco de dados durante a demonstração
     if (email === 'anderson.alves@goias.gov.br' && password === '123456') {
       setTimeout(() => onLogin(MOCK_USERS[1]), 500);
       return;
@@ -53,11 +51,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
 
     try {
-      // 2. Tenta autenticação no Supabase Auth (Produção)
       const authData = await db.auth.signIn(email, password);
       
       if (authData.user) {
-        // 3. Busca o perfil completo na tabela 'users'
         const profile = await db.users.getByEmail(email);
         
         if (profile) {
@@ -90,11 +86,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           message: 'E-mail ou senha incorretos. Verifique suas credenciais do Estado de Goiás.',
           type: 'auth'
         });
-      } else if (err.message?.includes('Email logins are disabled')) {
-        setError({ 
-          message: 'O login por e-mail está desabilitado no console Supabase. Utilize os botões de homologação abaixo para testar o sistema.',
-          type: 'demo'
-        });
       } else {
         setError({ 
           message: `Erro de conexão: ${err.message}. Tente novamente em instantes.`,
@@ -124,11 +115,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-[40px] shadow-2xl border border-slate-200/50 p-10 animate-in fade-in zoom-in-95 duration-500">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#0d457a] rounded-2xl text-white mb-4 shadow-xl ring-4 ring-blue-50">
-              <ShieldCheck size={32} />
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-[#0d457a] rounded-[28px] text-white mb-6 shadow-2xl ring-8 ring-blue-50 relative">
+              <ShieldCheck size={40} className="relative z-10" />
+              <Zap size={18} className="absolute -top-2 -right-2 text-emerald-400 fill-emerald-400 animate-pulse" />
             </div>
-            <h1 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Portal GESA Cloud</h1>
-            <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.2em] mt-2">Acesso Restrito • ESTADO DE GOIÁS</p>
+            <h1 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">RASTREIO <span className="text-emerald-500">GESA</span></h1>
+            <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.3em] mt-3">GESTÃO E TEMPORALIDADE • SUBIPEI</p>
           </div>
           
           <form onSubmit={handleAuth} className="space-y-5">
@@ -174,17 +166,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 className="w-4 h-4 rounded border-slate-300 text-[#0d457a] focus:ring-[#0d457a]"
               />
               <label htmlFor="remember" className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer select-none">
-                Relembrar e-mail institucional
+                Relembrar credencial institucional
               </label>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+              className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all disabled:opacity-50 flex items-center justify-center gap-3 active:scale-[0.98]"
             >
               {isLoading ? <Loader2 className="animate-spin" size={18} /> : (
-                <>Entrar no Sistema <LogIn size={16} /></>
+                <>Acessar Painel Governamental <LogIn size={16} /></>
               )}
             </button>
           </form>
@@ -205,7 +197,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
         
         <div className="mt-8 flex flex-col gap-3 no-print">
-           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-1">Acesso Rápido (Homologação)</p>
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-1">Modo de Homologação (Acesso Rápido)</p>
            <div className="flex flex-col sm:flex-row gap-3">
               <button 
                 onClick={() => provisionUser('geraldo')}

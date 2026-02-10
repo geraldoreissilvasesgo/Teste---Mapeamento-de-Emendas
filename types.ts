@@ -1,22 +1,27 @@
-
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 3.1.0-stable (Locking Mechanism)
+ * Versão: 3.2.0-documented
+ * 
+ * Este arquivo define a estrutura fundamental de dados do sistema,
+ * garantindo tipagem forte em toda a aplicação.
  */
 
+// Define se o sistema está operando com dados reais ou em ambiente de homologação
 export enum SystemMode {
   TEST = 'Teste/Simulação',
   PRODUCTION = 'Produção/Real'
 }
 
+// Matriz de responsabilidades e perfis de acesso (RBAC)
 export enum Role {
-  SUPER_ADMIN = 'Super Administrador',
-  ADMIN = 'Administrador de Unidade',
-  OPERATOR = 'Operador GESA',
-  AUDITOR = 'Auditor Fiscal',
-  VIEWER = 'Consultor Externo'
+  SUPER_ADMIN = 'Super Administrador', // Acesso total a todas as secretarias
+  ADMIN = 'Administrador de Unidade',   // Gestão plena de uma secretaria específica
+  OPERATOR = 'Operador GESA',          // Uso diário para trâmites de processos
+  AUDITOR = 'Auditor Fiscal',           // Acesso para órgãos de controle (leitura)
+  VIEWER = 'Consultor Externo'         // Acesso limitado para acompanhamento
 }
 
+// Tipificação das emendas conforme a origem do recurso
 export enum AmendmentType {
   IMPOSITIVA = 'Emenda Impositiva',
   GOIAS_CRESCIMENTO = 'Goiás em Crescimento',
@@ -24,6 +29,7 @@ export enum AmendmentType {
   TRANSFERENCIA_ESPECIAL = 'Transferência Especial'
 }
 
+// Modalidades de transferência financeira previstas na legislação
 export enum TransferMode {
   FUNDO_A_FUNDO = 'Fundo a Fundo',
   CONVENIO = 'Convênio',
@@ -31,11 +37,13 @@ export enum TransferMode {
   EXECUCAO_DIRETA = 'Execução Direta'
 }
 
+// Classificação de natureza de despesa (GND)
 export enum GNDType {
   CUSTEIO = '3 - Custeio',
   INVESTIMENTO = '4 - Investimento'
 }
 
+// Ações registradas na trilha de auditoria para conformidade e transparência
 export enum AuditAction {
   LOGIN = 'LOGIN_SISTEMA',
   LOGOUT = 'LOGOUT_SISTEMA',
@@ -49,67 +57,72 @@ export enum AuditAction {
   TENANT_SWITCH = 'TROCA_UNIDADE'
 }
 
+// Estados principais do ciclo de vida de um processo administrativo (Workflow)
 export enum Status {
   DOCUMENT_ANALYSIS = 'Análise da Documentação',
   TECHNICAL_FLOW = 'Em Tramitação Técnica',
   DILIGENCE = 'Em Diligência',
   LEGAL_OPINION = 'Aguardando Parecer Jurídico',
-  COMMITMENT_LIQUIDATION = 'EMPENHO / LIQUIDAÇÃO',
-  CONCLUDED = 'Liquidado / Pago',
-  ARCHIVED = 'Arquivado / Rejeitado'
+  COMMITMENT_LIQUIDATION = 'EMPENHO / LIQUIDAÇÃO', // Ativa trava de edição
+  CONCLUDED = 'Liquidado / Pago',               // Estado final estável
+  ARCHIVED = 'Arquivado / Rejeitado'            // Estado de encerramento
 }
 
+// Estrutura de usuário autenticado
 export interface User {
   id: string;
-  tenantId: string;
+  tenantId: string; // Identificador da secretaria (ex: SES, SEDUC)
   name: string;
   email: string;
   role: Role;
   department: string;
   avatarUrl?: string;
-  lgpdAccepted: boolean;
-  mfaEnabled?: boolean;
-  api_key?: string;
+  lgpdAccepted: boolean; // Flag de aceite do termo de privacidade
+  mfaEnabled?: boolean;  // Autenticação de dois fatores
+  api_key?: string;      // Chave para integração externa
 }
 
+// Registro individual de movimentação de um processo (Trilha de auditoria interna)
 export interface AmendmentMovement {
   id: string;
   amendmentId: string;
-  fromSector: string;
-  toSector: string;
-  dateIn: string;
-  dateOut: string | null;
-  deadline: string;
-  daysSpent: number;
-  handledBy: string;
-  remarks?: string;
-  analysisType?: string;
+  fromSector: string;   // Unidade de origem
+  toSector: string;     // Unidade de destino
+  dateIn: string;       // Data de entrada na unidade
+  dateOut: string | null; // Data de saída (null se estiver parado lá)
+  deadline: string;     // Prazo limite para processamento (SLA)
+  daysSpent: number;    // Dias úteis consumidos
+  handledBy: string;    // Usuário que realizou a ação
+  remarks?: string;     // Despacho/Observações
+  analysisType?: string; // Categoria da análise realizada
 }
 
+// Objeto principal: O Processo de Emenda
 export interface Amendment {
   id: string;
   tenantId: string;
-  code: string;
-  seiNumber: string;
-  year: number;
+  code: string;         // Código interno GESA
+  seiNumber: string;    // Número oficial do Processo SEI
+  year: number;         // Exercício financeiro
   type: AmendmentType;
-  deputyName: string;
-  municipality: string;
+  deputyName: string;   // Autor da emenda
+  municipality: string; // Município beneficiado
   beneficiaryUnit?: string;
-  object: string;
-  value: number;
-  status: string;
-  currentSector: string;
+  object: string;       // Descrição detalhada do objeto
+  value: number;        // Montante financeiro
+  status: string;       // Status atual no workflow
+  currentSector: string; // Unidade técnica onde se encontra
   createdAt: string;
   updatedAt?: string;
   entryDate?: string;
-  suinfra?: boolean;
-  sutis?: boolean;
+  suinfra?: boolean;    // Flag para obras
+  sutis?: boolean;      // Flag para tecnologia
   transferMode?: TransferMode;
   gnd?: GNDType;
-  movements: AmendmentMovement[];
+  movements: AmendmentMovement[]; // Histórico completo de trâmites
 }
 
+// Configuração de unidade técnica e seus SLAs
 export interface SectorConfig {
   id: string;
   tenantId: string;
@@ -118,14 +131,16 @@ export interface SectorConfig {
   analysisType: string;
 }
 
+// Configuração visual e lógica de um status
 export interface StatusConfig {
   id: string;
   tenantId: string;
   name: string;
   color: string;
-  isFinal: boolean;
+  isFinal: boolean; // Se true, bloqueia edições no processo
 }
 
+// Log de auditoria para segurança e compliance
 export interface AuditLog {
   id: string;
   tenantId: string;
@@ -137,14 +152,16 @@ export interface AuditLog {
   severity: 'INFO' | 'WARN' | 'CRITICAL';
 }
 
+// Resultado da análise preditiva gerada pela IA Gemini
 export interface AIAnalysisResult {
-  summary: string;
-  bottleneck: string;
-  recommendation: string;
-  riskScore: number;
-  completionProbability: number;
+  summary: string;           // Resumo executivo
+  bottleneck: string;        // Identificação de gargalos
+  recommendation: string;    // Sugestão de ação
+  riskScore: number;         // Pontuação de risco (0-100)
+  completionProbability: number; // Chance de sucesso (0-1)
 }
 
+// Definição das fases macro do processo para o Stepper visual
 export const PROCESS_PHASES = [
   { id: 'start', label: 'Protocolo', statuses: [Status.DOCUMENT_ANALYSIS] },
   { id: 'tech', label: 'Análise Técnica', statuses: [Status.TECHNICAL_FLOW, Status.DILIGENCE] },
@@ -153,6 +170,7 @@ export const PROCESS_PHASES = [
   { id: 'end', label: 'Liquidação', statuses: [Status.CONCLUDED, Status.ARCHIVED] }
 ];
 
+// Metadados para estilização e permissões baseadas em Role
 export const ROLE_METADATA = {
   [Role.SUPER_ADMIN]: {
     label: 'Super Admin',

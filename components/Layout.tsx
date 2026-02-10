@@ -92,13 +92,14 @@ export const Layout: React.FC<LayoutProps> = ({
       >
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="bg-white text-[#0d457a] p-2 rounded-xl shrink-0">
-              <ShieldCheck size={20} />
+            <div className="bg-white text-[#0d457a] p-2 rounded-xl shrink-0 flex items-center justify-center relative">
+              <ShieldCheck size={20} className="relative z-10" />
+              <Zap size={10} className="absolute -top-1 -right-1 text-emerald-500 fill-emerald-500" />
             </div>
             {(isSidebarOpen || !isDesktop) && (
               <div className="animate-in fade-in duration-300">
-                <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">GESA <span className="text-emerald-400">Cloud</span></h1>
-                <p className="text-[8px] font-black uppercase tracking-widest text-blue-200/50 mt-1">ESTADO DE GOIÁS</p>
+                <h1 className="font-black text-white text-sm uppercase tracking-tighter leading-none">RASTREIO <span className="text-emerald-400">GESA</span></h1>
+                <p className="text-[7px] font-black uppercase tracking-[0.3em] text-blue-200/50 mt-1">SISTEMA SUBIPEI • GOIÁS</p>
               </div>
             )}
           </div>

@@ -1,0 +1,91 @@
+================================================================================
+          MAPEAMENTO ESTRUTURAL E ORDEM DE RELAÇÃO - GESA CLOUD
+                  ESTADO DE GOIÁS - SES/SUBIPEI
+================================================================================
+
+Este documento descreve a hierarquia de dependências e a ordem lógica de 
+desenvolvimento e execução dos arquivos do sistema de Rastreio de Emendas.
+
+--------------------------------------------------------------------------------
+1. FLUXO DE EXECUÇÃO (RUNTIME ORDER)
+--------------------------------------------------------------------------------
+
+Quando o usuário acessa o sistema, a execução ocorre nesta sequência:
+
+1. [index.html]
+   - Carrega o motor CSS (Tailwind) e bibliotecas externas (html2pdf).
+   - Define o mapa de importação (importmap) para módulos ES6.
+   - Cria o elemento <div id="root">.
+
+2. [index.tsx]
+   - O ponto de entrada do Javascript.
+   - Importa o [App.tsx] e o injeta no DOM do HTML.
+
+3. [App.tsx]
+   - Orquestrador Central. Inicializa o estado global.
+   - Verifica autenticação via [services/supabase.ts].
+   - Define qual componente de tela será exibido baseado no menu lateral.
+
+--------------------------------------------------------------------------------
+2. HIERARQUIA DE DEPENDÊNCIAS (DADOS E LÓGICA)
+--------------------------------------------------------------------------------
+
+Abaixo, os arquivos organizados por nível de precedência (quem define as regras):
+
+NÍVEL 0: DEFINIÇÃO DE REGRAS DE NEGÓCIO (A BASE)
+- [types.ts]: O arquivo mais importante. Todos os outros arquivos dependem dele.
+  Define o que é um "Processo", uma "Movimentação" e um "Usuário".
+- [constants.ts]: Contém os dados mestres (Lista de Deputados, Cidades de Goiás).
+  Depende do [types.ts].
+
+NÍVEL 1: INFRAESTRUTURA E COMUNICAÇÃO (O MOTOR)
+- [services/supabase.ts]: Interface de banco de dados. 
+  Realiza as operações de leitura/escrita. Depende de [types.ts].
+- [services/geminiService.ts]: Motor de Inteligência Artificial.
+  Recebe dados tipados e devolve análises. Depende de [types.ts].
+
+NÍVEL 2: GESTÃO DE ESTADO E SEGURANÇA (O CÉREBRO)
+- [context/NotificationContext.tsx]: Provedor global de alertas (Toasts).
+- [App.tsx]: Centraliza a lógica de sincronização. Ele "puxa" os dados dos 
+  services e os distribui para os componentes de interface.
+
+NÍVEL 3: MOLDURA E NAVEGAÇÃO (O ESQUELETO)
+- [components/Layout.tsx]: Define a barra lateral e o cabeçalho.
+  Envelopa todos os outros componentes de funcionalidade.
+- [components/Login.tsx]: A barreira de acesso que libera o estado do [App.tsx].
+
+NÍVEL 4: MÓDULOS FUNCIONAIS (A INTERFACE)
+Estes componentes são "filhos" do [App.tsx] e só existem dentro dele:
+- [components/Dashboard.tsx]: Visão estatística e BI.
+- [components/AmendmentList.tsx]: Gestão da tabela de processos.
+- [components/AmendmentDetail.tsx]: O dossiê técnico detalhado.
+  * Nota: Este componente depende do [FastTransitionModal.tsx] para edições rápidas.
+- [components/AuditModule.tsx]: Visualizador da trilha de auditoria imutável.
+- [components/ImportModule.tsx]: Conector para planilhas externas (SharePoint).
+
+--------------------------------------------------------------------------------
+3. RELACIONAMENTO ENTRE ARQUIVOS ESPECÍFICOS
+--------------------------------------------------------------------------------
+
+A) PROCESSO DE EDIÇÃO:
+   [AmendmentList] (Usuário clica) -> [App.tsx] (Altera estado) -> [AmendmentDetail] (Renderiza)
+
+B) PROCESSO DE MOVIMENTAÇÃO (TRAMITAÇÃO):
+   [AmendmentDetail] (Usuário move) -> [App.tsx] (handleUpdate) -> [services/supabase.ts] (Grava no Cloud)
+
+C) PROCESSO DE AUDITORIA:
+   Qualquer ação no [App.tsx] -> [services/supabase.ts] (db.audit.log) -> [AuditModule] (Exibe)
+
+--------------------------------------------------------------------------------
+4. TECNOLOGIAS E VERSÕES
+--------------------------------------------------------------------------------
+- React 19: UI Reativa.
+- Supabase: Backend as a Service (PostgreSQL).
+- Google Gemini 3.0 Pro: Análise Preditiva.
+- Lucide React: Biblioteca de ícones técnicos.
+- Recharts: Motor de visualização de dados (Gráficos).
+
+================================================================================
+GESA CLOUD - ARQUITETURA DE ALTA FIDELIDADE
+SISTEMA DESENVOLVIDO EM CAMADAS PARA FACILITAR AUDITORIA E MANUTENÇÃO.
+================================================================================

@@ -1,0 +1,84 @@
+================================================================================
+          DOCUMENTAÇÃO TÉCNICA: RASTREIO DE EMENDAS - GESA CLOUD
+                  ESTADO DE GOIÁS - SES/SUBIPEI
+================================================================================
+
+Este documento detalha o processo de engenharia de software e a hierarquia 
+estrutural utilizada na construção do sistema GESA Cloud.
+
+--------------------------------------------------------------------------------
+1. ORDEM DE EXECUÇÃO E HIERARQUIA DE ARQUIVOS
+--------------------------------------------------------------------------------
+
+A aplicação segue o fluxo de inicialização descrito abaixo:
+
+1. index.html        -> Casca inicial, importa as fontes e o motor de estilos (Tailwind).
+2. metadata.json     -> Define metadados da aplicação e permissões de hardware.
+3. index.tsx         -> Ponto de entrada do React, monta o DOM no elemento #root.
+4. types.ts          -> O "Cérebro": Define todas as interfaces, enums e tipos globais.
+5. constants.ts      -> Dados estáticos (Parlamentares, Cidades, Configurações Mock).
+6. services/         -> Camada de Infraestrutura:
+   - supabase.ts     -> Interface com o Banco de Dados (CRUD e Realtime).
+   - geminiService.ts-> Motor de Inteligência Artificial.
+7. context/          -> Provedores de Estado Global (Notificações, etc).
+8. App.tsx           -> Orquestrador Principal: Gerencia rotas, autenticação e sincronia.
+9. components/       -> Camada de Interface (UI/UX).
+
+--------------------------------------------------------------------------------
+2. PASSO A PASSO DO DESENVOLVIMENTO
+--------------------------------------------------------------------------------
+
+FASE 1: FUNDAÇÃO E TIPAGEM (TYPES & CONSTANTS)
+Desenvolvemos primeiro o 'types.ts'. Em sistemas governamentais, a integridade 
+dos dados é vital. Definimos Enums para Status (Tramitação, Empenho, Pago) e 
+Perfis (RBAC). O uso de Typescript garante que um valor de emenda nunca seja 
+tratado como texto, evitando erros orçamentários.
+
+FASE 2: INFRAESTRUTURA CLOUD (SUPABASE & REALTIME)
+Configuramos o 'services/supabase.ts'. Diferente de sistemas tradicionais, o 
+GESA Cloud usa Row Level Security (RLS). Isso significa que o isolamento entre 
+Secretarias (Tenants) acontece no nível do banco de dados, não apenas no código.
+
+FASE 3: INTELIGÊNCIA ARTIFICIAL (GEMINI PRO)
+Implementamos o 'services/geminiService.ts'. Integramos o modelo Gemini 3 Pro 
+para ler o contexto do processo SEI e identificar gargalos burocráticos 
+automaticamente, baseando-se no Decreto Estadual nº 10.634/2025.
+
+FASE 4: O ORQUESTRADOR (APP.TSX)
+Criamos o motor de estado em 'App.tsx'. Ele é responsável por:
+- Validar a sessão do servidor.
+- Sincronizar dados entre o buffer local (offline) e a nuvem.
+- Gerenciar as transições de tela (Dashboard, Lista, Dossiê).
+
+FASE 5: INTERFACE DO USUÁRIO (COMPONENTS)
+Os componentes foram criados seguindo a hierarquia de complexidade:
+1. Layout.tsx: A moldura do sistema com navegação lateral.
+2. Login.tsx: Porta de entrada com bypass para homologação.
+3. AmendmentList.tsx: Tabela robusta com paginação e busca global.
+4. AmendmentDetail.tsx: O 'Dossiê Digital'. Aqui reside a lógica de SLA, 
+   calculando quantos dias um processo está parado em cada unidade técnica.
+
+FASE 6: SEGURANÇA E GOVERNANÇA (AUDIT & COMPLIANCE)
+Desenvolvemos módulos para auditoria imutável (AuditModule.tsx). Cada clique 
+que altera um valor ou status gera um log criptografado no Supabase. O módulo 
+de governança (GovernanceDocs.tsx) detalha o alinhamento com COBIT e ISO 27001.
+
+FASE 7: INTEGRAÇÃO E EXPORTAÇÃO (IMPORT & REPORTS)
+Criamos o ImportModule.tsx, que realiza um 'handshake' com planilhas de 
+SharePoint da SES-GO, e o ReportModule.tsx, que utiliza a biblioteca html2pdf 
+para gerar relatórios fiscais em PDF com alta fidelidade.
+
+--------------------------------------------------------------------------------
+3. TECNOLOGIAS UTILIZADAS
+--------------------------------------------------------------------------------
+- Frontend: React 19 (Hooks, Context API).
+- Estilização: Tailwind CSS (Design System Governamental).
+- Banco de Dados: Supabase (PostgreSQL + Realtime).
+- IA: Google Gemini 3.0 Pro.
+- Gráficos: Recharts (Business Intelligence).
+- Ícones: Lucide-React.
+
+================================================================================
+GERÊNCIA DE SUPORTE ADMINISTRATIVO - GESA / SUBIPEI
+SISTEMA DESENVOLVIDO PARA ALTA PERFORMANCE E CONFORMIDADE JURÍDICA.
+================================================================================

@@ -1,0 +1,102 @@
+================================================================================
+           GUIA DE ESTUDO PASSO A PASSO: SISTEMA GESA CLOUD
+                  ESTADO DE GOIÁS - SES/SUBIPEI
+================================================================================
+
+Este guia foi criado para orientar o desenvolvedor ou auditor no entendimento 
+completo da aplicação, seguindo uma ordem lógica de dependências.
+
+--------------------------------------------------------------------------------
+PASSO 1: O CONTRATO DE DADOS (A BASE DE TUDO)
+--------------------------------------------------------------------------------
+Antes de ver qualquer tela, você deve entender como os dados são estruturados.
+O sistema é "Type-Driven" (dirigido por tipos).
+
+Arquivos para estudar:
+1. [types.ts]: Observe os ENUMS (Status, Role, AuditAction). Eles regem o 
+   comportamento de todo o sistema. Entenda a interface 'Amendment'.
+2. [constants.ts]: Veja como os dados geográficos e parlamentares de Goiás 
+   estão mapeados para alimentar os seletores.
+
+O que aprender aqui: Como um processo SEI é representado em código.
+
+--------------------------------------------------------------------------------
+PASSO 2: A INFRAESTRUTURA E PERSISTÊNCIA
+--------------------------------------------------------------------------------
+Entenda como o sistema conversa com o mundo exterior.
+
+Arquivos para estudar:
+1. [services/supabase.ts]: Observe o objeto 'db'. Note como cada função 
+   filtra os dados pelo 'tenantId' (Isolamento por Secretaria).
+2. [components/DatabaseStatusAlert.tsx]: Estude os scripts SQL contidos aqui. 
+   Eles explicam como as tabelas devem ser criadas no banco de dados.
+
+O que aprender aqui: Como funciona o CRUD e a segurança de nível de linha (RLS).
+
+--------------------------------------------------------------------------------
+PASSO 3: O CÉREBRO E ESTADO GLOBAL
+--------------------------------------------------------------------------------
+Agora veja como o sistema inicializa e gerencia a navegação.
+
+Arquivos para estudar:
+1. [App.tsx]: É o arquivo mais importante. Estude a função 'fetchData' e 
+   como o 'currentView' decide qual componente renderizar.
+2. [context/NotificationContext.tsx]: Entenda como o sistema de alertas 
+   (Toasts) funciona globalmente.
+
+O que aprender aqui: Ciclo de vida do React e sincronização com a nuvem.
+
+--------------------------------------------------------------------------------
+PASSO 4: A MOLDURA (SHELL) E ACESSO
+--------------------------------------------------------------------------------
+Veja como a interface é organizada visualmente.
+
+Arquivos para estudar:
+1. [components/Layout.tsx]: Estude como o menu lateral é construído e 
+   como ele reage ao perfil do usuário (RBAC).
+2. [components/Login.tsx]: Entenda os "bypasses" de homologação para testes.
+
+O que aprender aqui: Design System governamental e responsividade.
+
+--------------------------------------------------------------------------------
+PASSO 5: MÓDULOS DE NEGÓCIO (PRODUTIVIDADE)
+--------------------------------------------------------------------------------
+Estude os componentes que os servidores da SES-GO usam no dia a dia.
+
+Arquivos para estudar:
+1. [components/AmendmentList.tsx]: Lógica de listagem, busca e novo protocolo.
+2. [components/AmendmentDetail.tsx]: O componente mais complexo. Estude o 
+   cálculo do SLA (permanência na unidade) e a trilha de movimentos.
+3. [components/Dashboard.tsx]: Como os dados são transformados em gráficos (BI).
+
+O que aprender aqui: Lógica de workflow e regras do Decreto 10.634/2025.
+
+--------------------------------------------------------------------------------
+PASSO 6: INTELIGÊNCIA ARTIFICIAL E INTEGRAÇÃO
+--------------------------------------------------------------------------------
+Como o sistema usa IA para modernizar a gestão pública.
+
+Arquivos para estudar:
+1. [services/geminiService.ts]: Veja como o prompt é construído para que o 
+   Gemini 3 Pro analise um processo SEI.
+2. [components/FastAnalysisModule.tsx]: Lógica de conexão com o SharePoint 
+   para leitura de planilhas externas.
+
+O que aprender aqui: Integração de LLMs em sistemas administrativos.
+
+--------------------------------------------------------------------------------
+PASSO 7: SEGURANÇA, AUDITORIA E CONFORMIDADE
+--------------------------------------------------------------------------------
+A camada de transparência exigida pelos órgãos de controle.
+
+Arquivos para estudar:
+1. [components/AuditModule.tsx]: Como os logs de auditoria são exibidos.
+2. [components/GovernanceDocs.tsx]: Documentação sobre COBIT, ITIL e ISO 27001.
+3. [components/SecurityModule.tsx]: Gestão de usuários e LGPD.
+
+O que aprender aqui: Rastreabilidade imutável e governança de TI.
+
+================================================================================
+DICA DE OURO: Use o [components/DebugConsole.tsx] durante o estudo para 
+ver o estado das variáveis e latência de rede em tempo real!
+================================================================================
