@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
-  BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays, Link2,
-  Scale, Zap, RefreshCw, Wifi, WifiOff, Users, Workflow, Book, Key
+  BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays,
+  Scale, RefreshCw, WifiOff, Users, Workflow, Book, Key, Zap
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -48,7 +47,6 @@ export const Layout: React.FC<LayoutProps> = ({
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'amendments', label: 'Emendas Impositivas', icon: FileText },
-        { id: 'fast_analysis', label: 'Análise Rápida (2026)', icon: Zap },
         { id: 'calendar', label: 'Calendário de Prazos', icon: CalendarDays },
         { id: 'repository', label: 'Repositório Central', icon: Database },
       ]
@@ -56,7 +54,6 @@ export const Layout: React.FC<LayoutProps> = ({
     {
       label: 'Carga e Fluxo',
       items: [
-        { id: 'import', label: 'Conexão Planilha', icon: Link2 },
         { id: 'reports', label: 'Central de Relatórios', icon: BarChart3 },
         { id: 'sectors', label: 'Unidades Técnicas', icon: Layers },
         { id: 'statuses', label: 'Ciclo de Vida', icon: Workflow },
@@ -96,7 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({
       >
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="bg-white text-[#0d457a] p-2 rounded-xl shrink-0 flex items-center justify-center relative">
+            <div className="bg-white text-[#0d457a] p-2 rounded-xl shrink-0 flex items-center justify-center relative border border-white/10 shadow-lg">
               <ShieldCheck size={20} className="relative z-10" />
               <Zap size={10} className="absolute -top-1 -right-1 text-emerald-500 fill-emerald-500" />
             </div>
@@ -152,7 +149,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="flex items-center gap-6">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-2 hover:bg-slate-50 rounded-xl text-[#0d457a]"
+              className="p-2 hover:bg-slate-50 rounded-xl text-[#0d457a] transition-colors"
             >
               <Menu size={24} />
             </button>
@@ -166,7 +163,7 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
           
-          <div className="flex items-center gap-4 relative">
+          <div className="flex items-center gap-4">
              <div className={`hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-500 ${isLive ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
                 {isLive ? <RefreshCw size={16} className="animate-pulse" /> : <WifiOff size={16} />}
                 <div className="flex flex-col">
@@ -178,23 +175,33 @@ export const Layout: React.FC<LayoutProps> = ({
              <div className="relative">
                 <button 
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center gap-3 ml-4 p-1 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100"
+                  className="flex items-center gap-4 p-1.5 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100"
                 >
-                  <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
-                    <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+                  <div className="hidden sm:flex flex-col items-end justify-center min-w-0">
+                    <p className="text-[10px] font-black text-[#0d457a] leading-none truncate max-w-[150px]">{currentUser.name}</p>
+                    <p className="text-[8px] text-slate-400 font-black uppercase mt-1 tracking-tighter">{currentUser.role}</p>
                   </div>
-                  <img src={currentUser.avatarUrl} className="w-9 h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
-                  <ChevronDown size={14} className={`text-slate-300 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+                  <div className="relative shrink-0">
+                    <img 
+                      src={currentUser.avatarUrl} 
+                      className="w-10 h-10 rounded-xl shadow-md border border-slate-200 object-cover shrink-0" 
+                      alt="Avatar" 
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+                  </div>
+                  <ChevronDown size={14} className={`text-slate-300 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''} shrink-0`} />
                 </button>
 
                 {showProfileMenu && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)}></div>
-                    <div className="absolute right-0 mt-3 w-56 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                       <div className="p-5 border-b border-slate-50 bg-slate-50/50">
-                          <p className="text-[10px] font-black text-[#0d457a] uppercase truncate">{currentUser.email}</p>
-                          <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Sessão Segura v{APP_VERSION}</p>
+                    <div className="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                       <div className="p-5 border-b border-slate-50 bg-slate-50/50 flex items-center gap-4">
+                          <img src={currentUser.avatarUrl} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black text-[#0d457a] uppercase truncate">{currentUser.name}</p>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Versão v{APP_VERSION}</p>
+                          </div>
                        </div>
                        <div className="p-2">
                           <button 
@@ -203,6 +210,7 @@ export const Layout: React.FC<LayoutProps> = ({
                           >
                              <Key size={16} /> Alterar Senha
                           </button>
+                          <div className="h-px bg-slate-50 my-1 mx-2"></div>
                           <button 
                             onClick={onLogout}
                             className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-500 hover:bg-red-50 rounded-2xl transition-all"

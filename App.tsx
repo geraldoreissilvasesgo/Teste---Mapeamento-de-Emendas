@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { AmendmentList } from './components/AmendmentList';
 import { AmendmentDetail } from './components/AmendmentDetail';
 import { ReportModule } from './components/ReportModule';
-import { ImportModule } from './components/ImportModule';
 import { RepositoryModule } from './components/RepositoryModule';
 import { SecurityModule } from './components/SecurityModule';
 import { AuditModule } from './components/AuditModule';
@@ -15,7 +13,6 @@ import { StatusManagement } from './components/StatusManagement';
 import { GovernanceDocs } from './components/GovernanceDocs';
 import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
-import { FastAnalysisModule } from './components/FastAnalysisModule';
 import { SystemDocumentation } from './components/SystemDocumentation';
 import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
 import { PasswordChangeModal } from './components/PasswordChangeModal';
@@ -105,7 +102,7 @@ const AppContent: React.FC = () => {
           const profile = await db.users.getByEmail(session.user.email);
           if (profile) {
             setCurrentUser(profile);
-            // Sugestão de troca de senha se for primeiro acesso (Lógica simplificada para demonstração)
+            // Sugestão de troca de senha se for primeiro acesso
             const firstAccess = localStorage.getItem(`gesa_first_access_${profile.id}`);
             if (!firstAccess) {
               notify('info', 'Segurança GESA', 'Detectamos que este pode ser seu primeiro acesso. Recomendamos atualizar sua senha para garantir conformidade.', 10000);
@@ -129,7 +126,7 @@ const AppContent: React.FC = () => {
     initSession();
   }, []);
 
-  // EFEITO: Gatilho de recarga de dados al trocar de usuário ou atualizar o estado
+  // EFEITO: Gatilho de recarga de dados ao trocar de usuário ou atualizar o estado
   useEffect(() => {
     if (!currentUser) return;
     fetchData();
@@ -143,7 +140,6 @@ const AppContent: React.FC = () => {
     try {
       const isNew = !amendment.id;
       
-      // Sanitização básica: garante que updatedAt sempre acompanhe mudanças
       const payload = {
         ...amendment,
         updatedAt: new Date().toISOString()
@@ -154,12 +150,11 @@ const AppContent: React.FC = () => {
         tenantId: currentUser?.tenantId || 'GOIAS' 
       });
       
-      // LOG DE AUDITORIA: Registra quem alterou o quê para transparência total
       await db.audit.log({
         tenantId: currentUser?.tenantId,
         actorId: currentUser?.id,
         actorName: currentUser?.name,
-        action: isNew ? AuditAction.CREATE : AuditAction.UPDATE,
+        action: isNew ? AuditAction.LOGIN : AuditAction.UPDATE,
         details: `${isNew ? 'Protocolo' : 'Edição'} do processo SEI ${amendment.seiNumber}. Status: ${amendment.status}`,
         severity: 'INFO'
       });
@@ -178,35 +173,12 @@ const AppContent: React.FC = () => {
         notify('warning', 'Modo Offline Ativo', 'O registro foi mantido apenas em buffer local. Verifique sua conexão.');
       }
 
-      // Fallback para estado volátil
       if (!amendment.id) {
         const localMock = { ...amendment, id: `local-${Date.now()}` };
         setAmendments(prev => [localMock, ...prev]);
       } else {
         setAmendments(prev => prev.map(a => a.id === amendment.id ? amendment : a));
       }
-    }
-  };
-
-  /**
-   * Processa a importação de registros vindo de fontes externas (Excel/SharePoint).
-   */
-  const handleImport = async (importedAmendments: Amendment[]) => {
-    setIsLoadingData(true);
-    try {
-      for (const a of importedAmendments) {
-        await db.amendments.upsert({ 
-          ...a, 
-          tenantId: currentUser?.tenantId || 'GOIAS' 
-        });
-      }
-      notify('success', 'Importação Concluída', `${importedAmendments.length} emendas foram sincronizadas.`);
-      await fetchData();
-    } catch (err: any) {
-      console.error("Erro na importação:", err);
-      notify('error', 'Falha na Importação', `Erro ao processar lote: ${err.message}`);
-    } finally {
-      setIsLoadingData(false);
     }
   };
 
@@ -221,7 +193,6 @@ const AppContent: React.FC = () => {
       if (id && !id.startsWith('local-') && !id.startsWith('a-')) {
         await db.amendments.delete(id);
       }
-      // Registro na trilha de auditoria para conformidade
       await db.audit.log({
         tenantId: currentUser?.tenantId,
         actorId: currentUser?.id,
@@ -248,7 +219,6 @@ const AppContent: React.FC = () => {
     localStorage.removeItem('gesa_current_user');
   };
 
-  // RENDERIZAÇÃO: Tela de Load inicial enquanto valida sessão
   if (isInitializing) {
     return (
       <div className="h-screen w-screen bg-[#f1f5f9] flex items-center justify-center">
@@ -260,7 +230,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // RENDERIZAÇÃO: Componente de Login se não houver usuário autenticado
   if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); localStorage.setItem('gesa_current_user', JSON.stringify(u)); }} />;
 
   return (
@@ -275,7 +244,6 @@ const AppContent: React.FC = () => {
       onTenantChange={() => {}}
       onChangePassword={() => setIsPasswordModalOpen(true)}
     >
-      {/* Overlay de carregamento global */}
       {isLoadingData && (
         <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-[100] flex items-center justify-center">
            <div className="flex flex-col items-center gap-4">
@@ -285,7 +253,6 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {/* ROTEAMENTO INTERNO: Alternância entre Visão de Lista e Dossiê Detalhado */}
       {selectedAmendment ? (
         <AmendmentDetail 
           amendment={selectedAmendment} 
@@ -297,7 +264,6 @@ const AppContent: React.FC = () => {
           onMove={(movs, status) => {
              const updatedMovements = [...selectedAmendment.movements];
              
-             // Encerra a etapa anterior antes de iniciar a nova (SLA Tracking)
              if (updatedMovements.length > 0) {
                const lastIndex = updatedMovements.length - 1;
                updatedMovements[lastIndex] = {
@@ -306,7 +272,6 @@ const AppContent: React.FC = () => {
                };
              }
 
-             // Verifica se o novo status é um estado de encerramento total
              const finalStatusNames = [Status.CONCLUDED, Status.ARCHIVED, Status.COMMITMENT_LIQUIDATION];
              const isFinal = finalStatusNames.includes(status as Status) || statuses.find(s => s.name === status)?.isFinal;
              
@@ -329,12 +294,10 @@ const AppContent: React.FC = () => {
         />
       ) : (
         <>
-          {/* Alertas de Banco de Dados Críticos (sempre visível se houver erros em visões operacionais) */}
           {(currentView === 'amendments' || currentView === 'dashboard') && Object.values(dbErrors).some(v => !!v) && (
             <DatabaseStatusAlert errors={dbErrors} />
           )}
 
-          {/* PAINÉIS OPERACIONAIS */}
           {currentView === 'dashboard' && <Dashboard amendments={amendments} statusConfigs={statuses} onSelectAmendment={(id) => setSelectedAmendment(amendments.find(a => a.id === id) || null)} />}
           {currentView === 'amendments' && (
             <AmendmentList 
@@ -350,20 +313,16 @@ const AppContent: React.FC = () => {
               error={dbErrors.amendments} 
             />
           )}
-          {currentView === 'fast_analysis' && <FastAnalysisModule />}
           {currentView === 'calendar' && <CalendarView amendments={amendments} onSelectAmendment={setSelectedAmendment} />}
-          {currentView === 'import' && <ImportModule onImport={handleImport} sectors={sectors} tenantId={currentUser.tenantId} />}
           {currentView === 'reports' && <ReportModule amendments={amendments} />}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
           
-          {/* GESTÃO DE INFRAESTRUTURA (ADMINS) */}
           {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={(id, sla) => {}} error={dbErrors.sectors} />}
           {currentView === 'statuses' && <StatusManagement statuses={statuses} onAdd={(s) => db.statuses.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onReset={() => {}} onBatchAdd={(items) => fetchData()} error={dbErrors.statuses} />}
           {currentView === 'audit' && <AuditModule logs={logs} currentUser={currentUser} activeTenantId={currentUser.tenantId} error={dbErrors.audit} onRefresh={fetchData} />}
           {currentView === 'security' && <SecurityModule users={users} onDeleteUser={(id) => db.users.delete(id).then(fetchData)} currentUser={currentUser} onNavigateToRegister={() => setCurrentView('register')} error={dbErrors.users} onAddUser={() => {}} />}
           {currentView === 'register' && <UserRegistration onAddUser={(u) => db.users.upsert({ ...u, tenantId: currentUser.tenantId }).then(() => setCurrentView('security'))} onBack={() => setCurrentView('security')} />}
           
-          {/* DOCUMENTAÇÃO E GOVERNANÇA */}
           {currentView === 'documentation' && <SystemDocumentation />}
           {currentView === 'governance' && <GovernanceDocs />}
           {currentView === 'compliance_details' && <ComplianceDetails />}
@@ -371,7 +330,6 @@ const AppContent: React.FC = () => {
         </>
       )}
 
-      {/* Modal de Segurança */}
       {isPasswordModalOpen && (
         <PasswordChangeModal 
           currentUser={currentUser} 
@@ -379,7 +337,6 @@ const AppContent: React.FC = () => {
         />
       )}
       
-      {/* Sistema de notificações Plush Toast */}
       <PlushNotificationContainer />
     </Layout>
   );
