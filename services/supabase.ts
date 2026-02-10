@@ -155,6 +155,11 @@ export const db = {
       if (error) throw error;
       return data;
     },
+    async updatePassword(newPassword: string) {
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      return data;
+    },
     async signOut() {
       await supabase.auth.signOut();
     }

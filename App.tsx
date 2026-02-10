@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -16,6 +17,8 @@ import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
 import { FastAnalysisModule } from './components/FastAnalysisModule';
 import { SystemDocumentation } from './components/SystemDocumentation';
+import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
+import { PasswordChangeModal } from './components/PasswordChangeModal';
 import { Login } from './components/Login';
 import { CalendarView } from './components/CalendarView';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
@@ -48,6 +51,7 @@ const AppContent: React.FC = () => {
   // ESTADO DE NAVEGAÇÃO
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   
   // ESTADO DE INFRAESTRUTURA E SINCRONIZAÇÃO
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -99,7 +103,15 @@ const AppContent: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.email) {
           const profile = await db.users.getByEmail(session.user.email);
-          if (profile) setCurrentUser(profile);
+          if (profile) {
+            setCurrentUser(profile);
+            // Sugestão de troca de senha se for primeiro acesso (Lógica simplificada para demonstração)
+            const firstAccess = localStorage.getItem(`gesa_first_access_${profile.id}`);
+            if (!firstAccess) {
+              notify('info', 'Segurança GESA', 'Detectamos que este pode ser seu primeiro acesso. Recomendamos atualizar sua senha para garantir conformidade.', 10000);
+              localStorage.setItem(`gesa_first_access_${profile.id}`, 'done');
+            }
+          }
           else {
             const saved = localStorage.getItem('gesa_current_user');
             if (saved) setCurrentUser(JSON.parse(saved));
@@ -117,7 +129,7 @@ const AppContent: React.FC = () => {
     initSession();
   }, []);
 
-  // EFEITO: Gatilho de recarga de dados ao trocar de usuário ou atualizar o estado
+  // EFEITO: Gatilho de recarga de dados al trocar de usuário ou atualizar o estado
   useEffect(() => {
     if (!currentUser) return;
     fetchData();
@@ -130,8 +142,15 @@ const AppContent: React.FC = () => {
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
       const isNew = !amendment.id;
+      
+      // Sanitização básica: garante que updatedAt sempre acompanhe mudanças
+      const payload = {
+        ...amendment,
+        updatedAt: new Date().toISOString()
+      };
+
       const saved = await db.amendments.upsert({ 
-        ...amendment, 
+        ...payload, 
         tenantId: currentUser?.tenantId || 'GOIAS' 
       });
       
@@ -152,7 +171,13 @@ const AppContent: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Erro crítico de persistência:", err);
-      notify('warning', 'Modo Offline Ativo', 'O registro foi mantido apenas em buffer local. Verifique sua conexão.');
+      
+      if (err.message?.includes('updatedAt')) {
+        notify('error', 'Erro de Estrutura', 'A coluna "updatedAt" está faltando no banco. Use o Console de Banco para corrigir.');
+      } else {
+        notify('warning', 'Modo Offline Ativo', 'O registro foi mantido apenas em buffer local. Verifique sua conexão.');
+      }
+
       // Fallback para estado volátil
       if (!amendment.id) {
         const localMock = { ...amendment, id: `local-${Date.now()}` };
@@ -248,6 +273,7 @@ const AppContent: React.FC = () => {
       onNavigate={setCurrentView}
       onLogout={handleLogout}
       onTenantChange={() => {}}
+      onChangePassword={() => setIsPasswordModalOpen(true)}
     >
       {/* Overlay de carregamento global */}
       {isLoadingData && (
@@ -303,6 +329,11 @@ const AppContent: React.FC = () => {
         />
       ) : (
         <>
+          {/* Alertas de Banco de Dados Críticos (sempre visível se houver erros em visões operacionais) */}
+          {(currentView === 'amendments' || currentView === 'dashboard') && Object.values(dbErrors).some(v => !!v) && (
+            <DatabaseStatusAlert errors={dbErrors} />
+          )}
+
           {/* PAINÉIS OPERACIONAIS */}
           {currentView === 'dashboard' && <Dashboard amendments={amendments} statusConfigs={statuses} onSelectAmendment={(id) => setSelectedAmendment(amendments.find(a => a.id === id) || null)} />}
           {currentView === 'amendments' && (
@@ -338,6 +369,14 @@ const AppContent: React.FC = () => {
           {currentView === 'compliance_details' && <ComplianceDetails />}
           {currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
         </>
+      )}
+
+      {/* Modal de Segurança */}
+      {isPasswordModalOpen && (
+        <PasswordChangeModal 
+          currentUser={currentUser} 
+          onClose={() => setIsPasswordModalOpen(false)} 
+        />
       )}
       
       {/* Sistema de notificações Plush Toast */}

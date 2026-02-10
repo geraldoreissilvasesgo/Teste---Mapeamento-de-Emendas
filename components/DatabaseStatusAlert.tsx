@@ -1,5 +1,7 @@
+
 import React, { useState } from 'react';
-import { ShieldAlert, Terminal, Copy, Check, X, Database, Info, Zap, AlertTriangle } from 'lucide-react';
+// Added RefreshCw to the list of icons imported from lucide-react
+import { ShieldAlert, Terminal, Copy, Check, X, Database, Info, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface DatabaseStatusAlertProps {
   errors: {
@@ -57,6 +59,7 @@ COMMIT;`,
 
     fix_schema: `-- CORREÇÃO DE ESQUEMA (ADICIONAR COLUNAS FALTANTES)
 BEGIN;
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW();
   ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "beneficiaryUnit" TEXT;
   ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "transferMode" TEXT;
   ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "gnd" TEXT;
@@ -64,6 +67,7 @@ BEGIN;
   ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "suinfra" BOOLEAN DEFAULT FALSE;
   ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "sutis" BOOLEAN DEFAULT FALSE;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS "api_key" TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS "password" TEXT; -- Coluna para senhas persistidas
 COMMIT;`,
 
     setup_tables: `-- SETUP ESTRUTURAL COMPLETO (ORDEM CORRETA)
@@ -100,6 +104,7 @@ CREATE TABLE IF NOT EXISTS users (
   department TEXT,
   "avatarUrl" TEXT,
   "api_key" TEXT,
+  "password" TEXT,
   "lgpdAccepted" BOOLEAN DEFAULT FALSE,
   "mfaEnabled" BOOLEAN DEFAULT FALSE,
   "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -161,6 +166,12 @@ CREATE POLICY "Permitir Tudo" ON amendments FOR ALL USING (true) WITH CHECK (tru
             </div>
           </div>
           <div className="flex flex-wrap gap-3 w-full md:w-auto">
+            <button 
+              onClick={() => setSelectedTable('fix_schema')}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg"
+            >
+              <RefreshCw size={14} /> Corrigir Colunas
+            </button>
             <button 
               onClick={() => setSelectedTable('setup_rls')}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg"

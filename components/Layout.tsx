@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays, Link2,
-  Scale, Zap, RefreshCw, Wifi, WifiOff, Users, Workflow, Book
+  Scale, Zap, RefreshCw, Wifi, WifiOff, Users, Workflow, Book, Key
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -18,14 +19,16 @@ interface LayoutProps {
   onNavigate: (view: string) => void;
   onLogout: () => void;
   onTenantChange: (id: string) => void;
+  onChangePassword: () => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
   children, currentUser, currentView, activeTenantId, 
-  isLive, onlineUsers = [], onNavigate, onLogout, onTenantChange 
+  isLive, onlineUsers = [], onNavigate, onLogout, onTenantChange, onChangePassword
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -163,20 +166,7 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-             {onlineUsers.length > 1 && (
-               <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full">
-                  <div className="flex -space-x-2">
-                    {onlineUsers.slice(0, 3).map((u, i) => (
-                      <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-blue-500 flex items-center justify-center text-[8px] font-black text-white overflow-hidden" title={u.name}>
-                        {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover"/> : u.name[0]}
-                      </div>
-                    ))}
-                  </div>
-                  <span className="text-[8px] font-black text-slate-400 uppercase">+{onlineUsers.length} Operadores</span>
-               </div>
-             )}
-
+          <div className="flex items-center gap-4 relative">
              <div className={`hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-500 ${isLive ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
                 {isLive ? <RefreshCw size={16} className="animate-pulse" /> : <WifiOff size={16} />}
                 <div className="flex flex-col">
@@ -185,12 +175,44 @@ export const Layout: React.FC<LayoutProps> = ({
                 </div>
              </div>
 
-             <div className="flex items-center gap-3 ml-4">
-                <div className="text-right hidden sm:block">
-                  <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
-                  <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
-                </div>
-                <img src={currentUser.avatarUrl} className="w-9 h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
+             <div className="relative">
+                <button 
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="flex items-center gap-3 ml-4 p-1 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100"
+                >
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
+                    <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.role}</p>
+                  </div>
+                  <img src={currentUser.avatarUrl} className="w-9 h-9 rounded-xl shadow-sm border border-slate-200" alt="Avatar" />
+                  <ChevronDown size={14} className={`text-slate-300 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showProfileMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)}></div>
+                    <div className="absolute right-0 mt-3 w-56 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                       <div className="p-5 border-b border-slate-50 bg-slate-50/50">
+                          <p className="text-[10px] font-black text-[#0d457a] uppercase truncate">{currentUser.email}</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Sessão Segura v{APP_VERSION}</p>
+                       </div>
+                       <div className="p-2">
+                          <button 
+                            onClick={() => { onChangePassword(); setShowProfileMenu(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-slate-600 hover:bg-blue-50 hover:text-blue-600 rounded-2xl transition-all"
+                          >
+                             <Key size={16} /> Alterar Senha
+                          </button>
+                          <button 
+                            onClick={onLogout}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                          >
+                             <LogOut size={16} /> Encerrar Acesso
+                          </button>
+                       </div>
+                    </div>
+                  </>
+                )}
              </div>
           </div>
         </header>

@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/supabase';
-import { APP_VERSION, MOCK_USERS } from '../constants';
-import { Role, User, AuditAction } from '../types';
+import { MOCK_USERS } from '../constants';
+import { User, AuditAction } from '../types';
 import { 
   ShieldCheck, Mail, Lock, Eye, EyeOff, LogIn, 
-  CheckCircle2, AlertCircle, Loader2, Info, MailQuestion, Sparkles, UserCheck, Zap
+  CheckCircle2, AlertCircle, Loader2, Zap
 } from 'lucide-react';
 
 interface LoginProps {
@@ -40,22 +41,25 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       localStorage.removeItem('gesa_remembered_email');
     }
 
+    // Lógica para credenciais de demonstração legado (Mantido para Anderson e Geraldo via login manual)
     if (email === 'anderson.alves@goias.gov.br' && password === '123456') {
-      setTimeout(() => onLogin(MOCK_USERS[1]), 500);
+      const profile = await db.users.getByEmail(email);
+      setTimeout(() => onLogin(profile || MOCK_USERS[1]), 500);
       return;
     }
 
     if (email === 'geraldo.rsilva@goias.gov.br' && password === 'Goias@2024') {
-      setTimeout(() => onLogin(MOCK_USERS[0]), 500);
+      const profile = await db.users.getByEmail(email);
+      setTimeout(() => onLogin(profile || MOCK_USERS[0]), 500);
       return;
     }
 
     try {
+      // 1. Tenta autenticação oficial via Supabase Auth
       const authData = await db.auth.signIn(email, password);
       
       if (authData.user) {
         const profile = await db.users.getByEmail(email);
-        
         if (profile) {
           await db.audit.log({
             tenantId: profile.tenantId,
@@ -66,48 +70,45 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             severity: 'INFO'
           });
           onLogin(profile);
-        } else {
-          setError({ 
-            message: 'Usuário autenticado, mas perfil não localizado na base de servidores. Contate o administrador.',
-            type: 'missing_profile'
-          });
+          return;
         }
       }
     } catch (err: any) {
-      console.warn("Auth error:", err);
+      console.warn("Auth falhou, tentando validação via perfil persistido...");
+    }
+
+    // 2. Fallback: Validação via tabela 'users' (Permite login com senhas alteradas)
+    try {
+      const registeredProfile = await db.users.getByEmail(email);
       
-      if (err.message?.includes('Email not confirmed')) {
-        setError({ 
-          message: 'E-mail institucional não confirmado. Verifique sua caixa de entrada.',
-          type: 'confirm'
-        });
-      } else if (err.message?.includes('Invalid login credentials')) {
-        setError({ 
-          message: 'E-mail ou senha incorretos. Verifique suas credenciais do Estado de Goiás.',
-          type: 'auth'
-        });
+      if (registeredProfile) {
+        // Se o usuário mudou a senha, ela está em registeredProfile.password
+        // Se for primeiro acesso, aceita Goias@2025
+        const validPassword = registeredProfile.password || 'Goias@2025';
+        
+        if (password === validPassword) {
+           setSuccess('Acesso autorizado via credencial corporativa.');
+           await db.audit.log({
+             tenantId: registeredProfile.tenantId,
+             actorId: registeredProfile.id,
+             actorName: registeredProfile.name,
+             action: AuditAction.LOGIN,
+             details: `Login realizado via perfil persistido (${registeredProfile.password ? 'Senha Customizada' : 'Senha Padrão'}).`,
+             severity: 'INFO'
+           });
+           setTimeout(() => onLogin(registeredProfile), 800);
+           return;
+        } else {
+          setError({ message: 'Senha incorreta para este servidor.', type: 'auth' });
+        }
       } else {
-        setError({ 
-          message: `Erro de conexão: ${err.message}. Tente novamente em instantes.`,
-          type: 'demo'
-        });
+        setError({ message: 'Servidor não localizado na base GESA. Contate a SUBIPEI.', type: 'missing_profile' });
       }
+    } catch (innerErr) {
+      setError({ message: 'Erro na comunicação com o banco de dados.', type: 'demo' });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const provisionUser = (userType: 'anderson' | 'geraldo') => {
-    if (userType === 'anderson') {
-      setEmail('anderson.alves@goias.gov.br');
-      setPassword('123456');
-      setSuccess('Perfil de Anderson Alves (Admin) carregado. Clique em Entrar.');
-    } else {
-      setEmail('geraldo.rsilva@goias.gov.br');
-      setPassword('Goias@2024');
-      setSuccess('Perfil de Geraldo Silva (Super Admin) carregado. Clique em Entrar.');
-    }
-    setError({ message: '' });
   };
 
   return (
@@ -125,7 +126,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           
           <form onSubmit={handleAuth} className="space-y-5">
             <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo (@goias.gov.br)</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                 <input
@@ -140,7 +141,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha de Acesso</label>
               <div className="relative">
                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                 <input
@@ -196,22 +197,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
         </div>
         
-        <div className="mt-8 flex flex-col gap-3 no-print">
-           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-1">Modo de Homologação (Acesso Rápido)</p>
-           <div className="flex flex-col sm:flex-row gap-3">
-              <button 
-                onClick={() => provisionUser('geraldo')}
-                className="flex-1 flex items-center justify-center gap-2 text-[8px] font-black text-slate-500 uppercase tracking-widest bg-white/70 px-4 py-3 rounded-xl border border-slate-200 hover:bg-white hover:border-[#0d457a] hover:text-[#0d457a] transition-all shadow-sm group"
-              >
-                <UserCheck size={14} className="group-hover:text-blue-500 transition-colors" /> Geraldo (Super)
-              </button>
-              <button 
-                onClick={() => provisionUser('anderson')}
-                className="flex-1 flex items-center justify-center gap-2 text-[8px] font-black text-slate-500 uppercase tracking-widest bg-white/70 px-4 py-3 rounded-xl border border-slate-200 hover:bg-white hover:border-[#0d457a] hover:text-[#0d457a] transition-all shadow-sm group"
-              >
-                <Sparkles size={14} className="group-hover:text-blue-500 transition-colors" /> Anderson (Admin)
-              </button>
-           </div>
+        <div className="mt-8 p-4 bg-blue-50 rounded-2xl border border-blue-100 no-print">
+          <p className="text-[8px] text-blue-700 font-bold uppercase leading-relaxed text-center">
+            O sistema prioriza sua senha corporativa personalizada após a primeira alteração no painel de perfil.
+          </p>
         </div>
       </div>
     </div>
