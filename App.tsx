@@ -15,6 +15,7 @@ import { GovernanceDocs } from './components/GovernanceDocs';
 import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
 import { FastAnalysisModule } from './components/FastAnalysisModule';
+import { SystemDocumentation } from './components/SystemDocumentation';
 import { Login } from './components/Login';
 import { CalendarView } from './components/CalendarView';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
@@ -332,6 +333,7 @@ const AppContent: React.FC = () => {
           {currentView === 'register' && <UserRegistration onAddUser={(u) => db.users.upsert({ ...u, tenantId: currentUser.tenantId }).then(() => setCurrentView('security'))} onBack={() => setCurrentView('security')} />}
           
           {/* DOCUMENTAÇÃO E GOVERNANÇA */}
+          {currentView === 'documentation' && <SystemDocumentation />}
           {currentView === 'governance' && <GovernanceDocs />}
           {currentView === 'compliance_details' && <ComplianceDetails />}
           {currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}

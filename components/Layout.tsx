@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays, Link2,
-  Scale, Zap, RefreshCw, Wifi, WifiOff, Users, Workflow
+  Scale, Zap, RefreshCw, Wifi, WifiOff, Users, Workflow, Book
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -65,6 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({
         { id: 'audit', label: 'Auditoria', icon: History },
         { id: 'security', label: 'Segurança & LGPD', icon: Lock },
         { id: 'api', label: 'Portal de Integração', icon: Braces },
+        { id: 'documentation', label: 'Dossiê do Sistema', icon: Book },
         { id: 'governance', label: 'Governança Estratégica', icon: ShieldCheck },
         { id: 'compliance_details', label: 'Compliance Details', icon: Scale },
       ]
