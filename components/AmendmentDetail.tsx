@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNotification } from '../context/NotificationContext';
 import { 
   Amendment, StatusConfig, User as AppUser, Role, SectorConfig, 
@@ -51,7 +51,14 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   const [showDestList, setShowDestList] = useState(false);
   const [isFastTransitionOpen, setIsFastTransitionOpen] = useState(false);
   
-  const isSUBIPEI = amendment.currentSector === 'SES/SUBIPEI-21286';
+  // Sincroniza novo status local quando a emenda muda
+  useEffect(() => {
+    setNewStatus(amendment.status);
+    setSelectedDestinations([]);
+    setRemarks('');
+  }, [amendment.id, amendment.status]);
+
+  const isSUBIPEI = amendment.currentSector?.toUpperCase().includes('SUBIPEI');
 
   const isLocked = useMemo(() => {
     const statusObj = statuses.find(s => s.name === amendment.status);
@@ -83,9 +90,9 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   }, [amendment]);
 
   const filteredSectors = useMemo(() => {
-    if (!sectorSearch) return [];
+    const search = sectorSearch.toLowerCase();
     return sectors.filter(s => 
-      s.name.toLowerCase().includes(sectorSearch.toLowerCase()) && 
+      s.name.toLowerCase().includes(search) && 
       !selectedDestinations.find(sel => sel.id === s.id)
     );
   }, [sectors, sectorSearch, selectedDestinations]);
@@ -95,9 +102,9 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     try {
       const result = await analyzeAmendment(amendment);
       setAiResult(result);
-      notify('success', 'Dossiê de IA Gerado', 'Análise técnica integrada com sucesso.');
+      notify('success', 'Análise Preditiva', 'Dossiê de IA gerado com base no histórico do SEI.');
     } catch (e) {
-      notify('error', 'Falha na IA', 'Não foi possível processar a análise preditiva.');
+      notify('error', 'IA Offline', 'Não foi possível processar a análise preditiva.');
     } finally {
       setIsAiLoading(false);
     }
@@ -105,15 +112,19 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
   const handleFinalizeSUBIPEI = () => {
     if (isLocked) return;
-    if (!window.confirm("⚠️ CONFIRMAÇÃO ADMINISTRATIVA: Deseja encerrar a tramitação neste setor e bloquear o registro?")) return;
+    if (!window.confirm("⚠️ CONFIRMAÇÃO ADMINISTRATIVA: Deseja encerrar a tramitação neste setor e bloquear o registro para controle de temporalidade?")) return;
 
     const now = new Date().toISOString();
     const updatedMovements = [...amendment.movements];
     if (updatedMovements.length > 0) {
       const lastIdx = updatedMovements.length - 1;
+      const entry = new Date(updatedMovements[lastIdx].dateIn);
+      const exit = new Date(now);
+      
       updatedMovements[lastIdx] = {
         ...updatedMovements[lastIdx],
         dateOut: now, 
+        daysSpent: Math.max(0, Math.ceil((exit.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24))),
         remarks: (updatedMovements[lastIdx].remarks || '') + " [CONCLUSÃO ADMINISTRATIVA SUBIPEI]"
       };
     }
@@ -128,7 +139,15 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
   };
 
   const handleFinalMove = () => {
-    if (isLocked || selectedDestinations.length === 0) return;
+    if (isLocked) {
+        notify('warning', 'Registro Bloqueado', 'Este processo já atingiu um estado final ou concluído no setor.');
+        return;
+    }
+    if (selectedDestinations.length === 0) {
+        notify('info', 'Destino Obrigatório', 'Selecione pelo menos uma unidade técnica para tramitar o processo.');
+        return;
+    }
+
     setIsSubmitting(true);
     
     const newMovements: AmendmentMovement[] = selectedDestinations.map(dest => ({
@@ -141,13 +160,12 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
       deadline: new Date(Date.now() + dest.defaultSlaDays * 86400000).toISOString(),
       daysSpent: 0,
       handledBy: currentUser.name,
-      remarks: remarks || 'Tramitação de fluxo operacional GESA.',
+      remarks: remarks || 'Tramitação de fluxo operacional GESA Cloud.',
       analysisType: statuses.find(s => s.name === newStatus)?.name || 'Análise Técnica'
     }));
 
     onMove(newMovements, newStatus);
-    setSelectedDestinations([]);
-    setRemarks('');
+    // Nota: O fechamento automático e limpeza acontece via useEffect
     setIsSubmitting(false);
   };
 
@@ -157,8 +175,8 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 no-print">
         <div className="flex items-center gap-4">
-           <button onClick={onBack} className="p-4 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-[#0d457a] transition-all shadow-sm">
-             <ArrowLeft size={20} />
+           <button onClick={onBack} className="p-4 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-[#0d457a] transition-all shadow-sm group">
+             <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
            </button>
            <div>
               <div className="flex items-center gap-3">
@@ -183,23 +201,23 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                    onClick={handleFinalizeSUBIPEI}
                    className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-emerald-700 transition-all active:scale-95"
                  >
-                   <Zap size={18} /> Finalizar Administrativo (SUBIPEI)
+                   <Zap size={18} /> Finalizar (SUBIPEI)
                  </button>
                )}
                <button 
                  onClick={() => setIsFastTransitionOpen(true)}
                  className="flex items-center gap-2 bg-amber-500 text-white px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-amber-600 transition-all"
                >
-                 <History size={18} /> Editor Cronológico
+                 <History size={18} /> Editor de Temporalidade
                </button>
              </>
            ) : (
              <div className="flex items-center gap-2 px-6 py-4 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-slate-200">
-               <Lock size={18} /> Fluxo Concluído no Setor
+               <Lock size={18} /> Fluxo de Trâmite Encerrado
              </div>
            )}
            <button onClick={() => window.print()} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-500 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-all">
-             <Download size={18} /> Exportar PDF
+             <Download size={18} /> Exportar Dossiê PDF
            </button>
         </div>
       </div>
@@ -229,7 +247,7 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-blue-600 border border-slate-100"><UserCheck size={24} /></div>
                        <div>
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Autor</label>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Autor do Recurso</label>
                           <p className="text-xs font-black text-[#0d457a] uppercase">{amendment.deputyName}</p>
                        </div>
                     </div>
@@ -245,24 +263,25 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
            </div>
 
            {!isLocked && (
-             <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8 no-print">
+             <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8 no-print animate-in slide-in-from-bottom-4">
                 <h3 className="text-sm font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-3">
-                   <Send size={18} className="text-blue-500" /> Movimentar Processo
+                   <Send size={18} className="text-blue-500" /> Movimentar Processo SEI
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    <div className="space-y-3">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Destinos</label>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Unidades de Destino</label>
                       <div className="relative">
                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><Building2 size={18}/></div>
                          <input 
                            type="text"
-                           placeholder="BUSCAR UNIDADE..."
+                           placeholder="PESQUISAR SETOR..."
                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-xs uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all"
                            value={sectorSearch}
+                           onFocus={() => setShowDestList(true)}
                            onChange={(e) => { setSectorSearch(e.target.value); setShowDestList(true); }}
                          />
                          {showDestList && filteredSectors.length > 0 && (
-                            <div className="absolute z-20 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+                            <div className="absolute z-20 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
                                {filteredSectors.map(s => (
                                  <button
                                    key={s.id}
@@ -276,17 +295,17 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                             </div>
                          )}
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 pt-1">
                          {selectedDestinations.map(s => (
                            <span key={s.id} className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-[9px] font-black uppercase border border-blue-100 shadow-sm animate-in zoom-in">
                              {s.name}
-                             <button onClick={() => setSelectedDestinations(selectedDestinations.filter(d => d.id !== s.id))}><X size={12}/></button>
+                             <button onClick={() => setSelectedDestinations(selectedDestinations.filter(d => d.id !== s.id))} className="hover:text-red-500"><X size={12}/></button>
                            </span>
                          ))}
                       </div>
                    </div>
                    <div className="space-y-3">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Novo Status</label>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Novo Estado do Ciclo</label>
                       <div className="relative">
                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><History size={18}/></div>
                          <select 
@@ -301,9 +320,10 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
                    </div>
                 </div>
                 <div className="space-y-3">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Observações / Despacho</label>
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Observações Técnicas / Despacho</label>
                    <textarea 
-                     className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[32px] font-bold text-[#0d457a] text-xs uppercase outline-none focus:ring-4 ring-blue-500/5 h-32 resize-none"
+                     placeholder="INFORME DETALHES DO TRÂMITE..."
+                     className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[32px] font-bold text-[#0d457a] text-xs uppercase outline-none focus:ring-4 ring-blue-500/5 h-32 resize-none leading-relaxed"
                      value={remarks}
                      onChange={(e) => setRemarks(e.target.value)}
                    />
@@ -323,23 +343,30 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
            <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-10">
               <h3 className="text-sm font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-3">
-                <Activity size={18} className="text-emerald-500" /> Trilha de Movimentações
+                <Activity size={18} className="text-emerald-500" /> Histórico de Permanência
               </h3>
               <div className="relative space-y-8 before:absolute before:left-5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
                 {[...amendment.movements].reverse().map((mov) => (
-                  <div key={mov.id} className="relative pl-14">
+                  <div key={mov.id} className="relative pl-14 animate-in slide-in-from-left-2 duration-300">
                      <div className={`absolute left-0 w-10 h-10 rounded-2xl flex items-center justify-center border-4 border-white shadow-md z-10 ${mov.dateOut ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white animate-pulse'}`}>
                         {mov.dateOut ? <Check size={18} strokeWidth={3} /> : <Clock size={18} />}
                      </div>
-                     <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100">
+                     <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 group">
                         <div className="flex justify-between items-center gap-4 mb-4">
                            <div>
-                              <p className="text-[10px] font-black text-[#0d457a] uppercase">{mov.toSector}</p>
-                              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{mov.analysisType}</p>
+                              <p className="text-[10px] font-black text-[#0d457a] uppercase tracking-tight">{mov.toSector}</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{mov.analysisType || 'Análise Técnica'}</p>
                            </div>
-                           <div className="px-4 py-2 bg-white rounded-xl text-[10px] font-black border border-slate-100">{mov.daysSpent} Dias</div>
+                           <div className={`px-4 py-2 rounded-xl text-[10px] font-black border ${mov.daysSpent > 7 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-white text-slate-600 border-slate-100'}`}>
+                             {mov.daysSpent} Dias
+                           </div>
                         </div>
-                        <p className="text-[10px] text-slate-500 italic"><Quote size={12} className="inline mr-2 text-slate-300" /> {mov.remarks || 'Sem observações.'}</p>
+                        <div className="p-4 bg-white/50 rounded-2xl border border-white">
+                           <p className="text-[10px] text-slate-500 italic"><Quote size={12} className="inline-block mr-2 text-slate-300" /> {mov.remarks || 'Sem observações registradas.'}</p>
+                        </div>
+                        <div className="mt-4 flex items-center gap-2 text-[8px] font-black text-slate-300 uppercase">
+                          <User size={10} /> Operador: {mov.handledBy}
+                        </div>
                      </div>
                   </div>
                 ))}
@@ -354,28 +381,33 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
               <div className="relative z-10 space-y-8">
                  <div className="flex items-center gap-4">
                     <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Activity size={24} className="text-emerald-400" /></div>
-                    <h3 className="text-lg font-black uppercase tracking-tighter">Dossiê de IA</h3>
+                    <div>
+                      <h3 className="text-lg font-black uppercase tracking-tighter">Dossiê de IA</h3>
+                      <p className="text-[8px] font-black text-blue-300 uppercase tracking-widest">Gemini 3 Pro Integration</p>
+                    </div>
                  </div>
                  {!aiResult ? (
-                   <button onClick={handleAiAnalysis} disabled={isAiLoading} className="w-full py-5 bg-blue-600 text-white rounded-3xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-3">
-                     {isAiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} Gerar Análise Preditiva
+                   <button onClick={handleAiAnalysis} disabled={isAiLoading} className="w-full py-5 bg-blue-600 text-white rounded-3xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3">
+                     {isAiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} 
+                     {isAiLoading ? 'Processando Dossiê...' : 'Gerar Análise Preditiva'}
                    </button>
                  ) : (
                    <div className="space-y-6 animate-in zoom-in-95">
                       <div className="grid grid-cols-2 gap-4">
                          <div className="bg-white/5 p-5 rounded-3xl border border-white/10 text-center">
                             <p className="text-[8px] font-black text-blue-300 uppercase mb-1">Risco</p>
-                            <p className="text-3xl font-black text-red-400">{aiResult.riskScore}%</p>
+                            <p className={`text-3xl font-black ${aiResult.riskScore > 60 ? 'text-red-400' : 'text-emerald-400'}`}>{aiResult.riskScore}%</p>
                          </div>
                          <div className="bg-white/5 p-5 rounded-3xl border border-white/10 text-center">
                             <p className="text-[8px] font-black text-blue-300 uppercase mb-1">Conclusão</p>
-                            <p className="text-3xl font-black text-emerald-400">{(aiResult.completionProbability * 100).toFixed(0)}%</p>
+                            <p className="text-3xl font-black text-blue-400">{(aiResult.completionProbability * 100).toFixed(0)}%</p>
                          </div>
                       </div>
                       <div className="bg-white/5 p-6 rounded-[32px] border border-white/10">
-                        <p className="text-[9px] font-black text-blue-400 uppercase mb-2 flex items-center gap-2"><ShieldAlert size={14} /> Gargalo Técnico</p>
+                        <p className="text-[9px] font-black text-blue-400 uppercase mb-2 flex items-center gap-2"><ShieldAlert size={14} /> Gargalo Identificado</p>
                         <p className="text-[10px] font-medium leading-relaxed text-blue-50/80 uppercase">{aiResult.bottleneck}</p>
                       </div>
+                      <button onClick={() => setAiResult(null)} className="w-full py-3 text-[9px] font-black text-white/30 uppercase hover:text-white transition-colors">Recalcular Insights</button>
                    </div>
                  )}
               </div>
@@ -383,17 +415,29 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
 
            {/* SLA Status */}
            {slaSummary && (
-             <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8">
+             <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm space-y-8 animate-in fade-in duration-700">
                 <div className="flex justify-between items-center">
-                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Timer size={16} /> Status do Prazo</h4>
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Timer size={16} className="text-blue-500" /> Temporalidade</h4>
                    <span className={`text-[9px] font-black uppercase px-2 py-1 rounded ${slaSummary.color} bg-slate-50`}>{slaSummary.status}</span>
                 </div>
-                <div className="text-center">
+                <div className="text-center space-y-1">
                    <p className={`text-5xl font-black tracking-tighter ${slaSummary.color}`}>{slaSummary.daysLeft}</p>
                    <p className="text-[10px] font-black text-slate-400 uppercase">Dias Restantes</p>
                 </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                   <div className={`h-full transition-all duration-1000 ${slaSummary.daysLeft < 0 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${slaSummary.progressPercent}%` }}></div>
+                <div className="space-y-2">
+                   <div className="flex justify-between text-[8px] font-black text-slate-300 uppercase">
+                      <span>Eficiência da Etapa</span>
+                      <span>{slaSummary.progressPercent.toFixed(0)}%</span>
+                   </div>
+                   <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-1000 ${slaSummary.daysLeft < 0 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${slaSummary.progressPercent}%` }}></div>
+                   </div>
+                </div>
+                <div className="pt-6 border-t border-slate-50">
+                  <div className="flex items-center gap-3 text-[9px] font-bold text-slate-400">
+                    <Calendar size={14} className="text-slate-300" />
+                    <span>DATA LIMITE: {slaSummary.deadlineDate.toLocaleDateString('pt-BR')}</span>
+                  </div>
                 </div>
              </div>
            )}
@@ -401,17 +445,17 @@ export const AmendmentDetail: React.FC<AmendmentDetailProps> = ({
            {/* Danger Zone */}
            {(currentUser.role === Role.SUPER_ADMIN || currentUser.role === Role.ADMIN) && (
              <div className="p-10 bg-red-50 rounded-[48px] border border-red-100 space-y-6 no-print">
-                <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest flex items-center gap-2"><ShieldX size={18} /> Zona de Governança</h4>
-                <p className="text-[9px] text-red-700 font-bold uppercase leading-relaxed">A exclusão de processos SEI é irreversível e exige justificativa administrativa.</p>
+                <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest flex items-center gap-2"><ShieldX size={18} /> Governança Crítica</h4>
+                <p className="text-[9px] text-red-700 font-bold uppercase leading-relaxed">A exclusão de processos SEI é irreversível e exige justificativa administrativa rigorosa.</p>
                 <button 
                   onClick={() => {
-                    const justification = window.prompt("⚠️ JUSTIFICATIVA OBRIGATÓRIA: Por que deseja excluir este processo?");
+                    const justification = window.prompt("⚠️ JUSTIFICATIVA OBRIGATÓRIA: Por que deseja excluir este processo permanentemente da base GESA?");
                     if (justification && justification.length >= 5) onDelete(amendment.id, justification);
-                    else if (justification) notify('warning', 'Justificativa Curta', 'Forneça mais detalhes para a auditoria.');
+                    else if (justification) notify('warning', 'Justificativa Inválida', 'A justificativa deve ser detalhada para fins de auditoria.');
                   }}
                   className="w-full py-4 bg-white text-red-600 border border-red-200 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 group"
                 >
-                  <Trash2 size={16} className="group-hover:scale-110 transition-transform" /> Excluir Processo
+                  <Trash2 size={16} className="group-hover:scale-110 transition-transform" /> Excluir Permanentemente
                 </button>
              </div>
            )}

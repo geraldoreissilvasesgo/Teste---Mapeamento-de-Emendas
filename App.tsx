@@ -107,13 +107,16 @@ const AppContent: React.FC = () => {
     const previousAmendments = [...amendments];
     const previousSelected = selectedAmendment;
 
+    // Atualização otimista do estado
     setAmendments(prev => {
       const exists = prev.find(a => a.id === amendment.id);
       if (!exists) return [amendment, ...prev];
       return prev.map(a => a.id === amendment.id ? amendment : a);
     });
     
-    if (selectedAmendment?.id === amendment.id) setSelectedAmendment(amendment);
+    if (selectedAmendment?.id === amendment.id) {
+      setSelectedAmendment(amendment);
+    }
 
     try {
       const isNew = !amendment.id;
@@ -130,8 +133,12 @@ const AppContent: React.FC = () => {
       });
 
       notify('success', 'Sincronizado', `Processo SEI ${amendment.seiNumber} atualizado na nuvem.`);
+      
+      // Sincroniza estado real após o retorno do banco
       setAmendments(prev => prev.map(a => (a.id === amendment.id || a.seiNumber === saved.seiNumber) ? saved : a));
-      if (selectedAmendment?.id === amendment.id) setSelectedAmendment(saved);
+      if (selectedAmendment?.id === amendment.id || selectedAmendment?.seiNumber === saved.seiNumber) {
+        setSelectedAmendment(saved);
+      }
     } catch (err: any) {
       if (err.message !== 'TABLE_MISSING') {
         setAmendments(previousAmendments);
@@ -150,7 +157,7 @@ const AppContent: React.FC = () => {
     setSelectedAmendment(null);
 
     try {
-      // Tenta exclusão no Supabase apenas se não for ID mock
+      // Tenta exclusão no Supabase apenas se não for ID mock curto
       if (id && id.length > 10) {
         await db.amendments.delete(id);
       }
@@ -167,7 +174,6 @@ const AppContent: React.FC = () => {
       notify('error', 'Registro Removido', `O processo SEI ${amendmentToDelete.seiNumber} foi excluído.`);
     } catch (err: any) {
       console.error("Falha na exclusão remota:", err);
-      // Se for apenas erro de tabela ausente, não re-sincroniza para não trazer o mock de volta
       if (err.message !== 'TABLE_MISSING') {
         await fetchData();
         notify('error', 'Falha na Operação', 'Não foi possível completar a exclusão no servidor.');
@@ -214,17 +220,30 @@ const AppContent: React.FC = () => {
           statuses={statuses}
           systemMode={SystemMode.PRODUCTION}
           onBack={() => setSelectedAmendment(null)}
-          onMove={(movs, status) => {
+          onMove={(newMovs, status) => {
              const updatedMovements = [...selectedAmendment.movements];
+             
+             // Fecha o último movimento se existir
              if (updatedMovements.length > 0) {
-               updatedMovements[updatedMovements.length - 1].dateOut = new Date().toISOString();
+               const lastIdx = updatedMovements.length - 1;
+               const entryDate = new Date(updatedMovements[lastIdx].dateIn);
+               const exitDate = new Date();
+               
+               updatedMovements[lastIdx] = {
+                 ...updatedMovements[lastIdx],
+                 dateOut: exitDate.toISOString(),
+                 daysSpent: Math.max(0, Math.ceil((exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)))
+               };
              }
+
              const updated = { 
                ...selectedAmendment, 
-               movements: [...updatedMovements, ...movs], 
+               movements: [...updatedMovements, ...newMovs], 
                status, 
-               currentSector: movs[movs.length-1].toSector 
+               currentSector: newMovs[newMovs.length - 1].toSector,
+               updatedAt: new Date().toISOString()
              };
+             
              handleUpdateAmendment(updated);
           }}
           onUpdate={handleUpdateAmendment}
