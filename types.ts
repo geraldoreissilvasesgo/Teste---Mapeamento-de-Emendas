@@ -1,8 +1,7 @@
+
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 3.2.2-no-avatar
- * 
- * Este arquivo define a estrutura fundamental de dados do sistema.
+ * Versão: 3.2.2-stable
  */
 
 export enum SystemMode {
