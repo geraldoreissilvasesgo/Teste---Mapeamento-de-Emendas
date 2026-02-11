@@ -61,7 +61,7 @@ const AppContent: React.FC = () => {
    */
   const fetchData = useCallback(async () => {
     if (!currentUser) return;
-    const tId = currentUser.tenantId; // Filtro de Multi-tenancy
+    const tId = currentUser.tenantId; 
     setIsLoadingData(true);
 
     const loadTable = async (key: string, promise: Promise<any>, fallback: any, setter: (d: any) => void) => {
@@ -74,14 +74,13 @@ const AppContent: React.FC = () => {
         console.warn(`Aviso: Falha ao carregar ${key} do banco. Usando cache local.`);
         if (err.message === 'TABLE_MISSING' || err.message?.includes('does not exist')) {
           setDbErrors(prev => ({ ...prev, [key]: 'DATABASE_SETUP_REQUIRED' }));
-          setter(fallback);
-        } else {
-          setter(fallback);
+        } else if (err.message?.includes('SCHEMA_MISMATCH') || err.message?.includes('column')) {
+          setDbErrors(prev => ({ ...prev, [key]: 'SCHEMA_MISMATCH' }));
         }
+        setter(fallback);
       }
     };
 
-    // Carregamento paralelo das entidades do sistema
     await Promise.all([
       loadTable('amendments', db.amendments.getAll(tId), MOCK_AMENDMENTS, setAmendments),
       loadTable('users', db.users.getAll(tId), MOCK_USERS, setUsers),
@@ -93,7 +92,6 @@ const AppContent: React.FC = () => {
     setIsLoadingData(false);
   }, [currentUser]);
 
-  // EFEITO: Inicialização da sessão segura e recuperação de dados do LocalStorage
   useEffect(() => {
     const initSession = async () => {
       try {
@@ -102,10 +100,9 @@ const AppContent: React.FC = () => {
           const profile = await db.users.getByEmail(session.user.email);
           if (profile) {
             setCurrentUser(profile);
-            // Sugestão de troca de senha se for primeiro acesso
             const firstAccess = localStorage.getItem(`gesa_first_access_${profile.id}`);
             if (!firstAccess) {
-              notify('info', 'Segurança GESA', 'Detectamos que este pode ser seu primeiro acesso. Recomendamos atualizar sua senha para garantir conformidade.', 10000);
+              notify('info', 'Segurança GESA', 'Detectamos que este pode ser seu primeiro acesso. Recomendamos atualizar sua senha.', 10000);
               localStorage.setItem(`gesa_first_access_${profile.id}`, 'done');
             }
           }
@@ -126,7 +123,6 @@ const AppContent: React.FC = () => {
     initSession();
   }, []);
 
-  // EFEITO: Gatilho de recarga de dados ao trocar de usuário ou atualizar o estado
   useEffect(() => {
     if (!currentUser) return;
     fetchData();
@@ -154,7 +150,7 @@ const AppContent: React.FC = () => {
         tenantId: currentUser?.tenantId,
         actorId: currentUser?.id,
         actorName: currentUser?.name,
-        action: isNew ? AuditAction.LOGIN : AuditAction.UPDATE,
+        action: isNew ? AuditAction.CREATE : AuditAction.UPDATE,
         details: `${isNew ? 'Protocolo' : 'Edição'} do processo SEI ${amendment.seiNumber}. Status: ${amendment.status}`,
         severity: 'INFO'
       });
@@ -167,12 +163,16 @@ const AppContent: React.FC = () => {
     } catch (err: any) {
       console.error("Erro crítico de persistência:", err);
       
-      if (err.message?.includes('updatedAt')) {
-        notify('error', 'Erro de Estrutura', 'A coluna "updatedAt" está faltando no banco. Use o Console de Banco para corrigir.');
+      const isSchemaError = err.message?.includes('updatedAt') || err.message?.includes('SCHEMA_MISMATCH');
+
+      if (isSchemaError) {
+        setDbErrors(prev => ({ ...prev, amendments: 'SCHEMA_MISMATCH' }));
+        notify('error', 'Erro de Estrutura Cloud', 'A coluna "updatedAt" está faltando no banco de dados. Use o Console de Banco de Dados para corrigir.', 15000);
       } else {
-        notify('warning', 'Modo Offline Ativo', 'O registro foi mantido apenas em buffer local. Verifique sua conexão.');
+        notify('warning', 'Modo Local Ativado', 'O registro foi mantido apenas em memória devido a um erro de rede ou permissão.', 8000);
       }
 
+      // Fallback local para não perder o trabalho do servidor
       if (!amendment.id) {
         const localMock = { ...amendment, id: `local-${Date.now()}` };
         setAmendments(prev => [localMock, ...prev]);
@@ -182,10 +182,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  /**
-   * Lógica de Exclusão Definitiva (Ação Crítica).
-   * Protegida por justificativa obrigatória e log de auditoria irreversível.
-   */
   const handleDeleteAmendment = async (id: string, justification: string) => {
     setIsLoadingData(true);
     const amendmentToDelete = amendments.find(a => a.id === id);
@@ -207,7 +203,7 @@ const AppContent: React.FC = () => {
       await fetchData();
     } catch (err: any) {
       console.error("Falha ao excluir registro:", err);
-      notify('error', 'Falha na Operação', `Erro: ${err.message}. Verifique as permissões de acesso.`);
+      notify('error', 'Falha na Operação', `Erro: ${err.message}.`);
     } finally {
       setIsLoadingData(false);
     }

@@ -1,4 +1,3 @@
-
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import { Amendment, User, SectorConfig, StatusConfig, AuditLog } from '../types';
 
@@ -31,8 +30,15 @@ export const generateUUID = () => {
  */
 const handleDbError = (error: any): any => {
   if (error.code === 'PGRST116') return null;
+  
+  // Erro de coluna ausente ou cache de esquema desatualizado (Comum após migrações)
+  if (error.message?.includes('column') && error.message?.includes('not found')) {
+    throw new Error(`SCHEMA_MISMATCH: ${error.message}`);
+  }
+
   if (error.code === 'PGRST104' || error.message?.includes('does not exist')) throw new Error('TABLE_MISSING');
   if (error.code === '42501' || error.message?.includes('permission denied')) throw new Error('PERMISSION_DENIED');
+  
   throw new Error(`Erro na Base de Dados: ${error.message}`);
 };
 
@@ -60,11 +66,13 @@ export const db = {
         tenantId: amendment.tenantId || 'GOIAS',
         createdAt: amendment.createdAt || new Date().toISOString()
       };
+      
       const { data, error } = await supabase
         .from('amendments')
         .upsert(payload, { onConflict: 'id' })
         .select()
         .single();
+        
       if (error) return handleDbError(error);
       return data;
     },
@@ -76,7 +84,6 @@ export const db = {
 
   // GESTÃO DE IDENTIDADES E SERVIDORES
   users: {
-    // Busca todos os usuários de um tenant específico.
     async getAll(tenantId: string): Promise<User[]> {
       const { data, error } = await supabase.from('users').select('*').eq('tenantId', tenantId);
       if (error) return handleDbError(error);
@@ -92,7 +99,6 @@ export const db = {
       if (error) return handleDbError(error);
       return data;
     },
-    // Remove permanentemente um usuário da base.
     async delete(id: string) {
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) handleDbError(error);
@@ -101,13 +107,11 @@ export const db = {
 
   // CONFIGURAÇÃO DE SETORES/UNIDADES
   sectors: {
-    // Busca todas as unidades técnicas configuradas.
     async getAll(tenantId: string): Promise<SectorConfig[]> {
       const { data, error } = await supabase.from('sectors').select('*').eq('tenantId', tenantId);
       if (error) return handleDbError(error);
       return data || [];
     },
-    // Cria ou atualiza uma unidade técnica.
     async upsert(sector: Partial<SectorConfig>) {
       const { data, error } = await supabase.from('sectors').upsert({ ...sector, id: sector.id || generateUUID() }).select().single();
       if (error) return handleDbError(error);
@@ -117,13 +121,11 @@ export const db = {
 
   // CONFIGURAÇÃO DE WORKFLOW/STATUS
   statuses: {
-    // Busca todos os estados do ciclo de vida.
     async getAll(tenantId: string): Promise<StatusConfig[]> {
       const { data, error } = await supabase.from('statuses').select('*').eq('tenantId', tenantId);
       if (error) return handleDbError(error);
       return data || [];
     },
-    // Cria ou atualiza um status de workflow.
     async upsert(status: Partial<StatusConfig>) {
       const { data, error } = await supabase.from('statuses').upsert({ ...status, id: status.id || generateUUID() }).select().single();
       if (error) return handleDbError(error);

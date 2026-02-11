@@ -1,12 +1,10 @@
-
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 3.2.1-password-sync
+ * Versão: 3.2.2-no-avatar
  * 
  * Este arquivo define a estrutura fundamental de dados do sistema.
  */
 
-// ... (outros enums mantidos iguais)
 export enum SystemMode {
   TEST = 'Teste/Simulação',
   PRODUCTION = 'Produção/Real'
@@ -69,11 +67,10 @@ export interface User {
   email: string;
   role: Role;
   department: string;
-  avatarUrl?: string;
   lgpdAccepted: boolean;
   mfaEnabled?: boolean;
   api_key?: string;
-  password?: string; // Adicionado para persistência de credenciais customizadas
+  password?: string;
 }
 
 export interface AmendmentMovement {

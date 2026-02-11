@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, Role } from '../types';
 import { 
@@ -44,7 +43,6 @@ create table if not exists users (
   role text not null,
   password text, -- Hash de senha para contingência
   department text,
-  "avatarUrl" text,
   "lgpdAccepted" boolean default false,
   "mfaEnabled" boolean default false,
   "createdAt" timestamp with time zone default now()
@@ -150,7 +148,7 @@ create policy "Gestão Administrativa" on users
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
                       <div className="w-11 h-11 rounded-2xl bg-[#0d457a] text-white flex items-center justify-center font-black text-sm uppercase shadow-sm overflow-hidden">
-                        {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : (user.name?.charAt(0) || 'S')}
+                        {user.name?.charAt(0) || 'S'}
                       </div>
                       <div>
                         <span className="text-xs font-black text-[#0d457a] uppercase block leading-tight">{user.name}</span>

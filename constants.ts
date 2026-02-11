@@ -1,10 +1,9 @@
-
 import { 
   Amendment, AmendmentType, TransferMode, GNDType, 
   SectorConfig, Role, User, Status 
 } from './types';
 
-export const APP_VERSION = '2.9.7-stable';
+export const APP_VERSION = '2.9.8-stable';
 
 export const GOIAS_DEPUTIES = [
   'Adailton, Coronel',
@@ -112,8 +111,7 @@ export const MOCK_USERS: User[] = [
     email: 'geraldo.rsilva@goias.gov.br',
     role: Role.SUPER_ADMIN,
     lgpdAccepted: true,
-    department: 'SES/SUBIPEI',
-    avatarUrl: 'https://ui-avatars.com/api/?name=Geraldo+Silva&background=0d457a&color=fff'
+    department: 'SES/SUBIPEI'
   },
   {
     id: 'u-anderson-01',
@@ -122,8 +120,7 @@ export const MOCK_USERS: User[] = [
     email: 'anderson.alves@goias.gov.br',
     role: Role.ADMIN,
     lgpdAccepted: true,
-    department: 'SES/SUBIPEI',
-    avatarUrl: 'https://ui-avatars.com/api/?name=Anderson+Alves&background=10b981&color=fff'
+    department: 'SES/SUBIPEI'
   },
   {
     id: 'u-admin-01',
@@ -132,8 +129,7 @@ export const MOCK_USERS: User[] = [
     email: 'gestor.gesa@goias.gov.br',
     role: Role.ADMIN,
     lgpdAccepted: true,
-    department: 'SES/SUBIPEI',
-    avatarUrl: 'https://ui-avatars.com/api/?name=Gestor+GESA&background=0d457a&color=fff'
+    department: 'SES/SUBIPEI'
   }
 ];
 

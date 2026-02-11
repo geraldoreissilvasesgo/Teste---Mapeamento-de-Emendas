@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays,
-  Scale, RefreshCw, WifiOff, Users, Workflow, Book, Key, Zap
+  Scale, RefreshCw, WifiOff, Users, Workflow, Book, Key, Zap, UserCircle2
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -75,6 +75,10 @@ export const Layout: React.FC<LayoutProps> = ({
   const handleNavigate = (viewId: string) => {
     onNavigate(viewId);
     if (!isDesktop) setIsSidebarOpen(false);
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
   return (
@@ -175,19 +179,14 @@ export const Layout: React.FC<LayoutProps> = ({
              <div className="relative">
                 <button 
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center gap-4 p-1.5 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100"
+                  className="flex items-center gap-3 p-1.5 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
                 >
-                  <div className="hidden sm:flex flex-col items-end justify-center min-w-0">
-                    <p className="text-[10px] font-black text-[#0d457a] leading-none truncate max-w-[150px]">{currentUser.name}</p>
-                    <p className="text-[8px] text-slate-400 font-black uppercase mt-1 tracking-tighter">{currentUser.role}</p>
+                  <div className="hidden sm:flex flex-col items-end justify-center min-w-0 h-10">
+                    <p className="text-[10px] font-black text-[#0d457a] leading-tight truncate max-w-[150px]">{currentUser.name}</p>
+                    <p className="text-[8px] text-slate-400 font-black uppercase mt-0.5 tracking-tighter leading-none">{currentUser.role}</p>
                   </div>
-                  <div className="relative shrink-0">
-                    <img 
-                      src={currentUser.avatarUrl} 
-                      className="w-10 h-10 rounded-xl shadow-md border border-slate-200 object-cover shrink-0" 
-                      alt="Avatar" 
-                    />
-                    <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+                  <div className="w-10 h-10 rounded-xl bg-[#0d457a] text-white flex items-center justify-center font-black text-xs shadow-md shrink-0">
+                    {getInitials(currentUser.name)}
                   </div>
                   <ChevronDown size={14} className={`text-slate-300 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''} shrink-0`} />
                 </button>
@@ -197,7 +196,9 @@ export const Layout: React.FC<LayoutProps> = ({
                     <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)}></div>
                     <div className="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                        <div className="p-5 border-b border-slate-50 bg-slate-50/50 flex items-center gap-4">
-                          <img src={currentUser.avatarUrl} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                          <div className="w-10 h-10 rounded-lg bg-[#0d457a] text-white flex items-center justify-center font-black text-[10px]">
+                            {getInitials(currentUser.name)}
+                          </div>
                           <div className="min-w-0">
                             <p className="text-[10px] font-black text-[#0d457a] uppercase truncate">{currentUser.name}</p>
                             <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Versão v{APP_VERSION}</p>

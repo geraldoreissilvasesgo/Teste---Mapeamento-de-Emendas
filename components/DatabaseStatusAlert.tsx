@@ -1,6 +1,4 @@
-
 import React, { useState } from 'react';
-// Added RefreshCw to the list of icons imported from lucide-react
 import { ShieldAlert, Terminal, Copy, Check, X, Database, Info, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface DatabaseStatusAlertProps {
@@ -17,60 +15,47 @@ export const DatabaseStatusAlert: React.FC<DatabaseStatusAlertProps> = ({ errors
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const missingTables = Object.entries(errors).filter(([_, value]) => value === 'DATABASE_SETUP_REQUIRED');
-  const hasErrors = missingTables.length > 0;
+  // Fix: Explicitly cast value as string | undefined to avoid 'unknown' type errors during iteration
+  const missingTables = Object.entries(errors).filter(([_, value]) => (value as string | undefined) === 'DATABASE_SETUP_REQUIRED' || (value as string | undefined)?.includes('SCHEMA_MISMATCH'));
+  // Fix: Explicitly cast value as string | undefined to avoid 'unknown' type errors during iteration
+  const hasSchemaMismatch = Object.values(errors).some(v => (v as string | undefined)?.includes('SCHEMA_MISMATCH') || (v as string | undefined)?.includes('updatedAt'));
 
   const sqlScripts: Record<string, string> = {
-    enable_realtime: `-- HABILITAR SINCRONIZAÇÃO EM TEMPO REAL
+    fix_schema: `-- CORREÇÃO DE ESQUEMA (REPARO DE COLUNAS FALTANTES)
+-- Execute este script para resolver o erro 'updatedAt column not found'
 BEGIN;
-  DO $$ 
-  BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-      CREATE PUBLICATION supabase_realtime;
-    END IF;
-  END $$;
+  -- Adiciona colunas essenciais de rastreabilidade se não existirem
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "entryDate" DATE;
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "suinfra" BOOLEAN DEFAULT FALSE;
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "sutis" BOOLEAN DEFAULT FALSE;
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "beneficiaryUnit" TEXT;
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "transferMode" TEXT;
+  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "gnd" TEXT;
 
-  ALTER PUBLICATION supabase_realtime ADD TABLE amendments, users, sectors, statuses, audit_logs;
+  -- Garante colunas em usuários
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS "password" TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS "api_key" TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS "mfaEnabled" BOOLEAN DEFAULT FALSE;
 
-  ALTER TABLE amendments REPLICA IDENTITY FULL;
-  ALTER TABLE users REPLICA IDENTITY FULL;
-  ALTER TABLE sectors REPLICA IDENTITY FULL;
-  ALTER TABLE statuses REPLICA IDENTITY FULL;
-  ALTER TABLE audit_logs REPLICA IDENTITY FULL;
+  -- Atualiza o cache do PostgREST (Necessário após alterações de DDL)
+  NOTIFY pgrst, 'reload schema';
 COMMIT;`,
-    
-    setup_rls: `-- CONFIGURAR SEGURANÇA E ISOLAMENTO (INCLUINDO EXCLUSÃO)
+
+    setup_rls: `-- LIBERAÇÃO DE ACESSOS E SEGURANÇA (RLS)
 BEGIN;
   ALTER TABLE amendments ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
-
-  -- Política de Acesso Total para Emendas
+  
   DROP POLICY IF EXISTS "Gestão Total de Emendas" ON amendments;
   CREATE POLICY "Gestão Total de Emendas" ON amendments 
     FOR ALL USING (true) WITH CHECK (true);
 
-  CREATE POLICY "Acesso a Perfis da Secretaria" ON users 
-    FOR SELECT USING (true);
-
-  CREATE POLICY "Escrita de Auditoria Protegida" ON audit_logs 
-    FOR INSERT WITH CHECK (true);
+  ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+  DROP POLICY IF EXISTS "Acesso a Perfis" ON users;
+  CREATE POLICY "Acesso a Perfis" ON users FOR SELECT USING (true);
 COMMIT;`,
 
-    fix_schema: `-- CORREÇÃO DE ESQUEMA (ADICIONAR COLUNAS FALTANTES)
-BEGIN;
-  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "beneficiaryUnit" TEXT;
-  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "transferMode" TEXT;
-  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "gnd" TEXT;
-  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "entryDate" DATE;
-  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "suinfra" BOOLEAN DEFAULT FALSE;
-  ALTER TABLE amendments ADD COLUMN IF NOT EXISTS "sutis" BOOLEAN DEFAULT FALSE;
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS "api_key" TEXT;
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS "password" TEXT; -- Coluna para senhas persistidas
-COMMIT;`,
-
-    setup_tables: `-- SETUP ESTRUTURAL COMPLETO (ORDEM CORRETA)
+    setup_tables: `-- SETUP ESTRUTURAL COMPLETO
 CREATE TABLE IF NOT EXISTS amendments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "tenantId" TEXT NOT NULL DEFAULT 'GOIAS',
@@ -102,46 +87,12 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL,
   department TEXT,
-  "avatarUrl" TEXT,
   "api_key" TEXT,
   "password" TEXT,
   "lgpdAccepted" BOOLEAN DEFAULT FALSE,
   "mfaEnabled" BOOLEAN DEFAULT FALSE,
   "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS sectors (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "tenantId" TEXT NOT NULL DEFAULT 'GOIAS',
-  name TEXT NOT NULL,
-  "defaultSlaDays" INTEGER DEFAULT 5,
-  "analysisType" TEXT,
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS statuses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "tenantId" TEXT NOT NULL DEFAULT 'GOIAS',
-  name TEXT NOT NULL,
-  color TEXT DEFAULT '#0d457a',
-  "isFinal" BOOLEAN DEFAULT FALSE,
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS audit_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "tenantId" TEXT NOT NULL DEFAULT 'GOIAS',
-  "actorId" TEXT,
-  "actorName" TEXT,
-  action TEXT NOT NULL,
-  details TEXT,
-  severity TEXT DEFAULT 'INFO',
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Ativar RLS após criação
-ALTER TABLE amendments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Permitir Tudo" ON amendments FOR ALL USING (true) WITH CHECK (true);`
+);`
   };
 
   const handleCopy = (text: string) => {
@@ -153,36 +104,32 @@ CREATE POLICY "Permitir Tudo" ON amendments FOR ALL USING (true) WITH CHECK (tru
   return (
     <>
       <div className="mb-8 animate-in slide-in-from-top-4 duration-500 no-print">
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-[32px] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-amber-900/5">
+        <div className={`border-2 rounded-[32px] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl ${hasSchemaMismatch ? 'bg-red-50 border-red-200 shadow-red-900/5' : 'bg-amber-50 border-amber-200 shadow-amber-900/5'}`}>
           <div className="flex items-center gap-5">
-            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
-              <Database size={28} />
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${hasSchemaMismatch ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+              {hasSchemaMismatch ? <ShieldAlert size={28} /> : <Database size={28} />}
             </div>
             <div>
-              <h3 className="text-sm font-black text-amber-900 uppercase tracking-tight leading-none">Console de Banco de Dados</h3>
-              <p className="text-[10px] text-amber-700 font-bold uppercase mt-2">
-                Ajuste a estrutura cloud para permitir criação, edição e exclusão de registros.
+              <h3 className={`text-sm font-black uppercase tracking-tight leading-none ${hasSchemaMismatch ? 'text-red-900' : 'text-amber-900'}`}>
+                {hasSchemaMismatch ? 'Erro Crítico de Estrutura Detectado' : 'Console de Banco de Dados'}
+              </h3>
+              <p className={`text-[10px] font-bold uppercase mt-2 ${hasSchemaMismatch ? 'text-red-700' : 'text-amber-700'}`}>
+                {hasSchemaMismatch ? 'A coluna "updatedAt" está ausente no banco. Execute o script de reparo agora.' : 'Ajuste a estrutura cloud para permitir a persistência plena de registros.'}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3 w-full md:w-auto">
             <button 
               onClick={() => setSelectedTable('fix_schema')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg"
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${hasSchemaMismatch ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
-              <RefreshCw size={14} /> Corrigir Colunas
+              <RefreshCw size={14} /> Reparar Esquema
             </button>
             <button 
               onClick={() => setSelectedTable('setup_rls')}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg"
             >
-              <Zap size={14} /> Liberar Acessos (RLS)
-            </button>
-            <button 
-              onClick={() => setSelectedTable('setup_tables')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white border border-amber-200 text-amber-700 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-all"
-            >
-              <Terminal size={14} /> Setup Completo
+              <Zap size={14} /> Ativar RLS
             </button>
           </div>
         </div>
@@ -197,7 +144,7 @@ CREATE POLICY "Permitir Tudo" ON amendments FOR ALL USING (true) WITH CHECK (tru
                     <Database size={24} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Script SQL GESA</h3>
+                    <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Script SQL de Reparo</h3>
                     <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Execute no SQL Editor do Supabase</p>
                   </div>
                </div>
@@ -221,7 +168,7 @@ CREATE POLICY "Permitir Tudo" ON amendments FOR ALL USING (true) WITH CHECK (tru
                <div className="flex items-start gap-4 p-6 bg-blue-50 rounded-3xl border border-blue-100">
                   <Info size={20} className="text-blue-500 shrink-0" />
                   <p className="text-[10px] text-blue-700 font-bold uppercase leading-relaxed">
-                    IMPORTANTE: Sem executar o script 'Liberar Acessos (RLS)', o banco recusará qualquer comando de exclusão ou alteração.
+                    Após executar o script, o sistema voltará a sincronizar automaticamente. Certifique-se de que a tabela 'amendments' já exista.
                   </p>
                </div>
 
@@ -230,7 +177,7 @@ CREATE POLICY "Permitir Tudo" ON amendments FOR ALL USING (true) WITH CHECK (tru
                   className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-[#0a365f] transition-all"
                >
                  {copied ? <Check size={18}/> : <Terminal size={18}/>}
-                 {copied ? 'Copiado para Clipboard' : 'Copiar Script SQL'}
+                 {copied ? 'Copiar para o Clipboard' : 'Copiar Script SQL'}
                </button>
             </div>
           </div>
