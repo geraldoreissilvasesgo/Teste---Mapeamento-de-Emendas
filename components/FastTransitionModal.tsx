@@ -27,13 +27,15 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
     const newMovs = [...editedMovements];
     const mov = { ...newMovs[index], [field]: value };
 
-    // Se houver data de entrada e saída, calcula a permanência
+    // Cálculo reativo de permanência (SLA)
     if (field === 'dateIn' || field === 'dateOut') {
       if (mov.dateIn && mov.dateOut) {
-        const d1 = new Date(mov.dateIn);
-        const d2 = new Date(mov.dateOut);
+        const d1 = new Date(mov.dateIn + (mov.dateIn.includes('T') ? '' : 'T12:00:00'));
+        const d2 = new Date(mov.dateOut + (mov.dateOut.includes('T') ? '' : 'T12:00:00'));
         const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
         mov.daysSpent = Math.max(0, diff);
+      } else {
+        mov.daysSpent = 0;
       }
     }
 
@@ -43,10 +45,11 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
 
   const handleAddMovement = () => {
     const lastMov = editedMovements[editedMovements.length - 1];
-    const nextIn = lastMov?.dateOut || new Date().toISOString().split('T')[0];
+    // Se o anterior não tiver saída, define como hoje
+    const nextIn = lastMov?.dateOut ? lastMov.dateOut.split('T')[0] : new Date().toISOString().split('T')[0];
     
     const newMov: AmendmentMovement = {
-      id: `mov-fast-${Date.now()}`,
+      id: `mov-fast-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       amendmentId: amendment.id,
       fromSector: lastMov?.toSector || 'Protocolo',
       toSector: sectors[0]?.name || 'SES/CEP-20903',
@@ -54,8 +57,8 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
       dateOut: null,
       deadline: new Date(new Date(nextIn).getTime() + 5 * 86400000).toISOString().split('T')[0],
       daysSpent: 0,
-      handledBy: 'Ajuste Rápido',
-      analysisType: 'Tramitação Manual'
+      handledBy: 'Ajuste Manual',
+      analysisType: 'Tramitação Técnica'
     };
     setEditedMovements([...editedMovements, newMov]);
   };
@@ -66,30 +69,61 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
   };
 
   const handleSave = () => {
-    const lastMov = editedMovements[editedMovements.length - 1];
-    const newStatusVal = isFinalizing ? finalStatus : (lastMov?.analysisType || amendment.status);
+    if (editedMovements.length === 0) return;
+
+    // 1. Validar integridade das datas (Entrada deve ser <= Saída)
+    const hasInvalidDates = editedMovements.some(m => m.dateOut && new Date(m.dateIn) > new Date(m.dateOut));
+    if (hasInvalidDates) {
+      alert("❌ ERRO DE CRONOLOGIA: Alguma data de entrada é posterior à data de saída.");
+      return;
+    }
+
+    const lastMov = { ...editedMovements[editedMovements.length - 1] };
     
-    // Verificação de Lock rigorosa
-    const isSettingFinal = newStatusVal === Status.COMMITMENT_LIQUIDATION || finalStatuses.some(s => s.name === newStatusVal);
+    // 2. Determinar novo status
+    let newStatusVal = isFinalizing ? finalStatus : amendment.status;
+    
+    // 3. Verificação de Lock (Imutabilidade) e Encerramento forçado do histórico
+    const isSettingFinal = newStatusVal === Status.COMMITMENT_LIQUIDATION || 
+                           newStatusVal === Status.CONCLUDED || 
+                           newStatusVal === Status.COMPLETED_IN_SECTOR ||
+                           newStatusVal === Status.ARCHIVED ||
+                           finalStatuses.some(s => s.name === newStatusVal);
     
     if (isSettingFinal) {
-      if (!window.confirm("⚠️ ALERTA DE IMUTABILIDADE: Ao salvar com este status, o processo será BLOQUEADO para novas edições permanentemente. Confirma a finalização deste SEI?")) {
+      if (!window.confirm("⚠️ ALERTA DE SEGURANÇA GESA: Você está definindo um status de FINALIZAÇÃO. O registro será PROTEGIDO contra alterações futuras e o histórico será encerrado. Confirmar?")) {
         return;
+      }
+      
+      // Força dateOut do último se estiver finalizando
+      if (!lastMov.dateOut) {
+        lastMov.dateOut = new Date().toISOString();
+        const d1 = new Date(lastMov.dateIn);
+        const d2 = new Date(lastMov.dateOut);
+        lastMov.daysSpent = Math.max(0, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
       }
     }
 
+    // 4. Normalizar ISO Strings e construir objeto final
+    const processedMovements = editedMovements.map((m, idx) => {
+      // Se for o último e estiver finalizando, usamos o lastMov atualizado
+      const current = idx === editedMovements.length - 1 ? lastMov : m;
+      return {
+        ...current,
+        dateIn: current.dateIn ? new Date(current.dateIn.includes('T') ? current.dateIn : current.dateIn + 'T12:00:00').toISOString() : current.dateIn,
+        dateOut: current.dateOut ? new Date(current.dateOut.includes('T') ? current.dateOut : current.dateOut + 'T12:00:00').toISOString() : null,
+        deadline: current.deadline ? new Date(current.deadline.includes('T') ? current.deadline : current.deadline + 'T12:00:00').toISOString() : current.deadline
+      };
+    });
+
     const updated: Amendment = {
       ...amendment,
-      movements: editedMovements.map(m => ({
-        ...m,
-        dateIn: m.dateIn ? new Date(m.dateIn).toISOString() : m.dateIn,
-        dateOut: m.dateOut ? new Date(m.dateOut).toISOString() : null,
-        deadline: m.deadline ? new Date(m.deadline).toISOString() : m.deadline
-      })),
-      currentSector: lastMov?.toSector || amendment.currentSector,
+      movements: processedMovements,
+      currentSector: lastMov.toSector,
       status: newStatusVal,
       updatedAt: new Date().toISOString()
     };
+
     onSave(updated);
   };
 
@@ -103,7 +137,7 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
             </div>
             <div>
               <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter">Editor Cronológico de Fluxo</h3>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Ajuste de Datas e Unidades Técnicas</p>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Sincronização de Temporalidade GESA</p>
             </div>
           </div>
           <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
@@ -115,7 +149,7 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
           <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex items-start gap-4">
             <AlertTriangle size={20} className="text-blue-500 shrink-0 mt-1" />
             <p className="text-[10px] text-blue-700 font-bold uppercase leading-relaxed">
-              O sistema permite ajustar retroativamente as datas de entrada e saída. Ao definir um status final, o registro será **congelado** conforme o Decreto Estadual nº 10.634/2025.
+              ATENÇÃO: Este editor permite ajustar retroativamente as datas de trâmite. Use com cautela para garantir a veracidade do histórico de auditoria (SEI-GO).
             </p>
           </div>
 
@@ -142,32 +176,28 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Entrada</label>
-                    <div className="relative">
-                      <input 
-                        type="date"
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black text-[#0d457a] outline-none"
-                        value={mov.dateIn ? mov.dateIn.substring(0, 10) : ''}
-                        onChange={(e) => handleUpdateMovement(idx, 'dateIn', e.target.value)}
-                      />
-                    </div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Data Entrada</label>
+                    <input 
+                      type="date"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black text-[#0d457a] outline-none"
+                      value={mov.dateIn ? mov.dateIn.substring(0, 10) : ''}
+                      onChange={(e) => handleUpdateMovement(idx, 'dateIn', e.target.value)}
+                    />
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Saída</label>
-                    <div className="relative">
-                      <input 
-                        type="date"
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black text-[#0d457a] outline-none"
-                        value={mov.dateOut ? mov.dateOut.substring(0, 10) : ''}
-                        onChange={(e) => handleUpdateMovement(idx, 'dateOut', e.target.value)}
-                      />
-                    </div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Data Saída</label>
+                    <input 
+                      type="date"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black text-[#0d457a] outline-none"
+                      value={mov.dateOut ? mov.dateOut.substring(0, 10) : ''}
+                      onChange={(e) => handleUpdateMovement(idx, 'dateOut', e.target.value)}
+                    />
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">SLA Gasto</label>
-                    <div className="flex items-center gap-2 h-10 px-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Dias no Setor</label>
+                    <div className="flex items-center gap-2 h-10 px-4 bg-blue-50 rounded-xl border border-blue-100 shadow-inner">
                       <Clock size={14} className="text-blue-400" />
                       <span className="text-xs font-black text-blue-700">{mov.daysSpent}d</span>
                     </div>
@@ -177,7 +207,7 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
                     <button 
                       onClick={() => handleRemoveMovement(idx)}
                       className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                      title="Remover Etapa"
+                      title="Excluir Etapa"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -190,20 +220,20 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
               onClick={handleAddMovement}
               className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-black uppercase text-[10px] tracking-widest hover:border-[#0d457a] hover:text-[#0d457a] transition-all flex items-center justify-center gap-2 mt-4"
             >
-              <Plus size={16} /> Inserir Nova Etapa no Histórico
+              <Plus size={16} /> Adicionar Etapa Posterior
             </button>
           </div>
 
           <div className="pt-10 border-t border-slate-100">
-            <div className={`p-8 rounded-[40px] border-2 transition-all ${isFinalizing ? 'bg-blue-50 border-blue-500' : 'bg-slate-50 border-slate-200'}`}>
+            <div className={`p-8 rounded-[40px] border-2 transition-all ${isFinalizing ? 'bg-blue-50 border-blue-500 shadow-lg' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                   <div className={`p-4 rounded-2xl ${isFinalizing ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-200 text-slate-400'}`}>
                     {isFinalizing ? <Lock size={24} /> : <CheckCircle2 size={24} />}
                   </div>
                   <div>
-                    <h4 className="text-base font-black text-[#0d457a] uppercase tracking-tight">Status Final de Liquidação</h4>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Aciona o bloqueio de segurança GESA</p>
+                    <h4 className="text-base font-black text-[#0d457a] uppercase tracking-tight">Efetivar Baixa e Bloqueio</h4>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Concluir ciclo de vida e travar histórico</p>
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -214,7 +244,7 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
 
               {isFinalizing && (
                 <div className="space-y-4 animate-in slide-in-from-top-2">
-                  <label className="text-[9px] font-black text-blue-600 uppercase tracking-widest ml-1">Selecione o Estado de Baixa</label>
+                  <label className="text-[9px] font-black text-blue-600 uppercase tracking-widest ml-1">Status Final (Ação Irreversível)</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {statuses.map(s => (
                       <button
@@ -224,8 +254,8 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
                         className={`p-5 rounded-2xl border-2 text-left transition-all ${finalStatus === s.name ? 'border-blue-600 bg-white shadow-md' : 'border-blue-100 bg-white/50 opacity-60'}`}
                       >
                         <div className="flex justify-between items-start">
-                          <span className="text-[10px] font-black uppercase text-blue-900">{s.name}</span>
-                          {(s.isFinal || s.name === Status.COMMITMENT_LIQUIDATION) && <Lock size={12} className="text-blue-400" />}
+                          <span className="text-[10px] font-black uppercase text-blue-900 leading-tight">{s.name}</span>
+                          {(s.isFinal || s.name === Status.COMMITMENT_LIQUIDATION || s.name === Status.COMPLETED_IN_SECTOR) && <Lock size={12} className="text-blue-400 shrink-0" />}
                         </div>
                       </button>
                     ))}
@@ -237,12 +267,12 @@ export const FastTransitionModal: React.FC<FastTransitionModalProps> = ({
         </div>
 
         <div className="p-10 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-4 shrink-0">
-          <button onClick={onClose} className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Descartar</button>
+          <button onClick={onClose} className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Descartar Alterações</button>
           <button 
             onClick={handleSave}
-            className="bg-[#0d457a] text-white px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center gap-3 active:scale-95"
+            className="bg-[#0d457a] text-white px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center gap-3 active:scale-95 group"
           >
-            <Save size={18} /> Efetivar e Bloquear Histórico
+            <Save size={18} className="group-hover:scale-110 transition-transform" /> Efetivar e Bloquear Histórico
           </button>
         </div>
       </div>

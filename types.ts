@@ -57,7 +57,8 @@ export enum Status {
   LEGAL_OPINION = 'Aguardando Parecer Jurídico',
   COMMITMENT_LIQUIDATION = 'EMPENHO / LIQUIDAÇÃO',
   CONCLUDED = 'Liquidado / Pago',
-  ARCHIVED = 'Arquivado / Rejeitado'
+  ARCHIVED = 'Arquivado / Rejeitado',
+  COMPLETED_IN_SECTOR = 'Concluída no Setor'
 }
 
 export interface User {
@@ -71,6 +72,7 @@ export interface User {
   mfaEnabled?: boolean;
   api_key?: string;
   password?: string;
+  avatarUrl?: string;
 }
 
 export interface AmendmentMovement {
@@ -151,7 +153,7 @@ export const PROCESS_PHASES = [
   { id: 'tech', label: 'Análise Técnica', statuses: [Status.TECHNICAL_FLOW, Status.DILIGENCE] },
   { id: 'legal', label: 'Conformidade', statuses: [Status.LEGAL_OPINION] },
   { id: 'exec', label: 'Empenho', statuses: [Status.COMMITMENT_LIQUIDATION] },
-  { id: 'end', label: 'Liquidação', statuses: [Status.CONCLUDED, Status.ARCHIVED] }
+  { id: 'end', label: 'Liquidação', statuses: [Status.CONCLUDED, Status.ARCHIVED, Status.COMPLETED_IN_SECTOR] }
 ];
 
 export const ROLE_METADATA = {
