@@ -91,7 +91,12 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     setIsSubmitting(true);
     try {
       const cleanValue = parseFloat(formData.value.replace(/[^\d]/g, '')) / 100 || 0;
-      const INITIAL_SECTOR = 'SES/CEP-20903';
+      
+      /**
+       * UNIDADE PADRÃO DE ABERTURA: SES/SUBIPEI-21286
+       * Conforme solicitação para centralizar o fluxo inicial na Subsecretaria.
+       */
+      const INITIAL_SECTOR = 'SES/SUBIPEI-21286';
 
       const newAmendment: Amendment = {
         id: '', 
@@ -123,7 +128,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
           daysSpent: 0,
           handledBy: 'GESA Portal',
-          remarks: `Protocolo inicial (${formData.type}) via sistema.`,
+          remarks: `Protocolo inicial (${formData.type}) via sistema. Entrada direta em SUBIPEI.`,
           analysisType: 'Abertura de Processo'
         }]
       };
@@ -162,6 +167,8 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
   };
 
   const isCrescimento = formData.type === AmendmentType.GOIAS_CRESCIMENTO;
+  const isConvenio = formData.transferMode === TransferMode.CONVENIO;
+  
   const themeColor = isCrescimento ? 'text-emerald-600' : 'text-blue-500';
   const themeBg = isCrescimento ? 'bg-emerald-50' : 'bg-blue-50';
   const themeBorder = isCrescimento ? 'border-emerald-100' : 'border-blue-100';
@@ -190,9 +197,13 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
           </div>
           <button 
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#0d457a] text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#0a365f] transition-all flex items-center gap-3 shrink-0"
+            aria-label="Abrir formulário de novo protocolo"
+            className="bg-[#0d457a] text-white px-10 py-4 rounded-[24px] font-black uppercase text-[11px] tracking-[0.15em] shadow-xl shadow-blue-900/20 hover:bg-[#0a365f] hover:shadow-2xl transition-all flex items-center gap-3 shrink-0 active:scale-95 group"
           >
-            <Plus size={20} /> Novo Protocolo
+            <div className="p-1.5 bg-white/10 rounded-lg group-hover:bg-white/20 transition-colors">
+              <Plus size={20} className="text-white" />
+            </div>
+            <span>Novo Protocolo</span>
           </button>
         </div>
       </div>
@@ -419,6 +430,22 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* CAMPO CONDICIONAL PARA INSTITUIÇÃO (GOIAS CRESCIMENTO + CONVÊNIO) */}
+              {isCrescimento && isConvenio && (
+                <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
+                  <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${themeColor}`}>Nome da Instituição Beneficiada *</label>
+                  <div className="relative">
+                    <Building2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                    <input 
+                      type="text" required placeholder="NOME DA ENTIDADE / OSC / INSTITUIÇÃO..."
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-[#0d457a] uppercase outline-none focus:ring-4 ring-blue-500/5 transition-all text-xs"
+                      value={formData.beneficiaryUnit}
+                      onChange={e => setFormData({...formData, beneficiaryUnit: e.target.value})}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${themeColor}`}>Objeto / Descrição do Recurso *</label>
