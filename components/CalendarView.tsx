@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
   Clock, AlertCircle, CheckCircle2, FileText, ArrowRight,
-  Info, Filter, MapPin, DollarSign
+  Info, Filter, MapPin, DollarSign, Scale, Server, Activity,
+  Gavel, FileCheck, Landmark
 } from 'lucide-react';
 import { Amendment, Status } from '../types';
 
@@ -31,6 +31,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ amendments, onSelect
 
   const monthName = currentDate.toLocaleString('pt-BR', { month: 'long' });
   const year = currentDate.getFullYear();
+
+  /**
+   * Retorna o ícone representativo baseado no status/etapa atual do processo
+   */
+  const getStatusIcon = (statusName: string) => {
+    const s = statusName.toLowerCase();
+    if (s.includes('documentação') || s.includes('análise')) return FileText;
+    if (s.includes('tramitação') || s.includes('técnica')) return Server;
+    if (s.includes('diligência')) return AlertCircle;
+    if (s.includes('jurídico') || s.includes('parecer')) return Scale;
+    if (s.includes('empenho') || s.includes('liquidação')) return DollarSign;
+    if (s.includes('liquidado') || s.includes('pago')) return CheckCircle2;
+    if (s.includes('arquivado')) return FileCheck;
+    return Activity;
+  };
+
+  /**
+   * Calcula o nível de urgência do SLA para um evento individual
+   */
+  const getSlaUrgency = (deadline: string) => {
+    const today = new Date();
+    const limit = new Date(deadline);
+    const diffTime = limit.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return { label: 'Vencido', color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-100' };
+    if (diffDays <= 2) return { label: 'Crítico', color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-100' };
+    return { label: 'No Prazo', color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-100' };
+  };
 
   // Mapear emendas por data de deadline do último movimento
   const eventsByDate = useMemo(() => {
@@ -183,30 +212,46 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ amendments, onSelect
              </div>
 
              <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
-                {selectedDayEvents.map(event => (
-                  <div 
-                    key={event.id}
-                    onClick={() => onSelectAmendment(event)}
-                    className="p-5 bg-slate-50 border border-slate-100 rounded-[28px] hover:bg-white hover:shadow-xl hover:border-blue-100 transition-all cursor-pointer group"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                       <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-tighter">{event.seiNumber}</span>
-                       <ArrowRight size={14} className="text-slate-300 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all" />
+                {selectedDayEvents.map(event => {
+                  const lastMov = event.movements[event.movements.length - 1];
+                  const urgency = getSlaUrgency(lastMov?.deadline || new Date().toISOString());
+                  const StatusIcon = getStatusIcon(event.status);
+                  
+                  return (
+                    <div 
+                      key={event.id}
+                      onClick={() => onSelectAmendment(event)}
+                      className={`p-5 bg-slate-50 border rounded-[28px] hover:bg-white hover:shadow-xl hover:border-blue-100 transition-all cursor-pointer group ${urgency.border}`}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                         <div className="flex items-center gap-3 min-w-0">
+                            <div className={`p-2 rounded-xl shrink-0 ${urgency.bg} ${urgency.color} shadow-sm group-hover:scale-110 transition-transform`}>
+                               <StatusIcon size={16} />
+                            </div>
+                            <div className="min-w-0">
+                               <span className="text-[10px] font-black text-[#0d457a] uppercase tracking-tighter truncate block">{event.seiNumber}</span>
+                               <span className={`text-[7px] font-black uppercase tracking-widest ${urgency.color}`}>{urgency.label}</span>
+                            </div>
+                         </div>
+                         <ArrowRight size={14} className="text-slate-300 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all shrink-0 mt-1" />
+                      </div>
+                      
+                      <p className="text-[9px] font-bold text-slate-400 uppercase line-clamp-2 mb-4 leading-relaxed">
+                        {event.object}
+                      </p>
+                      
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100/50">
+                         <div className="flex items-center gap-1.5 min-w-0">
+                            <MapPin size={10} className="text-emerald-500 shrink-0" />
+                            <span className="text-[8px] font-black text-slate-500 uppercase truncate">{event.municipality}</span>
+                         </div>
+                         <span className="text-[9px] font-black text-[#0d457a] whitespace-nowrap ml-2">
+                            R$ {event.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                         </span>
+                      </div>
                     </div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase line-clamp-2 mb-4 leading-relaxed">
-                      {event.object}
-                    </p>
-                    <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-1.5">
-                          <MapPin size={10} className="text-emerald-500" />
-                          <span className="text-[8px] font-black text-slate-500 uppercase">{event.municipality}</span>
-                       </div>
-                       <span className="text-[9px] font-black text-[#0d457a]">
-                          R$ {event.value.toLocaleString('pt-BR')}
-                       </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {selectedDayEvents.length === 0 && (
                   <div className="py-20 text-center space-y-4 opacity-30">

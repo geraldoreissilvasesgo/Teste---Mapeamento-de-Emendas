@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Amendment, StatusConfig, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType, Status } from '../types';
+import { Amendment, StatusConfig, Role, AmendmentType, TransferMode, SectorConfig, SystemMode, GNDType, Status, AmendmentMovement } from '../types';
 import { GOIAS_DEPUTIES, GOIAS_CITIES } from '../constants';
 import { 
   Plus, Search, MapPin, ChevronLeft, ChevronRight, FileText, 
   X, User, DollarSign, Calendar, Info, ArrowRight, Save, Loader2,
   LayoutGrid, FileSignature, History, Timer, CheckCircle2,
   Building2, ClipboardList, TrendingUp, AlertCircle, Clock,
-  Zap, Layers, Target, Landmark, Percent
+  Zap, Layers, Target, Landmark, Percent, ChevronDown, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 
@@ -32,6 +32,7 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 }) => {
   const { notify } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDeputy, setSelectedDeputy] = useState('all');
   const [activeTab, setActiveTab] = useState<'all' | AmendmentType.IMPOSITIVA | AmendmentType.GOIAS_CRESCIMENTO>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -61,8 +62,13 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
 
   const filteredAmendments = useMemo(() => {
     let base = amendments;
+    
     if (activeTab !== 'all') {
       base = base.filter(a => a.type === activeTab);
+    }
+
+    if (selectedDeputy !== 'all') {
+      base = base.filter(a => a.deputyName === selectedDeputy);
     }
     
     if (!searchTerm) return base;
@@ -70,13 +76,14 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     return base.filter(a => {
       const sei = (a.seiNumber || '').toLowerCase();
       const obj = (a.object || '').toLowerCase();
-      const deputy = (a.deputyName || '').toLowerCase();
       const city = (a.municipality || '').toLowerCase();
+      const deputy = (a.deputyName || '').toLowerCase();
+      
       return tokens.every(token => 
-        sei.includes(token) || obj.includes(token) || deputy.includes(token) || city.includes(token)
+        sei.includes(token) || obj.includes(token) || city.includes(token) || deputy.includes(token)
       );
     });
-  }, [amendments, searchTerm, activeTab]);
+  }, [amendments, searchTerm, activeTab, selectedDeputy]);
 
   const paginatedData = filteredAmendments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const totalPages = Math.ceil(filteredAmendments.length / ITEMS_PER_PAGE);
@@ -91,11 +98,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     setIsSubmitting(true);
     try {
       const cleanValue = parseFloat(formData.value.replace(/[^\d]/g, '')) / 100 || 0;
-      
-      /**
-       * UNIDADE PADRÃO DE ABERTURA: SES/SUBIPEI-21286
-       * Conforme solicitação para centralizar o fluxo inicial na Subsecretaria.
-       */
       const INITIAL_SECTOR = 'SES/SUBIPEI-21286';
 
       const newAmendment: Amendment = {
@@ -166,12 +168,25 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
     setFormData({ ...formData, value: formatted });
   };
 
+  /**
+   * Determina a conformidade do SLA para uma movimentação específica.
+   */
+  const checkMovementSla = (mov: AmendmentMovement) => {
+    const end = mov.dateOut ? new Date(mov.dateOut) : new Date();
+    const deadline = new Date(mov.deadline);
+    const isDelayed = end > deadline;
+    return {
+      isDelayed,
+      color: isDelayed ? 'text-red-500' : 'text-emerald-500',
+      label: isDelayed ? 'Fora do Prazo' : 'Dentro do Prazo',
+      icon: isDelayed ? AlertTriangle : ShieldCheck
+    };
+  };
+
   const isCrescimento = formData.type === AmendmentType.GOIAS_CRESCIMENTO;
   const isConvenio = formData.transferMode === TransferMode.CONVENIO;
   
   const themeColor = isCrescimento ? 'text-emerald-600' : 'text-blue-500';
-  const themeBg = isCrescimento ? 'bg-emerald-50' : 'bg-blue-50';
-  const themeBorder = isCrescimento ? 'border-emerald-100' : 'border-blue-100';
   const themeBtn = isCrescimento ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#0d457a] hover:bg-[#0a365f]';
 
   return (
@@ -184,17 +199,31 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             <LayoutGrid size={16} className="text-blue-500" /> Fluxo de Tramitação • GESA/SUBIPEI
           </p>
         </div>
-        <div className="flex gap-4 w-full md:w-auto">
-          <div className="flex-1 md:w-96 relative">
+        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+          <div className="flex-1 md:w-80 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             <input 
               type="text" 
-              placeholder="BUSCAR SEI, OBJETO OU AUTOR..."
+              placeholder="BUSCAR SEI OU OBJETO..."
               className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-[20px] outline-none font-bold text-[10px] uppercase text-[#0d457a] shadow-sm focus:ring-4 ring-blue-500/5 transition-all"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
+
+          <div className="md:w-64 relative">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+            <select 
+              className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-[20px] outline-none font-bold text-[10px] uppercase text-[#0d457a] shadow-sm focus:ring-4 ring-blue-500/5 transition-all appearance-none"
+              value={selectedDeputy}
+              onChange={(e) => { setSelectedDeputy(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="all">TODOS OS AUTORES</option>
+              {GOIAS_DEPUTIES.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+          </div>
+
           <button 
             onClick={() => setIsCreateModalOpen(true)}
             aria-label="Abrir formulário de novo protocolo"
@@ -290,6 +319,12 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                   <span className={`text-xl font-black tracking-tight ${isGc ? 'text-emerald-600' : 'text-[#0d457a]'}`}>{formatBRL(amendment.value)}</span>
                 </div>
                 <div className="flex flex-col items-end gap-3">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); setTrailAmendment(amendment); }}
+                     className="px-4 py-2 bg-[#0d457a] text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-900 transition-all flex items-center gap-2 group/btn"
+                   >
+                     <History size={14} className="group-hover/btn:rotate-180 transition-transform duration-500" /> Ver Trilha
+                   </button>
                    <span className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-[9px] font-black uppercase border border-slate-100 truncate max-w-[150px] text-center">
                     {amendment.status}
                   </span>
@@ -323,6 +358,87 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
         </div>
       )}
 
+      {/* MODAL DE TRILHA RÁPIDA (HISTÓRICO) */}
+      {trailAmendment && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">
+          <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[85vh]">
+            <div className="p-10 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
+               <div className="flex items-center gap-5">
+                  <div className="p-4 bg-[#0d457a] text-white rounded-[24px] shadow-lg">
+                    <History size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Trilha de Tramitação</h3>
+                    <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mt-2">SEI: {trailAmendment.seiNumber}</p>
+                  </div>
+               </div>
+               <button onClick={() => setTrailAmendment(null)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
+                  <X size={24} className="text-slate-300" />
+               </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+              <div className="space-y-0 relative">
+                <div className="absolute left-[26px] top-6 bottom-6 w-1 bg-slate-100"></div>
+                {[...trailAmendment.movements].reverse().map((mov, idx) => {
+                  const isCurrent = !mov.dateOut;
+                  const slaInfo = checkMovementSla(mov);
+                  const SlaIcon = slaInfo.icon;
+
+                  return (
+                    <div key={mov.id} className="relative pl-20 pb-10 last:pb-0 group">
+                      <div className={`absolute left-0 top-0 w-14 h-14 rounded-2xl border-4 border-white shadow-xl flex items-center justify-center z-10 transition-all ${
+                        isCurrent ? 'bg-[#0d457a] text-white ring-8 ring-blue-50' : 'bg-emerald-500 text-white'
+                      }`}>
+                          {isCurrent ? <Timer size={24} className="animate-pulse" /> : <CheckCircle2 size={24} />}
+                      </div>
+                      <div className={`p-6 rounded-[32px] border transition-all ${isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
+                          <div className="flex flex-col md:flex-row justify-between gap-2 mb-3">
+                            <div>
+                               <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{mov.analysisType || 'ETAPA'}</span>
+                                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${slaInfo.color} bg-white border border-current opacity-80`}>
+                                     <SlaIcon size={8} /> {slaInfo.label}
+                                  </div>
+                               </div>
+                               <h4 className="text-xs font-black text-[#0d457a] uppercase">{mov.toSector}</h4>
+                            </div>
+                            <div className="text-left md:text-right">
+                               <p className="text-[9px] font-bold text-slate-400 uppercase">Entrada: {new Date(mov.dateIn).toLocaleDateString('pt-BR')}</p>
+                               {mov.dateOut ? (
+                                 <p className="text-[9px] font-bold text-slate-400 uppercase">Saída: {new Date(mov.dateOut).toLocaleDateString('pt-BR')}</p>
+                               ) : (
+                                 <p className="text-[9px] font-black text-blue-600 uppercase animate-pulse">Em Trâmite</p>
+                               )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4 pt-3 border-t border-slate-200/50">
+                             <div className="flex items-center gap-2">
+                                <Clock size={12} className="text-blue-400" />
+                                <span className="text-[9px] font-black text-slate-600 uppercase">Permanência: {mov.daysSpent || 0} Dias</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <User size={12} className="text-slate-400" />
+                                <span className="text-[9px] font-bold text-slate-500 uppercase truncate max-w-[150px]">{mov.handledBy}</span>
+                             </div>
+                          </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-8 border-t border-slate-100 bg-slate-50/50 shrink-0 text-center">
+               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                 Esta trilha é imutável e auditada conforme a Lei Estadual nº 20.918/2020.
+               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE CADASTRO ADAPTATIVO */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/90 backdrop-blur-xl p-4">
@@ -346,7 +462,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
-              {/* TIPO DE PROGRAMA NO MODAL */}
               <div className="grid grid-cols-2 gap-4">
                  <button 
                    type="button"
@@ -431,7 +546,6 @@ export const AmendmentList: React.FC<AmendmentListProps> = ({
                 </div>
               </div>
 
-              {/* CAMPO CONDICIONAL PARA INSTITUIÇÃO (GOIAS CRESCIMENTO + CONVÊNIO) */}
               {isCrescimento && isConvenio && (
                 <div className="space-y-2 animate-in slide-in-from-top-4 duration-300">
                   <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${themeColor}`}>Nome da Instituição Beneficiada *</label>
