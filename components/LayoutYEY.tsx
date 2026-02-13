@@ -57,10 +57,6 @@ export const Layout: React.FC<LayoutProps> = ({
     if (!isDesktop) setIsSidebarOpen(false);
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  };
-
   return (
     <div className="flex h-screen bg-[#f1f5f9] overflow-hidden font-inter">
       {/* Sidebar */}
@@ -121,13 +117,7 @@ export const Layout: React.FC<LayoutProps> = ({
                <p className="text-[10px] font-black text-[#0d457a] leading-none">{currentUser.name}</p>
                <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{currentUser.department}</p>
              </div>
-             {currentUser.avatarUrl ? (
-               <img src={currentUser.avatarUrl} className="w-8 h-8 rounded-xl border border-slate-200" alt="Avatar" />
-             ) : (
-               <div className="w-8 h-8 rounded-xl bg-[#0d457a] text-white flex items-center justify-center font-black text-[10px] border border-slate-200">
-                 {getInitials(currentUser.name)}
-               </div>
-             )}
+             <img src={currentUser.avatarUrl} className="w-8 h-8 rounded-xl border border-slate-200" alt="Avatar" />
           </div>
         </header>
 

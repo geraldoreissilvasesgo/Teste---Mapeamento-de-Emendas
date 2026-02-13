@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Amendment, Status, AmendmentType } from '../types';
 import { 
@@ -127,9 +126,10 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
     const lastMov = item.movements[item.movements.length - 1];
     const dateIn = new Date(lastMov.dateIn);
     const diff = Math.ceil((new Date().getTime() - dateIn.getTime()) / (1000 * 60 * 60 * 24));
+    const rawDays = lastMov.dateOut ? lastMov.daysSpent : diff;
     return {
       entry: dateIn.toLocaleDateString('pt-BR'),
-      days: lastMov.dateOut ? lastMov.daysSpent : diff
+      days: rawDays < 0 ? '-' : rawDays
     };
   };
 
@@ -139,7 +139,7 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
         <div>
           <h2 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Repositório Central</h2>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
-            <Database size={14} className="text-blue-500" /> Consulta Dinâmica de Processos GESA
+            <Database size={14} className="text-blue-50" /> Consulta Dinâmica de Processos GESA
           </p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
@@ -278,7 +278,7 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                 <th className="px-4 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">AUTOR & MUNICÍPIO</th>
                 <th className="px-4 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">OBJETO</th>
                 <th className="px-4 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">VALOR</th>
-                <th className="px-4 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">LOCALIZAÇÃO</th>
+                <th className="px-4 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">STATUS ATUAL</th>
                 <th className="px-4 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">ENTRADA SETOR</th>
                 <th className="px-4 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">PERMANÊNCIA</th>
               </tr>
@@ -323,10 +323,10 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                     <td className="px-4 py-6">
                       <div className="flex flex-col gap-1">
                         <span className="text-[9px] font-black text-[#0d457a] uppercase truncate max-w-[100px]">
-                          {item.currentSector || 'GESA'}
+                          {item.status}
                         </span>
                         <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[100px]">
-                          {item.status}
+                          {item.currentSector || 'GESA'}
                         </span>
                       </div>
                     </td>
@@ -335,9 +335,9 @@ export const RepositoryModule: React.FC<RepositoryModuleProps> = ({ amendments }
                     </td>
                     <td className="px-4 py-6 text-center">
                        <div className={`inline-flex items-center justify-center w-fit px-3 h-8 rounded-full font-black text-[10px] ${
-                          Number(sla.days) > 10 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                          sla.days !== '-' && Number(sla.days) > 10 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
                        }`}>
-                          {sla.days} Dias
+                          {sla.days} {sla.days !== '-' ? 'Dias' : ''}
                        </div>
                     </td>
                   </tr>

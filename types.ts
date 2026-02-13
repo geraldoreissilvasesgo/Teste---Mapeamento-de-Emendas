@@ -1,7 +1,8 @@
-
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 3.2.2-stable
+ * Versão: 3.2.2-no-avatar
+ * 
+ * Este arquivo define a estrutura fundamental de dados do sistema.
  */
 
 export enum SystemMode {
@@ -56,8 +57,7 @@ export enum Status {
   LEGAL_OPINION = 'Aguardando Parecer Jurídico',
   COMMITMENT_LIQUIDATION = 'EMPENHO / LIQUIDAÇÃO',
   CONCLUDED = 'Liquidado / Pago',
-  ARCHIVED = 'Arquivado / Rejeitado',
-  COMPLETED_IN_SECTOR = 'Concluída no Setor'
+  ARCHIVED = 'Arquivado / Rejeitado'
 }
 
 export interface User {
@@ -71,7 +71,6 @@ export interface User {
   mfaEnabled?: boolean;
   api_key?: string;
   password?: string;
-  avatarUrl?: string;
 }
 
 export interface AmendmentMovement {
@@ -152,7 +151,7 @@ export const PROCESS_PHASES = [
   { id: 'tech', label: 'Análise Técnica', statuses: [Status.TECHNICAL_FLOW, Status.DILIGENCE] },
   { id: 'legal', label: 'Conformidade', statuses: [Status.LEGAL_OPINION] },
   { id: 'exec', label: 'Empenho', statuses: [Status.COMMITMENT_LIQUIDATION] },
-  { id: 'end', label: 'Liquidação', statuses: [Status.CONCLUDED, Status.ARCHIVED, Status.COMPLETED_IN_SECTOR] }
+  { id: 'end', label: 'Liquidação', statuses: [Status.CONCLUDED, Status.ARCHIVED] }
 ];
 
 export const ROLE_METADATA = {

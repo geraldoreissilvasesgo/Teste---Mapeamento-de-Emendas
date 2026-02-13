@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { 
   Book, ShieldCheck, Cpu, Database, Info, Printer, Layers, 
   Network, Lock, Sparkles, Terminal, Code2, Rocket, Globe, 
   HardDrive, Key, UserCheck, Workflow, GitPullRequest, Binary, 
   ShieldX, Building2, ChevronRight, FileCode, Search, Activity,
-  RefreshCw, Braces, Layout, Boxes
+  RefreshCw, Braces, CpuChip, Layout, Boxes
 } from 'lucide-react';
 
 export const SystemDocumentation: React.FC = () => {
@@ -120,10 +119,125 @@ export const SystemDocumentation: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                <div className="p-8 bg-slate-900 rounded-[40px] text-white">
+                  <h4 className="text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-3 text-emerald-400">
+                    <Terminal size={18} /> Engenharia de Software
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[10px] font-medium uppercase text-blue-100/60">
+                    <p>O sistema utiliza módulos ES6 nativos, aproveitando o motor de build <strong>Vite</strong> para garantir que o tempo de carregamento em redes governamentais seja inferior a 1.2 segundos.</p>
+                    <p>A escrita do código segue o padrão <strong>ESLint Governamental</strong>, focando em acessibilidade (ARIA) e internacionalização para termos técnicos da administração pública de Goiás.</p>
+                  </div>
+                </div>
               </div>
             )}
-            
-            {/* Restante do componente omitido para brevidade, mas o ícone CpuChip foi removido da lógica geral */}
+
+            {activeSection === 'data' && (
+              <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
+                <h3 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">Dicionário e Engenharia de Dados</h3>
+                
+                <div className="space-y-6">
+                  <div className="overflow-hidden border border-slate-100 rounded-[32px]">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entidade</th>
+                          <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Natureza</th>
+                          <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição Técnica</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 text-[10px] font-bold uppercase text-slate-600">
+                        <tr>
+                          <td className="px-8 py-5 text-blue-600">Amendment</td>
+                          <td className="px-8 py-5 font-mono">Table (Cloud)</td>
+                          <td className="px-8 py-5">Registro central da emenda impositiva. Armazena valores, objeto e status atual.</td>
+                        </tr>
+                        <tr>
+                          <td className="px-8 py-5 text-blue-600">Movement</td>
+                          <td className="px-8 py-5 font-mono">JSONB Array</td>
+                          <td className="px-8 py-5">Trilha de auditoria interna. Registra cada entrada/saída de unidade técnica.</td>
+                        </tr>
+                        <tr>
+                          <td className="px-8 py-5 text-blue-600">AuditLog</td>
+                          <td className="px-8 py-5 font-mono">Immutable Table</td>
+                          <td className="px-8 py-5">Logs de segurança. Nenhuma linha pode ser alterada após a inserção (Audit-Only).</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="p-8 bg-blue-900 rounded-[40px] text-white">
+                    <h4 className="text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-3">
+                      <HardDrive size={18} className="text-blue-300" /> Multi-tenancy Isolation
+                    </h4>
+                    <p className="text-xs text-blue-100/60 leading-relaxed font-medium uppercase">
+                      A engenharia de dados utiliza o campo <code className="text-emerald-400">tenantId</code> em todas as tabelas. Isso garante que os dados da Secretaria da Saúde (SES) jamais se misturem com outras secretarias do estado, mesmo compartilhando a mesma infraestrutura de banco de dados.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'security' && (
+              <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
+                <h3 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">Framework de Segurança Governamental</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { label: 'Row Level Security (RLS)', icon: Lock, desc: 'Acesso controlado no nível da linha do banco via políticas SQL.' },
+                    { label: 'RBAC Hierárquico', icon: UserCheck, desc: '5 níveis de permissões definidos em types.ts para governança.' },
+                    { label: 'MFA Enforced', icon: Key, desc: 'Autenticação de dois fatores obrigatória para perfis administrativos.' }
+                  ].map((item, i) => (
+                    <div key={i} className="p-6 bg-slate-50 border border-slate-100 rounded-[32px] flex flex-col items-center text-center">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-500 shadow-sm mb-4">
+                        <item.icon size={24} />
+                      </div>
+                      <h5 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest mb-2">{item.label}</h5>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase leading-relaxed">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-8 border-2 border-dashed border-slate-200 rounded-[40px]">
+                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-3">
+                     <Binary size={18} /> Diretrizes de Criptografia
+                   </h4>
+                   <p className="text-xs text-slate-500 font-medium leading-loose">
+                     Todos os dados sensíveis (E-mails e Identidades) são criptografados em trânsito via <strong>TLS 1.3</strong> e em repouso utilizando o algoritmo <strong>AES-256</strong> fornecido pela infraestrutura Supabase Cloud.
+                   </p>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'ai' && (
+              <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
+                <h3 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter">Motor de Inteligência Artificial</h3>
+                
+                <div className="bg-gradient-to-br from-slate-900 to-blue-900 p-12 rounded-[48px] text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-12 opacity-10"><Sparkles size={160} /></div>
+                  <div className="relative z-10 space-y-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white/10 rounded-2xl"><Activity size={28} className="text-emerald-400" /></div>
+                      <div>
+                        <h4 className="text-xl font-black uppercase tracking-tight">Google Gemini 3 Pro</h4>
+                        <p className="text-[10px] text-blue-300 font-black uppercase tracking-widest">Análise Preditiva de Gargalos</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-blue-100/60 leading-relaxed font-medium uppercase max-w-xl">
+                      A IA processa o contexto semântico do objeto da emenda e o histórico de trâmites para prever a probabilidade de conclusão financeira (Liquidação) e identificar atrasos burocráticos baseados no manual de fluxos GESA.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-8 bg-slate-50 rounded-[40px] border border-slate-100">
+                  <h5 className="text-[10px] font-black text-[#0d457a] uppercase tracking-widest mb-4">Prompt Engineering Governamental</h5>
+                  <pre className="text-[9px] font-mono text-blue-600 bg-white p-6 rounded-2xl border border-slate-200 overflow-x-auto">
+                    {`"Analise o processo SEI {seiNumber} sob a ótica do Decreto 10.634/2025. 
+Identifique riscos de atraso na unidade {currentSector}..."`}
+                  </pre>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
