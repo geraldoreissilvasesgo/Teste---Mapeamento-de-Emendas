@@ -1,6 +1,7 @@
+
 /**
  * DICIONÁRIO DE DADOS SaaS - GESA/SUBIPEI
- * Versão: 3.2.2-no-avatar
+ * Versão: 3.3.0-security-hardened
  * 
  * Este arquivo define a estrutura fundamental de dados do sistema.
  */
@@ -157,47 +158,47 @@ export const PROCESS_PHASES = [
 export const ROLE_METADATA = {
   [Role.SUPER_ADMIN]: {
     label: 'Super Admin',
-    description: 'Acesso total irrestrito a todos os tenants e configurações globais.',
+    description: 'Acesso total irrestrito para governança de infraestrutura e segurança.',
     color: 'bg-red-500',
     lightColor: 'bg-red-50',
     borderColor: 'border-red-200',
     textColor: 'text-red-700',
-    permissions: ['Gestão Global', 'Logs Críticos', 'MFA Management', 'Banco de Dados']
+    permissions: ['Controle de Tenants', 'Auditoria Estrutural', 'MFA Management', 'Banco de Dados (DDL)']
   },
   [Role.ADMIN]: {
     label: 'Administrador',
-    description: 'Gestão completa da unidade (SES, SEDUC, etc).',
+    description: 'Gestão executiva da unidade governamental (SES, SEDUC).',
     color: 'bg-blue-600',
     lightColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
     textColor: 'text-blue-700',
-    permissions: ['Gestão de Usuários', 'Configuração SLA', 'Edição de Processos', 'Relatórios']
+    permissions: ['Gestão de Operadores', 'Configuração de SLAs', 'Edição de Processos SEI', 'Relatórios Fiscais']
   },
   [Role.OPERATOR]: {
-    label: 'Operador',
-    description: 'Perfil operacional para tramitação diária e atualização.',
+    label: 'Operador GESA',
+    description: 'Responsável técnico pela tramitação e processamento diário.',
     color: 'bg-emerald-500',
     lightColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
     textColor: 'text-emerald-700',
-    permissions: ['Tramitar Processos', 'Anexar Documentos', 'Atualizar Status', 'Dashboard']
+    permissions: ['Tramitação Intersetorial', 'Carga de Protocolos', 'Atualização de Status', 'Consulta de Dossiês']
   },
   [Role.AUDITOR]: {
-    label: 'Auditor',
-    description: 'Acesso para órgãos de controle. Visualização total de trilhas.',
+    label: 'Auditor Fiscal',
+    description: 'Órgão de controle com visibilidade total de trilhas de auditoria.',
     color: 'bg-purple-500',
     lightColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
     textColor: 'text-purple-700',
-    permissions: ['Trilha de Auditoria', 'Visualização Global', 'Relatórios Técnicos']
+    permissions: ['Leitura de Trilhas Imutáveis', 'Logs de Conformidade', 'Matriz de Risco', 'Compliance Jurídico']
   },
   [Role.VIEWER]: {
     label: 'Consultor',
-    description: 'Acesso apenas leitura para acompanhamento de convênios.',
+    description: 'Acesso de leitura para acompanhamento de emendas externas.',
     color: 'bg-slate-500',
     lightColor: 'bg-slate-50',
     borderColor: 'border-slate-200',
     textColor: 'text-slate-700',
-    permissions: ['Acompanhar Status', 'Consultar Repositório']
+    permissions: ['Consulta de Repositório', 'Status de Temporalidade', 'Visualização de Prazos']
   }
 };

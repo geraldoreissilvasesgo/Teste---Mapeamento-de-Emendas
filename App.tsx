@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { AmendmentList } from './components/AmendmentList';
@@ -21,7 +22,7 @@ import { CalendarView } from './components/CalendarView';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
 import { PlushNotificationContainer } from './components/PlushNotification';
 import { 
-  User, Amendment, SystemMode, StatusConfig, AuditLog, SectorConfig, AuditAction, Status
+  User, Amendment, SystemMode, StatusConfig, AuditLog, SectorConfig, AuditAction, Status, Role
 } from './types';
 import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS, MOCK_USERS } from './constants';
 import { db, supabase } from './services/supabase';
@@ -56,8 +57,34 @@ const AppContent: React.FC = () => {
   const [dbErrors, setDbErrors] = useState<{ [key: string]: string | undefined }>({});
 
   /**
+   * MATRIZ DE SEGURANÇA LÓGICA (GUARDAS)
+   * Impede o acesso funcional a módulos restritos.
+   */
+  const VIEW_ACCESS_MAP: Record<string, Role[]> = useMemo(() => ({
+    dashboard: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR, Role.AUDITOR, Role.VIEWER],
+    amendments: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR],
+    calendar: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR, Role.AUDITOR, Role.VIEWER],
+    repository: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR, Role.AUDITOR, Role.VIEWER],
+    reports: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR],
+    sectors: [Role.SUPER_ADMIN, Role.ADMIN],
+    statuses: [Role.SUPER_ADMIN, Role.ADMIN],
+    audit: [Role.SUPER_ADMIN, Role.AUDITOR],
+    security: [Role.SUPER_ADMIN, Role.ADMIN],
+    register: [Role.SUPER_ADMIN, Role.ADMIN],
+    api: [Role.SUPER_ADMIN, Role.ADMIN],
+    documentation: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR],
+    governance: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR],
+    compliance_details: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR, Role.AUDITOR, Role.VIEWER],
+  }), []);
+
+  const hasAccess = useCallback((view: string) => {
+    if (!currentUser) return false;
+    const allowedRoles = VIEW_ACCESS_MAP[view];
+    return !allowedRoles || allowedRoles.includes(currentUser.role);
+  }, [currentUser, VIEW_ACCESS_MAP]);
+
+  /**
    * Função de busca de dados (Fetch) com suporte a isolamento de Secretaria (Tenant).
-   * Implementa fallback para dados Mock caso as tabelas não existam no Supabase.
    */
   const fetchData = useCallback(async () => {
     if (!currentUser) return;
@@ -100,11 +127,6 @@ const AppContent: React.FC = () => {
           const profile = await db.users.getByEmail(session.user.email);
           if (profile) {
             setCurrentUser(profile);
-            const firstAccess = localStorage.getItem(`gesa_first_access_${profile.id}`);
-            if (!firstAccess) {
-              notify('info', 'Segurança GESA', 'Detectamos que este pode ser seu primeiro acesso. Recomendamos atualizar sua senha.', 10000);
-              localStorage.setItem(`gesa_first_access_${profile.id}`, 'done');
-            }
           }
           else {
             const saved = localStorage.getItem('gesa_current_user');
@@ -128,23 +150,11 @@ const AppContent: React.FC = () => {
     fetchData();
   }, [currentUser, fetchData]);
 
-  /**
-   * Gerenciador de atualização de emendas.
-   * Realiza o Upsert (Insert ou Update) no banco de dados e registra na auditoria.
-   */
   const handleUpdateAmendment = async (amendment: Amendment) => {
     try {
       const isNew = !amendment.id;
-      
-      const payload = {
-        ...amendment,
-        updatedAt: new Date().toISOString()
-      };
-
-      const saved = await db.amendments.upsert({ 
-        ...payload, 
-        tenantId: currentUser?.tenantId || 'GOIAS' 
-      });
+      const payload = { ...amendment, updatedAt: new Date().toISOString() };
+      const saved = await db.amendments.upsert({ ...payload, tenantId: currentUser?.tenantId || 'GOIAS' });
       
       await db.audit.log({
         tenantId: currentUser?.tenantId,
@@ -162,23 +172,7 @@ const AppContent: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Erro crítico de persistência:", err);
-      
-      const isSchemaError = err.message?.includes('updatedAt') || err.message?.includes('SCHEMA_MISMATCH');
-
-      if (isSchemaError) {
-        setDbErrors(prev => ({ ...prev, amendments: 'SCHEMA_MISMATCH' }));
-        notify('error', 'Erro de Estrutura Cloud', 'A coluna "updatedAt" está faltando no banco de dados. Use o Console de Banco de Dados para corrigir.', 15000);
-      } else {
-        notify('warning', 'Modo Local Ativado', 'O registro foi mantido apenas em memória devido a um erro de rede ou permissão.', 8000);
-      }
-
-      // Fallback local para não perder o trabalho do servidor
-      if (!amendment.id) {
-        const localMock = { ...amendment, id: `local-${Date.now()}` };
-        setAmendments(prev => [localMock, ...prev]);
-      } else {
-        setAmendments(prev => prev.map(a => a.id === amendment.id ? amendment : a));
-      }
+      notify('warning', 'Modo Local Ativado', 'O registro foi mantido apenas em memória devido a um erro de rede.', 8000);
     }
   };
 
@@ -202,7 +196,6 @@ const AppContent: React.FC = () => {
       notify('error', 'Registro Removido', `O processo foi excluído permanentemente da base GESA.`);
       await fetchData();
     } catch (err: any) {
-      console.error("Falha ao excluir registro:", err);
       notify('error', 'Falha na Operação', `Erro: ${err.message}.`);
     } finally {
       setIsLoadingData(false);
@@ -235,7 +228,7 @@ const AppContent: React.FC = () => {
       activeTenantId={currentUser.tenantId}
       isLive={isLiveSync}
       onlineUsers={onlineUsers}
-      onNavigate={setCurrentView}
+      onNavigate={(v) => hasAccess(v) ? setCurrentView(v) : notify('error', 'Acesso Negado', 'Seu perfil não possui privilégios para este módulo.')}
       onLogout={handleLogout}
       onTenantChange={() => {}}
       onChangePassword={() => setIsPasswordModalOpen(true)}
@@ -259,29 +252,14 @@ const AppContent: React.FC = () => {
           onBack={() => setSelectedAmendment(null)}
           onMove={(movs, status) => {
              const updatedMovements = [...selectedAmendment.movements];
-             
              if (updatedMovements.length > 0) {
                const lastIndex = updatedMovements.length - 1;
-               updatedMovements[lastIndex] = {
-                 ...updatedMovements[lastIndex],
-                 dateOut: new Date().toISOString()
-               };
+               updatedMovements[lastIndex] = { ...updatedMovements[lastIndex], dateOut: new Date().toISOString() };
              }
-
              const finalStatusNames = [Status.CONCLUDED, Status.ARCHIVED, Status.COMMITMENT_LIQUIDATION];
              const isFinal = finalStatusNames.includes(status as Status) || statuses.find(s => s.name === status)?.isFinal;
-             
-             const processedNewMovs = movs.map((m, idx) => ({
-               ...m,
-               dateOut: (isFinal && idx === movs.length - 1) ? new Date().toISOString() : null
-             }));
-
-             const updated = { 
-               ...selectedAmendment, 
-               movements: [...updatedMovements, ...processedNewMovs], 
-               status, 
-               currentSector: processedNewMovs[processedNewMovs.length-1].toSector 
-             };
+             const processedNewMovs = movs.map((m, idx) => ({ ...m, dateOut: (isFinal && idx === movs.length - 1) ? new Date().toISOString() : null }));
+             const updated = { ...selectedAmendment, movements: [...updatedMovements, ...processedNewMovs], status, currentSector: processedNewMovs[processedNewMovs.length-1].toSector };
              handleUpdateAmendment(updated);
           }}
           onUpdate={handleUpdateAmendment}
@@ -295,42 +273,28 @@ const AppContent: React.FC = () => {
           )}
 
           {currentView === 'dashboard' && <Dashboard amendments={amendments} statusConfigs={statuses} onSelectAmendment={(id) => setSelectedAmendment(amendments.find(a => a.id === id) || null)} />}
-          {currentView === 'amendments' && (
-            <AmendmentList 
-              amendments={amendments} 
-              sectors={sectors} 
-              statuses={statuses} 
-              userRole={currentUser.role} 
-              systemMode={SystemMode.PRODUCTION} 
-              onSelect={setSelectedAmendment} 
-              onCreate={handleUpdateAmendment} 
-              onUpdate={handleUpdateAmendment} 
-              onInactivate={() => {}} 
-              error={dbErrors.amendments} 
-            />
+          {currentView === 'amendments' && hasAccess('amendments') && (
+            <AmendmentList amendments={amendments} sectors={sectors} statuses={statuses} userRole={currentUser.role} systemMode={SystemMode.PRODUCTION} onSelect={setSelectedAmendment} onCreate={handleUpdateAmendment} onUpdate={handleUpdateAmendment} onInactivate={() => {}} error={dbErrors.amendments} />
           )}
           {currentView === 'calendar' && <CalendarView amendments={amendments} onSelectAmendment={setSelectedAmendment} />}
-          {currentView === 'reports' && <ReportModule amendments={amendments} />}
+          {currentView === 'reports' && hasAccess('reports') && <ReportModule amendments={amendments} />}
           {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
           
-          {currentView === 'sectors' && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={(id, sla) => {}} error={dbErrors.sectors} />}
-          {currentView === 'statuses' && <StatusManagement statuses={statuses} onAdd={(s) => db.statuses.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onReset={() => {}} onBatchAdd={(items) => fetchData()} error={dbErrors.statuses} />}
-          {currentView === 'audit' && <AuditModule logs={logs} currentUser={currentUser} activeTenantId={currentUser.tenantId} error={dbErrors.audit} onRefresh={fetchData} />}
-          {currentView === 'security' && <SecurityModule users={users} onDeleteUser={(id) => db.users.delete(id).then(fetchData)} currentUser={currentUser} onNavigateToRegister={() => setCurrentView('register')} error={dbErrors.users} onAddUser={() => {}} />}
-          {currentView === 'register' && <UserRegistration onAddUser={(u) => db.users.upsert({ ...u, tenantId: currentUser.tenantId }).then(() => setCurrentView('security'))} onBack={() => setCurrentView('security')} />}
+          {currentView === 'sectors' && hasAccess('sectors') && <SectorManagement sectors={sectors} statuses={statuses} onAdd={(s) => db.sectors.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onBatchAdd={(items) => fetchData()} onUpdateSla={(id, sla) => {}} error={dbErrors.sectors} />}
+          {currentView === 'statuses' && hasAccess('statuses') && <StatusManagement statuses={statuses} onAdd={(s) => db.statuses.upsert({ ...s, tenantId: currentUser.tenantId }).then(fetchData)} onReset={() => {}} onBatchAdd={(items) => fetchData()} error={dbErrors.statuses} />}
+          {currentView === 'audit' && hasAccess('audit') && <AuditModule logs={logs} currentUser={currentUser} activeTenantId={currentUser.tenantId} error={dbErrors.audit} onRefresh={fetchData} />}
+          {currentView === 'security' && hasAccess('security') && <SecurityModule users={users} onDeleteUser={(id) => db.users.delete(id).then(fetchData)} currentUser={currentUser} onNavigateToRegister={() => setCurrentView('register')} error={dbErrors.users} onAddUser={() => {}} />}
+          {currentView === 'register' && hasAccess('register') && <UserRegistration onAddUser={(u) => db.users.upsert({ ...u, tenantId: currentUser.tenantId }).then(() => setCurrentView('security'))} onBack={() => setCurrentView('security')} />}
           
-          {currentView === 'documentation' && <SystemDocumentation />}
-          {currentView === 'governance' && <GovernanceDocs />}
+          {currentView === 'documentation' && hasAccess('documentation') && <SystemDocumentation />}
+          {currentView === 'governance' && hasAccess('governance') && <GovernanceDocs />}
           {currentView === 'compliance_details' && <ComplianceDetails />}
-          {currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
+          {currentView === 'api' && hasAccess('api') && <ApiPortal currentUser={currentUser} amendments={amendments} />}
         </>
       )}
 
       {isPasswordModalOpen && (
-        <PasswordChangeModal 
-          currentUser={currentUser} 
-          onClose={() => setIsPasswordModalOpen(false)} 
-        />
+        <PasswordChangeModal currentUser={currentUser} onClose={() => setIsPasswordModalOpen(false)} />
       )}
       
       <PlushNotificationContainer />

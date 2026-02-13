@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
@@ -41,36 +42,56 @@ export const Layout: React.FC<LayoutProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const menuSections = [
-    {
-      label: 'Operacional',
-      items: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'amendments', label: 'Emendas Impositivas', icon: FileText },
-        { id: 'calendar', label: 'Calendário de Prazos', icon: CalendarDays },
-        { id: 'repository', label: 'Repositório Central', icon: Database },
-      ]
-    },
-    {
-      label: 'Carga e Fluxo',
-      items: [
-        { id: 'reports', label: 'Central de Relatórios', icon: BarChart3 },
-        { id: 'sectors', label: 'Unidades Técnicas', icon: Layers },
-        { id: 'statuses', label: 'Ciclo de Vida', icon: Workflow },
-      ]
-    },
-    {
-      label: 'Governança',
-      items: [
-        { id: 'audit', label: 'Auditoria', icon: History },
-        { id: 'security', label: 'Segurança & LGPD', icon: Lock },
-        { id: 'api', label: 'Portal de Integração', icon: Braces },
-        { id: 'documentation', label: 'Dossiê do Sistema', icon: Book },
-        { id: 'governance', label: 'Governança Estratégica', icon: ShieldCheck },
-        { id: 'compliance_details', label: 'Compliance Details', icon: Scale },
-      ]
-    }
-  ];
+  /**
+   * MATRIZ DE PERMISSÕES DE NAVEGAÇÃO (RBAC)
+   * Define quem pode ver o quê no menu lateral.
+   */
+  const menuSections = useMemo(() => {
+    const r = currentUser.role;
+    const isSA = r === Role.SUPER_ADMIN;
+    const isAD = r === Role.ADMIN || isSA;
+    const isOP = r === Role.OPERATOR || isAD;
+    const isAU = r === Role.AUDITOR || isSA;
+
+    const sections = [
+      {
+        label: 'Operacional',
+        items: [
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: 'all' },
+          { id: 'amendments', label: 'Emendas Impositivas', icon: FileText, roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR] },
+          { id: 'calendar', label: 'Calendário de Prazos', icon: CalendarDays, roles: 'all' },
+          { id: 'repository', label: 'Repositório Central', icon: Database, roles: 'all' },
+        ]
+      },
+      {
+        label: 'Carga e Fluxo',
+        items: [
+          { id: 'reports', label: 'Central de Relatórios', icon: BarChart3, roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR] },
+          { id: 'sectors', label: 'Unidades Técnicas', icon: Layers, roles: [Role.SUPER_ADMIN, Role.ADMIN] },
+          { id: 'statuses', label: 'Ciclo de Vida', icon: Workflow, roles: [Role.SUPER_ADMIN, Role.ADMIN] },
+        ]
+      },
+      {
+        label: 'Governança',
+        items: [
+          { id: 'audit', label: 'Auditoria', icon: History, roles: [Role.SUPER_ADMIN, Role.AUDITOR] },
+          { id: 'security', label: 'Segurança & LGPD', icon: Lock, roles: [Role.SUPER_ADMIN, Role.ADMIN] },
+          { id: 'api', label: 'Portal de Integração', icon: Braces, roles: [Role.SUPER_ADMIN, Role.ADMIN] },
+          { id: 'documentation', label: 'Dossiê do Sistema', icon: Book, roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR] },
+          { id: 'governance', label: 'Governança Estratégica', icon: ShieldCheck, roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR] },
+          { id: 'compliance_details', label: 'Compliance Details', icon: Scale, roles: 'all' },
+        ]
+      }
+    ];
+
+    // Filtra as seções e itens baseado no Role atual
+    return sections.map(section => ({
+      ...section,
+      items: section.items.filter(item => 
+        item.roles === 'all' || (Array.isArray(item.roles) && item.roles.includes(r))
+      )
+    })).filter(section => section.items.length > 0);
+  }, [currentUser.role]);
 
   const handleNavigate = (viewId: string) => {
     onNavigate(viewId);
