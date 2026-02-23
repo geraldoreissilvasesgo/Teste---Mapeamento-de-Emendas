@@ -23,6 +23,7 @@ import { PlushNotificationContainer } from './components/PlushNotification';
 import { 
   User, Amendment, SystemMode, StatusConfig, AuditLog, SectorConfig, AuditAction, Status, Role, AmendmentMovement
 } from './types';
+import { LogIn, ShieldCheck } from 'lucide-react';
 import { MOCK_AMENDMENTS, DEFAULT_SECTOR_CONFIGS, MOCK_USERS } from './constants';
 import { db, supabase } from './services/supabase';
 
@@ -46,6 +47,7 @@ const AppContent: React.FC = () => {
   
   // ESTADO DE NAVEGAÇÃO
   const [currentView, setCurrentView] = useState('dashboard');
+  const [showLogin, setShowLogin] = useState(false);
   const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   
@@ -259,6 +261,7 @@ const AppContent: React.FC = () => {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    setShowLogin(false);
     localStorage.setItem('gesa_current_user', JSON.stringify(user));
     notify('success', `Bem-vindo, ${user.name}`, 'Acesso autorizado ao ecossistema GESA Cloud.');
   };
@@ -285,25 +288,54 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   return (
     <Layout 
       currentUser={currentUser} 
       currentView={currentView}
-      activeTenantId={currentUser.tenantId}
+      activeTenantId={currentUser?.tenantId}
       isLive={isLiveSync}
       onNavigate={setCurrentView}
       onLogout={handleLogout}
       onTenantChange={() => notify('warning', 'Ação Restrita', 'Isolamento de Tenant ativo. Troca de unidade requer perfil Super Admin.')}
       onChangePassword={() => setIsPasswordModalOpen(true)}
+      onLoginClick={() => setShowLogin(true)}
     >
       <DatabaseStatusAlert errors={dbErrors} />
       
+      {showLogin && !currentUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/60 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-md">
+            <button 
+              onClick={() => setShowLogin(false)}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 z-10"
+            >
+              Fechar
+            </button>
+            <Login onLogin={handleLogin} />
+          </div>
+        </div>
+      )}
+
+      {!currentUser && !showLogin && (
+        <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+           <div className="w-24 h-24 bg-blue-50 rounded-[32px] flex items-center justify-center text-[#0d457a] mb-8 shadow-inner">
+              <ShieldCheck size={48} />
+           </div>
+           <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter mb-4">Bem-vindo ao Portal GESA</h2>
+           <p className="text-slate-500 max-w-md leading-relaxed mb-10 font-medium">
+             Você está no ambiente de consulta pública limitada. Para gerenciar processos SEI e emendas parlamentares, acesse sua conta institucional.
+           </p>
+           <button 
+             onClick={() => setShowLogin(true)}
+             className="px-10 py-5 bg-[#0d457a] text-white rounded-[24px] font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-[#0a365f] transition-all active:scale-95 flex items-center gap-4"
+           >
+             Acessar Painel Restrito <LogIn size={20} />
+           </button>
+        </div>
+      )}
+
       {/* NAVEGAÇÃO ENTRE MÓDULOS */}
-      {currentView === 'dashboard' && (
+      {currentUser && currentView === 'dashboard' && (
         <Dashboard 
           amendments={amendments} 
           statusConfigs={statuses}
@@ -314,7 +346,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'amendments' && (
+      {currentUser && currentView === 'amendments' && (
         <AmendmentList 
           amendments={amendments}
           sectors={sectors}
@@ -328,7 +360,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'details' && selectedAmendment && (
+      {currentUser && currentView === 'details' && selectedAmendment && (
         <AmendmentDetail 
           amendment={selectedAmendment}
           currentUser={currentUser}
@@ -343,18 +375,18 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'repository' && <RepositoryModule amendments={amendments} />}
+      {currentUser && currentView === 'repository' && <RepositoryModule amendments={amendments} />}
       
-      {currentView === 'calendar' && (
+      {currentUser && currentView === 'calendar' && (
         <CalendarView 
           amendments={amendments} 
           onSelectAmendment={(a) => { setSelectedAmendment(a); setCurrentView('details'); }} 
         />
       )}
 
-      {currentView === 'reports' && <ReportModule amendments={amendments} />}
+      {currentUser && currentView === 'reports' && <ReportModule amendments={amendments} />}
 
-      {currentView === 'sectors' && (
+      {currentUser && currentView === 'sectors' && (
         <SectorManagement 
           sectors={sectors} 
           statuses={statuses}
@@ -373,7 +405,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'statuses' && (
+      {currentUser && currentView === 'statuses' && (
         <StatusManagement 
           statuses={statuses}
           onAdd={async (s) => {
@@ -389,7 +421,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'audit' && (
+      {currentUser && currentView === 'audit' && (
         <AuditModule 
           logs={logs} 
           currentUser={currentUser} 
@@ -399,7 +431,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'security' && (
+      {currentUser && currentView === 'security' && (
         <SecurityModule 
           users={users} 
           currentUser={currentUser}
@@ -414,7 +446,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'register' && (
+      {currentUser && currentView === 'register' && (
         <UserRegistration 
           onAddUser={async (u) => {
             const res = await db.users.upsert({...u, tenantId: currentUser.tenantId});
@@ -428,12 +460,12 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
-      {currentView === 'documentation' && <SystemDocumentation />}
-      {currentView === 'governance' && <GovernanceDocs />}
-      {currentView === 'compliance_details' && <ComplianceDetails />}
+      {currentUser && currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
+      {currentUser && currentView === 'documentation' && <SystemDocumentation />}
+      {currentUser && currentView === 'governance' && <GovernanceDocs />}
+      {currentUser && currentView === 'compliance_details' && <ComplianceDetails />}
 
-      {isPasswordModalOpen && <PasswordChangeModal currentUser={currentUser} onClose={() => setIsPasswordModalOpen(false)} />}
+      {currentUser && isPasswordModalOpen && <PasswordChangeModal currentUser={currentUser} onClose={() => setIsPasswordModalOpen(false)} />}
       <PlushNotificationContainer />
     </Layout>
   );

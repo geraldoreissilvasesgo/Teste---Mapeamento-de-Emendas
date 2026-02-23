@@ -1,30 +1,32 @@
 import React, { useState, useEffect, useMemo } from 'react';
+// Test comment Layout
 import { 
   LayoutDashboard, FileText, Database, ShieldCheck, 
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays,
   Scale, RefreshCw, WifiOff, Users, Workflow, Book, Key, Zap, UserCircle2,
-  Settings2, ClipboardCheck, Terminal, HardDrive, ShieldAlert
+  Settings2, ClipboardCheck, Terminal, HardDrive, ShieldAlert, LogIn
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentUser: User;
+  currentUser: User | null;
   currentView: string;
-  activeTenantId: string;
+  activeTenantId?: string;
   isLive: boolean; 
   onlineUsers?: any[];
   onNavigate: (view: string) => void;
   onLogout: () => void;
   onTenantChange: (id: string) => void;
   onChangePassword: () => void;
+  onLoginClick?: () => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
   children, currentUser, currentView, activeTenantId, 
-  isLive, onNavigate, onLogout, onChangePassword
+  isLive, onNavigate, onLogout, onChangePassword, onLoginClick
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
@@ -47,6 +49,7 @@ export const Layout: React.FC<LayoutProps> = ({
    * Organizada por relevância operacional e permissões de perfil.
    */
   const menuSections = useMemo(() => {
+    if (!currentUser) return [];
     const r = currentUser.role;
 
     const sections = [
@@ -91,7 +94,7 @@ export const Layout: React.FC<LayoutProps> = ({
         )
       }))
       .filter(section => section.items.length > 0);
-  }, [currentUser.role]);
+  }, [currentUser?.role]);
 
   const handleNavigate = (viewId: string) => {
     onNavigate(viewId);
@@ -181,13 +184,23 @@ export const Layout: React.FC<LayoutProps> = ({
 
         {/* Rodapé da Sidebar */}
         <div className="p-4 border-t border-white/5 bg-black/10 shrink-0">
-          <button 
-            onClick={onLogout} 
-            className="w-full flex items-center gap-4 px-4 py-4 text-red-200 hover:bg-red-500/20 rounded-2xl transition-all group"
-          >
-            <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-            {(isSidebarOpen || !isDesktop) && <span className="text-[10px] font-black uppercase tracking-widest">Encerrar Sessão</span>}
-          </button>
+          {currentUser ? (
+            <button 
+              onClick={onLogout} 
+              className="w-full flex items-center gap-4 px-4 py-4 text-red-200 hover:bg-red-500/20 rounded-2xl transition-all group"
+            >
+              <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+              {(isSidebarOpen || !isDesktop) && <span className="text-[10px] font-black uppercase tracking-widest">Encerrar Sessão</span>}
+            </button>
+          ) : (
+            <button 
+              onClick={onLoginClick} 
+              className="w-full flex items-center gap-4 px-4 py-4 text-emerald-200 hover:bg-emerald-500/20 rounded-2xl transition-all group"
+            >
+              <LogIn size={20} className="group-hover:translate-x-1 transition-transform" />
+              {(isSidebarOpen || !isDesktop) && <span className="text-[10px] font-black uppercase tracking-widest">Acessar Sistema</span>}
+            </button>
+          )}
         </div>
       </aside>
 
@@ -228,57 +241,68 @@ export const Layout: React.FC<LayoutProps> = ({
                 </div>
              </div>
 
-             {/* Perfil de Acesso */}
+             {/* Perfil de Acesso ou Botão de Login */}
              <div className="relative">
-                <button 
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center gap-4 p-1.5 pr-4 rounded-[22px] hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
-                >
-                  <div className="w-11 h-11 rounded-2xl bg-[#0d457a] text-white flex items-center justify-center font-black text-sm shadow-lg shrink-0 group-hover:rotate-3 transition-transform">
-                    {getInitials(currentUser.name)}
-                  </div>
-                  <div className="hidden sm:flex flex-col items-start justify-center min-w-0">
-                    <p className="text-[11px] font-black text-[#0d457a] leading-tight truncate max-w-[150px] uppercase">{currentUser.name}</p>
-                    <p className="text-[8px] text-slate-400 font-black uppercase mt-1 tracking-tighter leading-none flex items-center gap-1">
-                      <Settings2 size={10} /> {currentUser.role}
-                    </p>
-                  </div>
-                  <ChevronDown size={14} className={`text-slate-300 transition-transform duration-500 ${showProfileMenu ? 'rotate-180' : ''} shrink-0`} />
-                </button>
-
-                {showProfileMenu && (
+                {currentUser ? (
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)}></div>
-                    <div className="absolute right-0 mt-4 w-72 bg-white rounded-[32px] shadow-2xl border border-slate-100 z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-                       <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex flex-col items-center text-center gap-3">
-                          <div className="w-16 h-16 rounded-3xl bg-[#0d457a] text-white flex items-center justify-center font-black text-xl shadow-xl">
-                            {getInitials(currentUser.name)}
+                    <button 
+                      onClick={() => setShowProfileMenu(!showProfileMenu)}
+                      className="flex items-center gap-4 p-1.5 pr-4 rounded-[22px] hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
+                    >
+                      <div className="w-11 h-11 rounded-2xl bg-[#0d457a] text-white flex items-center justify-center font-black text-sm shadow-lg shrink-0 group-hover:rotate-3 transition-transform">
+                        {getInitials(currentUser.name)}
+                      </div>
+                      <div className="hidden sm:flex flex-col items-start justify-center min-w-0">
+                        <p className="text-[11px] font-black text-[#0d457a] leading-tight truncate max-w-[150px] uppercase">{currentUser.name}</p>
+                        <p className="text-[8px] text-slate-400 font-black uppercase mt-1 tracking-tighter leading-none flex items-center gap-1">
+                          <Settings2 size={10} /> {currentUser.role}
+                        </p>
+                      </div>
+                      <ChevronDown size={14} className={`text-slate-300 transition-transform duration-500 ${showProfileMenu ? 'rotate-180' : ''} shrink-0`} />
+                    </button>
+
+                    {showProfileMenu && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)}></div>
+                        <div className="absolute right-0 mt-4 w-72 bg-white rounded-[32px] shadow-2xl border border-slate-100 z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex flex-col items-center text-center gap-3">
+                              <div className="w-16 h-16 rounded-3xl bg-[#0d457a] text-white flex items-center justify-center font-black text-xl shadow-xl">
+                                {getInitials(currentUser.name)}
+                              </div>
+                              <div>
+                                <p className="text-xs font-black text-[#0d457a] uppercase leading-tight">{currentUser.name}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">v{APP_VERSION} • {currentUser.department}</p>
+                              </div>
                           </div>
-                          <div>
-                            <p className="text-xs font-black text-[#0d457a] uppercase leading-tight">{currentUser.name}</p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">v{APP_VERSION} • {currentUser.department}</p>
+                          <div className="p-3 space-y-1">
+                              <button 
+                                onClick={() => { onChangePassword(); setShowProfileMenu(false); }}
+                                className="w-full flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase text-slate-600 hover:bg-blue-50 hover:text-blue-600 rounded-2xl transition-all"
+                              >
+                                <Key size={18} className="text-blue-400" /> Alterar Senha
+                              </button>
+                              <div className="h-px bg-slate-50 mx-4"></div>
+                              <button 
+                                onClick={onLogout}
+                                className="w-full flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                              >
+                                <LogOut size={18} className="text-red-400" /> Sair do Sistema
+                              </button>
                           </div>
-                       </div>
-                       <div className="p-3 space-y-1">
-                          <button 
-                            onClick={() => { onChangePassword(); setShowProfileMenu(false); }}
-                            className="w-full flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase text-slate-600 hover:bg-blue-50 hover:text-blue-600 rounded-2xl transition-all"
-                          >
-                             <Key size={18} className="text-blue-400" /> Alterar Senha
-                          </button>
-                          <div className="h-px bg-slate-50 mx-4"></div>
-                          <button 
-                            onClick={onLogout}
-                            className="w-full flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                          >
-                             <LogOut size={18} className="text-red-400" /> Sair do Sistema
-                          </button>
-                       </div>
-                       <div className="bg-slate-50 p-4 text-center">
-                          <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.3em]">Ambiente de Produção Seguro</p>
-                       </div>
-                    </div>
+                          <div className="bg-slate-50 p-4 text-center">
+                              <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.3em]">Ambiente de Produção Seguro</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </>
+                ) : (
+                  <button 
+                    onClick={onLoginClick}
+                    className="flex items-center gap-3 px-6 py-3 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-[#0a365f] transition-all active:scale-95"
+                  >
+                    <LogIn size={16} /> Entrar
+                  </button>
                 )}
              </div>
           </div>

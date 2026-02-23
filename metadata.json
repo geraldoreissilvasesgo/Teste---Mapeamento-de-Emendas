@@ -1,5 +1,5 @@
 {
-  "name": "Rastreio de Emendas - GESA/SUBIPEI",
-  "description": "Sistema robusto para gestão e rastreamento de processos e emendas parlamentares - GESA/SUBIPEI.",
+  "name": "GESA Cloud - Gestão de Emendas",
+  "description": "Sistema avançado para gestão, rastreamento e auditoria de emendas parlamentares e processos SEI com autenticação segura.",
   "requestFramePermissions": []
 }

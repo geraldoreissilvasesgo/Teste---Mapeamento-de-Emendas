@@ -4,7 +4,7 @@ import {
   Network, Lock, Sparkles, Terminal, Code2, Rocket, Globe, 
   HardDrive, Key, UserCheck, Workflow, GitPullRequest, Binary, 
   ShieldX, Building2, ChevronRight, FileCode, Search, Activity,
-  RefreshCw, Braces, CpuChip, Layout, Boxes
+  RefreshCw, Braces, Layout, Boxes
 } from 'lucide-react';
 
 export const SystemDocumentation: React.FC = () => {
