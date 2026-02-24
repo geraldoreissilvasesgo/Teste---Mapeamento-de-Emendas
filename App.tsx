@@ -121,9 +121,14 @@ const AppContent: React.FC = () => {
           }
         }
         const saved = localStorage.getItem('gesa_current_user');
-        if (saved) setCurrentUser(JSON.parse(saved));
+        if (saved) {
+          setCurrentUser(JSON.parse(saved));
+        } else {
+          setShowLogin(true);
+        }
       } catch (e) {
         console.error("Erro na recuperação de sessão:", e);
+        setShowLogin(true);
       } finally {
         setIsInitializing(false);
       }
