@@ -187,8 +187,8 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="p-4 border-t border-white/5 bg-black/10 shrink-0">
           {currentUser ? (
             <button 
-              onClick={onLogout} 
-              className="w-full flex items-center gap-4 px-4 py-4 text-red-200 hover:bg-red-500/20 rounded-2xl transition-all group"
+              onClick={(e) => { e.preventDefault(); onLogout(); }} 
+              className="w-full flex items-center gap-4 px-4 py-4 text-red-200 hover:bg-red-500/20 rounded-2xl transition-all group cursor-pointer"
             >
               <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
               {(isSidebarOpen || !isDesktop) && <span className="text-[10px] font-black uppercase tracking-widest">Encerrar Sessão</span>}
@@ -284,8 +284,8 @@ export const Layout: React.FC<LayoutProps> = ({
                               </button>
                               <div className="h-px bg-slate-50 mx-4"></div>
                               <button 
-                                onClick={onLogout}
-                                className="w-full flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                                onClick={(e) => { e.preventDefault(); onLogout(); setShowProfileMenu(false); }}
+                                className="w-full flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase text-red-500 hover:bg-red-50 rounded-2xl transition-all cursor-pointer"
                               >
                                 <LogOut size={18} className="text-red-400" /> Sair do Sistema
                               </button>

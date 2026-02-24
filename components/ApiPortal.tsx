@@ -118,6 +118,36 @@ export const ApiPortal: React.FC<ApiPortalProps> = ({ currentUser, amendments })
             </div>
           </div>
         </div>
+
+        <div className="space-y-6">
+          <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm space-y-6">
+            <h3 className="text-xs font-black text-[#0d457a] uppercase tracking-widest flex items-center gap-3">
+              <Settings size={18} /> Configurações do Gateway
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Chave de API (X-API-KEY)</label>
+                <div className="flex items-center gap-3">
+                  <code className="text-[10px] font-mono font-bold text-[#0d457a] truncate flex-1">{apiKey}</code>
+                  <button onClick={() => copyKey(apiKey)} className="text-slate-300 hover:text-blue-500 transition-colors">
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Endpoint Base</label>
+                <div className="flex items-center gap-3">
+                  <code className="text-[10px] font-mono font-bold text-[#0d457a] truncate flex-1">https://api.gesa.go.gov.br/v1</code>
+                  <button onClick={() => copyKey('https://api.gesa.go.gov.br/v1')} className="text-slate-300 hover:text-blue-500 transition-colors">
+                    <Copy size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

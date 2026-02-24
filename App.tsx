@@ -15,7 +15,6 @@ import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
 import { SystemDocumentation } from './components/SystemDocumentation';
 import { MobileAppGuide } from './components/MobileAppGuide';
-import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
 import { PasswordChangeModal } from './components/PasswordChangeModal';
 import { Login } from './components/Login';
 import { CalendarView } from './components/CalendarView';
@@ -268,13 +267,20 @@ const AppContent: React.FC = () => {
     notify('success', `Bem-vindo, ${user.name}`, 'Acesso autorizado ao ecossistema GESA Cloud.');
   };
 
-  const handleLogout = () => {
-    if (confirm('Deseja encerrar sua sessão segura no GESA?')) {
-      db.auth.signOut();
-      setCurrentUser(null);
-      localStorage.removeItem('gesa_current_user');
-      setSelectedAmendment(null);
-      setCurrentView('dashboard');
+  const handleLogout = async () => {
+    // Limpa o estado local imediatamente para feedback instantâneo e evita bloqueios de popups
+    setCurrentUser(null);
+    localStorage.removeItem('gesa_current_user');
+    setSelectedAmendment(null);
+    setCurrentView('dashboard');
+    setShowLogin(true);
+    
+    try {
+      // Tenta deslogar do Supabase em segundo plano
+      await db.auth.signOut();
+      notify('info', 'Sessão Encerrada', 'Você saiu do sistema com segurança.');
+    } catch (error) {
+      console.error("Erro ao sincronizar logout com a nuvem:", error);
     }
   };
 
@@ -302,7 +308,6 @@ const AppContent: React.FC = () => {
       onChangePassword={() => setIsPasswordModalOpen(true)}
       onLoginClick={() => setShowLogin(true)}
     >
-      <DatabaseStatusAlert errors={dbErrors} />
       
       {showLogin && !currentUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0d457a]/60 backdrop-blur-md p-4">

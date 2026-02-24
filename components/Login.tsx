@@ -110,7 +110,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] flex items-center justify-center p-4 font-inter">
+    <div className="flex items-center justify-center p-0 font-inter">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-[40px] shadow-2xl border border-slate-200/50 p-10 animate-in fade-in zoom-in-95 duration-500">
           <div className="text-center mb-8">

@@ -28,35 +28,8 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
   error
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const isAdmin = currentUser.role === Role.ADMIN || currentUser.role === Role.SUPER_ADMIN;
-
-  const sqlSetup = `-- GESA CLOUD: ESTRUTURA DE IDENTIDADE GOVERNAMENTAL
--- 1. Criar Tabela de Usuários (Public)
-create table if not exists users (
-  id uuid primary key default gen_random_uuid(),
-  "tenantId" text not null default 'GOIAS',
-  name text not null,
-  email text unique not null,
-  role text not null,
-  password text, -- Hash de senha para contingência
-  department text,
-  "lgpdAccepted" boolean default false,
-  "mfaEnabled" boolean default false,
-  "createdAt" timestamp with time zone default now()
-);
-
--- 2. Habilitar Segurança RLS (Row Level Security)
-alter table users enable row level security;
-
--- 3. Políticas de Acesso Granular
-create policy "Acesso por Tenant" on users 
-  for select using (true); -- Em prod: auth.uid() match
-
-create policy "Gestão Administrativa" on users 
-  for all using (true);`;
 
   const maskEmail = (email: string) => {
     if (!email) return '***';
@@ -68,12 +41,6 @@ create policy "Gestão Administrativa" on users
     return email;
   };
 
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(sqlSetup);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const filteredUsers = users.filter(u => {
     const term = searchTerm.toLowerCase();
     return !term ||
@@ -83,26 +50,6 @@ create policy "Gestão Administrativa" on users
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {error === 'DATABASE_SETUP_REQUIRED' && (
-        <div className="bg-amber-50 border border-amber-200 p-8 rounded-[40px] flex flex-col items-center text-center gap-6 shadow-xl shadow-amber-900/5 mb-8">
-          <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center animate-pulse">
-            <ShieldAlert size={40} />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-amber-900 uppercase">Sincronização com Supabase Necessária</h3>
-            <p className="text-xs text-amber-700 font-bold uppercase mt-2 max-w-xl">
-              A tabela 'users' ainda não foi provisionada no seu ambiente. O sistema está operando em modo de memória volátil (Mock).
-            </p>
-          </div>
-          <button 
-            onClick={() => setIsSqlModalOpen(true)}
-            className="px-10 py-5 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-amber-700 transition-all flex items-center gap-3"
-          >
-            <Terminal size={18} /> Ver Script de Migração
-          </button>
-        </div>
-      )}
-
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h2 className="text-3xl font-black text-[#0d457a] uppercase tracking-tighter leading-none">Segurança e LGPD</h2>
@@ -190,35 +137,6 @@ create policy "Gestão Administrativa" on users
           </table>
         </div>
       </div>
-
-      {/* Modal SQL */}
-      {isSqlModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#0d457a]/95 backdrop-blur-xl p-4">
-          <div className="bg-white rounded-[48px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-t-8 border-amber-500">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-               <div>
-                  <h3 className="text-2xl font-black text-[#0d457a] uppercase tracking-tighter">Esquema do Banco (users)</h3>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Sincronização de Identidade Gov Cloud</p>
-               </div>
-               <button onClick={() => setIsSqlModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
-                  <X size={24} />
-               </button>
-            </div>
-            <div className="p-10 space-y-6">
-               <pre className="bg-slate-900 text-blue-400 p-6 rounded-3xl font-mono text-[11px] overflow-x-auto h-72 border border-white/5 shadow-inner">
-                   {sqlSetup}
-               </pre>
-               <button 
-                  onClick={handleCopySql}
-                  className="w-full py-5 bg-[#0d457a] text-white rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-xl"
-               >
-                 {copied ? <Check size={18}/> : <Copy size={18}/>}
-                 {copied ? 'Copiado!' : 'Copiar Script SQL'}
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
