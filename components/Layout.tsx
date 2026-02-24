@@ -5,7 +5,7 @@ import {
   LogOut, Menu, Bell, Globe, ChevronDown, Sparkles,
   BarChart3, History, Layers, Lock, Braces, Activity, CalendarDays,
   Scale, RefreshCw, WifiOff, Users, Workflow, Book, Key, Zap, UserCircle2,
-  Settings2, ClipboardCheck, Terminal, HardDrive, ShieldAlert, LogIn
+  Settings2, ClipboardCheck, Terminal, HardDrive, ShieldAlert, LogIn, Smartphone
 } from 'lucide-react';
 import { User, Role } from '../types';
 import { APP_VERSION } from '../constants';
@@ -61,6 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({
           { id: 'amendments', label: 'Processos SEI', icon: FileText, roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR] },
           { id: 'calendar', label: 'Calendário SLA', icon: CalendarDays, roles: 'all' },
           { id: 'repository', label: 'Repositório Central', icon: Database, roles: 'all' },
+          { id: 'mobile_app', label: 'Versão Mobile', icon: Smartphone, roles: 'all' },
         ]
       },
       {

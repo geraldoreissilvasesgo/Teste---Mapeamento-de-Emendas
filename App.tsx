@@ -14,6 +14,7 @@ import { GovernanceDocs } from './components/GovernanceDocs';
 import { ComplianceDetails } from './components/ComplianceDetails';
 import { ApiPortal } from './components/ApiPortal';
 import { SystemDocumentation } from './components/SystemDocumentation';
+import { MobileAppGuide } from './components/MobileAppGuide';
 import { DatabaseStatusAlert } from './components/DatabaseStatusAlert';
 import { PasswordChangeModal } from './components/PasswordChangeModal';
 import { Login } from './components/Login';
@@ -70,6 +71,7 @@ const AppContent: React.FC = () => {
     security: [Role.SUPER_ADMIN, Role.ADMIN],
     register: [Role.SUPER_ADMIN, Role.ADMIN],
     api: [Role.SUPER_ADMIN, Role.ADMIN],
+    mobile_app: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR, Role.AUDITOR, Role.VIEWER],
     documentation: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR],
     governance: [Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR],
     compliance_details: [Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATOR, Role.AUDITOR, Role.VIEWER],
@@ -461,6 +463,7 @@ const AppContent: React.FC = () => {
       )}
 
       {currentUser && currentView === 'api' && <ApiPortal currentUser={currentUser} amendments={amendments} />}
+      {currentUser && currentView === 'mobile_app' && <MobileAppGuide />}
       {currentUser && currentView === 'documentation' && <SystemDocumentation />}
       {currentUser && currentView === 'governance' && <GovernanceDocs />}
       {currentUser && currentView === 'compliance_details' && <ComplianceDetails />}
